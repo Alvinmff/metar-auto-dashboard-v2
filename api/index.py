@@ -960,8 +960,89 @@ def api_crosswind():
 @app.route("/api/windrose/<station>")
 def windrose_api(station):
     """API endpoint to get historical wind data for Wind Rose chart"""
+    global wind_history
+    
+    # Fallback: if wind_history is empty, try to populate from CSV
+    if not wind_history and os.path.exists(CSV_FILE):
+        load_wind_history()
+        
     data = list(wind_history)
     return jsonify(data)
+
+# =========================
+# API HISTORY - Technical History for Charts
+# =========================
+@app.route("/api/latest")
+@app.route("/api/history")
+@app.route("/api/metar/history")
+def get_history_api():
+    """Returns historical data in JSON format for charts and tables"""
+    if not os.path.exists(CSV_FILE):
+        # Warmup: if no history, try to fetch current METAR to initialize
+        station = "WARR"
+        metar = get_metar(station)
+        if metar:
+            df = pd.DataFrame([{"station": station, "time": datetime.utcnow(), "metar": metar}])
+            df.to_csv(CSV_FILE, index=False)
+        else:
+            return jsonify({"data": [], "labels": [], "temps": [], "pressures": []})
+
+    try:
+        df = pd.read_csv(CSV_FILE).tail(30)
+        df["metar"] = df["metar"].fillna("").astype(str)
+        
+        # Format for history table (newest first)
+        data_list = []
+        for _, row in df.iloc[::-1].iterrows():
+            parsed = parse_metar(str(row["metar"]))
+            data_list.append({
+                "time": pd.to_datetime(row["time"]).strftime("%Y-%m-%d %H:%M"),
+                "station": row["station"],
+                "metar": row["metar"],
+                "temp": extract_temp(str(row["metar"])),
+                "pressure": extract_pressure(str(row["metar"])),
+                "wind": parsed.get("wind_speed_kt"),
+                "gust": parsed.get("wind_gust_kt")
+            })
+
+        # Format for charts (oldest to newest)
+        labels = [pd.to_datetime(t).strftime("%H:%M") for t in df["time"]]
+        temps = [extract_temp(m) for m in df["metar"]]
+        pressures = [extract_pressure(m) for m in df["metar"]]
+        
+        return jsonify({
+            "data": data_list,
+            "labels": labels,
+            "temps": temps,
+            "pressures": pressures
+        })
+    except Exception as e:
+        print(f"[API] History error: {e}", file=sys.stderr)
+        return jsonify({"error": str(e), "data": []}), 500
+
+@app.route("/api/metar/<station>")
+def get_single_metar_api(station):
+    """Returns the latest single METAR data for a station"""
+    metar = get_metar(station)
+    if not metar and os.path.exists(CSV_FILE):
+        # Fallback to last known from CSV
+        df = pd.read_csv(CSV_FILE)
+        station_df = df[df["station"] == station]
+        if not station_df.empty:
+            metar = station_df.iloc[-1]["metar"]
+    
+    if metar:
+        parsed = parse_metar(metar)
+        return jsonify({
+            "raw": metar,
+            "station": station,
+            "wind_direction": parsed.get("wind_dir"),
+            "wind_speed": parsed.get("wind_speed_kt"),
+            "visibility_m": parsed.get("visibility_m"),
+            "status": parsed.get("status", "normal"),
+            "report_type": parsed.get("report_type", "METAR")
+        })
+    return jsonify({"error": "No data available"}), 404
 
 # =========================
 # HOME ROUTE
