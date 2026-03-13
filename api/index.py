@@ -14,11 +14,15 @@ import sys
 import traceback
 
 # Resolve absolute paths for Vercel
-base_dir = os.path.dirname(os.path.abspath(__file__))
-template_dir = os.path.join(base_dir, "..", "templates")
-static_dir = os.path.join(base_dir, "..", "static")
+# Vercel structured as /var/task/api/index.py
+current_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.dirname(current_dir)
+template_dir = os.path.join(project_root, "templates")
+static_dir = os.path.join(project_root, "static")
 
-app = Flask(__name__, template_folder=template_dir, static_folder=static_dir)
+app = Flask(__name__, 
+            template_folder=template_dir, 
+            static_folder=static_dir)
 application = app # Alias for compatibility
 
 # ============ KONFIGURASI UNTUK VERCEL ============
