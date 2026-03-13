@@ -31,11 +31,24 @@ IS_VERCEL = os.environ.get("VERCEL") == "true" or os.environ.get("VERCEL_ENV") i
 
 # Gunakan /tmp untuk writeable storage di Vercel
 # Pada Vercel, hanya /tmp yang bisa ditulisi (writable)
+ROOT_CSV = os.path.join(project_root, "metar_history.csv")
+
 if IS_VERCEL:
     CSV_FILE = "/tmp/metar_history.csv"
     print("[INIT] Running on VERCEL detected - Using /tmp/ storage", file=sys.stderr)
+    
+    # 🔥 HYBRID HISTORY STRATEGY:
+    # Jika /tmp/metar_history.csv belum ada, copykan dari root folder (Git)
+    # Ini memastikan history yang sudah masuk kodingan tidak hilang di dashboard
+    if not os.path.exists(CSV_FILE) and os.path.exists(ROOT_CSV):
+        try:
+            import shutil
+            shutil.copy2(ROOT_CSV, CSV_FILE)
+            print("[INIT] Base history copied from project root to /tmp/", file=sys.stderr)
+        except Exception as e:
+            print(f"[INIT] Failed to copy base history: {e}", file=sys.stderr)
 else:
-    CSV_FILE = "metar_history.csv"
+    CSV_FILE = ROOT_CSV
     print("[INIT] Running locally - Using local storage", file=sys.stderr)
 
 # ============ ERROR HANDLER ============
