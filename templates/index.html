@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>METAR Auto Dashboard — BMKG Aviation</title>
+    <meta name="description"
+        content="METAR Data Processing & Visualization Platform for BMKG Aviation Weather Monitoring">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.plot.ly/plotly-2.30.0.min.js"></script>
+</head>
+
+<body>
+
+    <div class="rain front-row"></div>
+    <div class="rain back-row"></div>
+
+    <audio id="lowVisSound" src="{{ url_for('static', filename='alarm.mp3') }}" preload="auto"></audio>
+    <audio id="newDataSound" src="{{ url_for('static', filename='notify.mp3') }}" preload="auto"></audio>
+
+    <div class="app-layout" id="appLayout">
+
+        <!-- ========== HEADER ========== -->
+        <header class="app-header">
+            <div class="header-left">
+                <button class="sidebar-toggle" id="sidebarToggle" title="Toggle Sidebar">☰</button>
+                <img src="https://yt3.googleusercontent.com/irzhWXcNV6M94Ow6P2ytjC2HFi7gVbLbkq2wcgwOyie63VkKHBiWUw1XJjc1NJUeWwgFwsWjYw=s900-c-k-c0x00ffffff-no-rj"
+                    alt="BMKG Logo" class="header-logo">
+                <div class="header-title">
+                    <h1>METAR Auto Dashboard</h1>
+                    <span class="station-badge">
+                        <span id="stationBadgeStatus"
+                            style="width:8px;height:8px;border-radius:50%;background:#059669;"></span>
+                        {{ station }} — Bandara Juanda
+                    </span>
+                </div>
+            </div>
+            <div class="header-right">
+                <div class="wib-clock" id="wibClock">--:--:-- <small>WIB</small></div>
+                <div class="utc-clock" id="utcClock">--:--:-- <small>UTC</small></div>
+                <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()"
+                    title="Toggle Dark/Light Mode">🌙</button>
+                <button class="sound-toggle" id="soundToggle" onclick="enableSound()">🔇 Sound</button>
+                <div class="connection-status" id="connectionStatus">
+                    <span class="connection-dot" id="connectionDot"></span>
+                    <span id="connectionText">OFFLINE</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- ========== SIDEBAR ========== -->
+        <aside class="app-sidebar" id="appSidebar">
+            <!-- Airplane & Tower Decoration -->
+            <div class="airplane-decor-container fade-in" style="animation-delay:0.08s">
+                <img src="{{ url_for('static', filename='images/pesawat2.png') }}" alt="Airplane Decor"
+                    class="dashboard-airplane-img">
+                <img src="{{ url_for('static', filename='images/tower.png') }}" alt="Tower Decor"
+                    class="dashboard-tower-img">
+            </div>
+            <nav class="sidebar-nav">
+                <a href="/" class="sidebar-link active" id="nav-dashboard">
+                    <span class="icon">🏠</span>
+                    <span class="label">Dashboard</span>
+                </a>
+                <a href="/history_by_date" class="sidebar-link" id="nav-history">
+                    <span class="icon">📊</span>
+                    <span class="label">History</span>
+                </a>
+                <a href="/manual_parser" class="sidebar-link" id="nav-qam">
+                    <span class="icon">📄</span>
+                    <span class="label">Manual Parser</span>
+                </a>
+            </nav>
+
+            <!-- <div class="sidebar-footer">
+            <a href="#" class="sidebar-link" id="nav-help" onclick="return false;">
+                <span class="icon">❓</span>
+                <span class="label">Help</span>
+            </a>
+        </div> -->
+        </aside>
+
+        <!-- ========== MAIN CONTENT ========== -->
+        <main class="app-main">
+
+            <!-- Alert Banner -->
+            <div class="alert-banner" id="alertBanner">
+                <span class="pulse-icon">🔴</span>
+                <strong id="alertTitle">CRITICAL WEATHER ALERT</strong>
+                <span id="alertMessage"></span>
+                <button class="alert-dismiss" onclick="dismissAlert()">Acknowledge</button>
+            </div>
+
+            <!-- System Status Panel -->
+            <div class="card system-status-card fade-in" style="animation-delay:0.03s">
+                <div class="card-header">
+                    <h3 class="card-title" style="font-size: 1.1rem;"><span class="icon">🖥️</span> System Status</h3>
+                    <button class="btn btn-sm btn-outline" onclick="toggleSystem()" id="toggleSystemBtn">⏻ Toggle
+                        System</button>
+                </div>
+                <div class="status-grid">
+                    <div class="status-item">
+                        <span class="status-label">SERVER</span>
+                        <span class="status-value status-online" id="server-status">ONLINE 🟢</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-label">METAR FETCH</span>
+                        <span class="status-value {% if auto_fetch %}status-running{% else %}status-paused{% endif %}"
+                            id="metar-status">
+                            {% if auto_fetch %}RUNNING 🟢{% else %}PAUSED 🟡{% endif %}
+                        </span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-label">LAST UPDATE</span>
+                        <span class="status-value" id="last-update-status">
+                            {{ last_metar_update if last_metar_update else "--:-- WIB" }}
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Station Input Form -->
+            <div class="card fade-in" style="animation-delay:0.05s">
+                <form method="POST" class="form-row">
+                    <div class="form-group" style="max-width:200px">
+                        <label for="icaoInput">ICAO Station</label>
+                        <input type="text" name="icao" id="icaoInput" value="{{ station }}" class="form-input"
+                            placeholder="WARR">
+                    </div>
+                    <button type="submit" class="btn btn-primary" style="height:42px">⚡ Load METAR</button>
+                    <a href="/download_csv" class="btn btn-outline" style="height:42px">📥 Download CSV</a>
+                </form>
+            </div>
+
+            <!-- ========== METAR HERO SECTION ========== -->
+            {% if latest %}
+            <div class="metar-hero fade-in" style="animation-delay:0.1s">
+
+                <!-- Raw METAR Panel -->
+                <div class="metar-raw-panel {% if latest.status == 'danger' %}status-danger{% elif latest.status == 'warning' %}status-warning{% endif %}"
+                    id="metarRawPanel">
+                    <div class="panel-title">📡 RAW METAR DATA</div>
+                    <div class="metar-raw-code" id="metarRawCode">
+                        {{ latest.metar }}
+                        {% if latest.report_type == 'COR' or 'COR' in latest.metar or 'CCA' in latest.metar %}
+                        <span class="badge"
+                            style="background-color: #f59e0b; color: #1e293b; margin-left: 10px; font-size: 0.75rem; padding: 4px 8px; vertical-align: middle;">⚠️
+                            COR</span>
+                        {% elif latest.report_type == 'AMD' or 'AMD' in latest.metar %}
+                        <span class="badge"
+                            style="background-color: #3b82f6; color: #ffffff; margin-left: 10px; font-size: 0.75rem; padding: 4px 8px; vertical-align: middle;">⚠️
+                            AMD</span>
+                        {% elif latest.report_type == 'SPECI' or 'SPECI' in latest.metar %}
+                        <span class="badge"
+                            style="background-color: #ef4444; color: #ffffff; margin-left: 10px; font-size: 0.75rem; padding: 4px 8px; vertical-align: middle;">⚠️
+                            SPECI</span>
+                        {% endif %}
+                    </div>
+                    <div class="metar-actions">
+                        <button class="btn btn-sm btn-outline" onclick="copyMetar()">📋 Copy</button>
+                        <button class="btn btn-sm btn-outline" onclick="location.reload()">🔄 Refresh</button>
+                        <span class="copy-feedback" id="metarCopyFeedback">Copied!</span>
+                    </div>
+                    <!-- Validation Display -->
+                    <div id="metarValidation"
+                        style="margin-top: 12px; font-size: 0.85rem; font-family: 'Inter', sans-serif;">
+                        <!-- Populated by dashboard.js -->
+                    </div>
+                </div>
+
+                <!-- Decoded Parameters Panel -->
+                <div class="metar-decoded-panel" id="decodedPanel">
+                    <div class="param-card">
+                        <span class="param-label">🌡️ Temperature</span>
+                        <span class="param-value" id="paramTemp">--</span>
+                        <span class="param-unit">°C</span>
+                    </div>
+                    <div class="param-card">
+                        <span class="param-label">💧 Dew Point</span>
+                        <span class="param-value" id="paramDewpoint">--</span>
+                        <span class="param-unit">°C</span>
+                    </div>
+                    <div class="param-card">
+                        <span class="param-label">🌬️ Wind</span>
+                        <span class="param-value" id="paramWind">--</span>
+                        <span class="param-unit" id="paramWindDetail"></span>
+                    </div>
+                    <div class="param-card">
+                        <span class="param-label">👁️ Visibility</span>
+                        <span class="param-value" id="paramVis">--</span>
+                        <span class="param-unit" id="paramVisUnit">m</span>
+                        <div class="vis-bar">
+                            <div class="vis-bar-fill" id="visBar" style="width:100%"></div>
+                        </div>
+                    </div>
+                    <div class="param-card">
+                        <span class="param-label">📊 QNH</span>
+                        <span class="param-value" id="paramQNH">--</span>
+                        <span class="param-unit">hPa</span>
+                    </div>
+                    <div class="param-card">
+                        <span class="param-label">☁️ Cloud</span>
+                        <span class="param-value" id="paramCloud" style="font-size:1.1rem">--</span>
+                        <span class="param-unit" id="paramCloudExtra"></span>
+                    </div>
+                    <div class="param-card">
+                        <span class="param-label">🌩️ Weather</span>
+                        <span class="param-value" id="paramWeather" style="font-size:1.1rem">--</span>
+                    </div>
+                    <div class="param-card">
+                        <span class="param-label">🕐 Obs Time</span>
+                        <span class="param-value" id="paramTime" style="font-size:1.2rem">--:-- UTC</span>
+                    </div>
+                </div>
+
+            </div>
+            {% endif %}
+
+            <!-- ========== NEW: MINI TIMELINE ========== -->
+            <div class="card fade-in" style="animation-delay:0.12s">
+                <div class="card-header" style="padding-bottom: 10px; border-bottom: 1px solid rgba(0,0,0,0.05);">
+                    <h3 class="card-title" style="font-size: 1.1rem;"><span class="icon">⏱️</span> METAR Timeline</h3>
+                </div>
+                <div class="timeline-container" style="padding: 15px 0; overflow-x: auto;">
+                    <div id="metarTimeline"
+                        style="display: flex; gap: 10px; font-family: 'JetBrains Mono', monospace; font-size: 0.85rem;">
+                        <!-- Timeline items will be injected here via dashboard.js -->
+                        <span style="color: #64748b;">Loading timeline...</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ========== QAM & NARRATIVE ========== -->
+            {% if qam %}
+            <div class="grid-2 fade-in" style="animation-delay:0.15s">
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title"><span class="icon">📄</span> QAM / MET Report</h3>
+                        <div class="flex gap-sm">
+                            <button class="btn btn-sm btn-outline" onclick="copyQam()">📋 Copy</button>
+                        </div>
+                    </div>
+                    <pre class="qam-display" id="qamDisplay">{{ qam }}</pre>
+                    <span class="copy-feedback" id="qamCopyFeedback">Copied!</span>
+                </div>
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title"><span class="icon">📝</span> Narasi Cuaca</h3>
+                    </div>
+                    <div class="narrative-display" id="narrativeDisplay">{{ narrative }}</div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- ========== WIND SECTION ========== -->
+            <div class="grid-2 fade-in" style="animation-delay:0.2s">
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title"><span class="icon"></span> Wind Compass</h3>
+                    </div>
+                    <div id="windCompassChart" style="height:320px;"></div>
+                </div>
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title"><span class="icon"></span> Wind Rose (24 Jam Terakhir)</h3>
+                    </div>
+                    <div id="windRoseChart" style="height:320px;"></div>
+                </div>
+            </div>
+
+            <!-- ========== CROSSWIND CALCULATOR ========== -->
+            <div class="card crosswind-card fade-in" style="animation-delay:0.25s">
+                <div class="card-header">
+                    <h3 class="card-title"><span class="icon">✈️</span> Runway Crosswind Calculator</h3>
+                </div>
+                <div class="runway-selector" id="runwaySelector">
+                    <button class="runway-btn active" data-heading="100" onclick="selectRunway(this, 100)">RWY
+                        10</button>
+                    <button class="runway-btn" data-heading="280" onclick="selectRunway(this, 280)">RWY 28</button>
+                </div>
+                <div class="crosswind-result" id="crosswindResult">
+                    <div class="xwind-item xw-safe">
+                        <div class="xw-label">Headwind</div>
+                        <div class="xw-value" id="xwHead">-- kt</div>
+                        <span class="xw-status" id="xwHeadStatus">--</span>
+                    </div>
+                    <div class="xwind-item xw-safe">
+                        <div class="xw-label">Crosswind</div>
+                        <div class="xw-value" id="xwCross">-- kt</div>
+                        <span class="xw-status" id="xwCrossStatus">--</span>
+                    </div>
+                    <div class="xwind-item xw-safe">
+                        <div class="xw-label">Tailwind</div>
+                        <div class="xw-value" id="xwTail">-- kt</div>
+                        <span class="xw-status" id="xwTailStatus">--</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ========== THUNDERSTORM MODULE ========== -->
+            <div class="card ts-module fade-in" style="animation-delay:0.3s">
+                <div class="card-header">
+                    <h3 class="card-title"><span class="icon">🌩️</span> Thunderstorm Detection</h3>
+                </div>
+                <div class="ts-status clear" id="tsStatus">
+                    <span>✅</span> No Thunderstorm Detected
+                </div>
+                <div class="grid-2">
+                    <div class="text-center">
+                        <div class="ts-radar" id="tsRadar">
+                            <div class="airport-dot"></div>
+                        </div>
+                        <p class="text-muted mt-sm" style="font-size:0.8rem">Radar Visualization</p>
+                    </div>
+                    <div class="ts-params" id="tsParams">
+                        <div class="ts-param-item">
+                            <span class="ts-key">CB Cloud</span>
+                            <span class="ts-val" id="tsCB">--</span>
+                        </div>
+                        <div class="ts-param-item">
+                            <span class="ts-key">TS in METAR</span>
+                            <span class="ts-val" id="tsInMetar">--</span>
+                        </div>
+                        <div class="ts-param-item">
+                            <span class="ts-key">Lightning</span>
+                            <span class="ts-val" id="tsLightning">--</span>
+                        </div>
+                        <div class="ts-param-item">
+                            <span class="ts-key">Status</span>
+                            <span class="ts-val" id="tsStatusText">Clear</span>
+                        </div>
+                    </div>
+                </div>
+                <p class="text-muted mt-md" style="font-size:0.8rem" id="tsLastUpdate">Last Update: --</p>
+            </div>
+
+            <!-- ========== CHARTS ========== -->
+            <div class="card chart-card fade-in" style="animation-delay:0.35s">
+                <div class="card-header">
+                    <h3 class="card-title"><span class="icon">🌡️</span> Temperature Trend</h3>
+                </div>
+                <div class="chart-container">
+                    <canvas id="tempChart"></canvas>
+                </div>
+            </div>
+
+            <div class="card chart-card fade-in" style="animation-delay:0.38s">
+                <div class="card-header">
+                    <h3 class="card-title"><span class="icon">📊</span> Pressure (QNH) Trend</h3>
+                </div>
+                <div class="chart-container">
+                    <canvas id="pressureChart"></canvas>
+                </div>
+            </div>
+
+            <div class="card chart-card fade-in" style="animation-delay:0.4s">
+                <div class="card-header">
+                    <h3 class="card-title"><span class="icon">💨</span> Wind Speed Trend</h3>
+                </div>
+                <div class="chart-container">
+                    <canvas id="windChart"></canvas>
+                </div>
+            </div>
+
+            <!-- ========== HISTORY TABLE ========== -->
+            <div class="card fade-in" style="animation-delay:0.45s">
+                <div class="card-header">
+                    <h3 class="card-title"><span class="icon">📋</span> Last 20 Records</h3>
+                    <span class="text-muted" style="font-size:0.8rem">Updated: <span id="lastSaved">{{ last_saved
+                            }}</span></span>
+                </div>
+                <div style="overflow-x:auto;">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Time</th>
+                                <th>Station</th>
+                                <th>METAR</th>
+                            </tr>
+                        </thead>
+                        <tbody id="historyTableBody">
+                            {% if has_history %}
+                            {% for index, row in history.iloc[::-1].iterrows() %}
+                            <tr>
+                                <td>{{ row['time'] }}</td>
+                                <td>{{ row['station'] }}</td>
+                                <td class="metar-cell">{{ row['metar'] }}</td>
+                            </tr>
+                            {% endfor %}
+                            {% else %}
+                            <tr>
+                                <td colspan="3" class="text-center text-muted">No data available</td>
+                            </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </main>
+
+    </div>
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <script>
+        const STATION = "{{ station }}";
+    </script>
+
+    <script src="{{ url_for('static', filename='dashboard.js') }}"></script>
+
+</body>
+
+</html>

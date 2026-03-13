@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Manual Parser — METAR Auto Dashboard</title>
+    <meta name="description" content="Manual METAR Parser & QAM Converter - BMKG Aviation">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+</head>
+
+<body>
+
+    <audio id="lowVisSound" src="{{ url_for('static', filename='alarm.mp3') }}" preload="auto"></audio>
+    <audio id="newDataSound" src="{{ url_for('static', filename='notify.mp3') }}" preload="auto"></audio>
+
+    <div class="app-layout" id="appLayout">
+
+        <!-- HEADER -->
+        <header class="app-header">
+            <div class="header-left">
+                <button class="sidebar-toggle" id="sidebarToggle" title="Toggle Sidebar">☰</button>
+                <img src="https://yt3.googleusercontent.com/irzhWXcNV6M94Ow6P2ytjC2HFi7gVbLbkq2wcgwOyie63VkKHBiWUw1XJjc1NJUeWwgFwsWjYw=s900-c-k-c0x00ffffff-no-rj"
+                    alt="BMKG Logo" class="header-logo">
+                <div class="header-title">
+                    <h1>METAR Auto Dashboard</h1>
+                    <span class="station-badge">🔧 Manual METAR Parser</span>
+                </div>
+            </div>
+            <div class="header-right">
+                <div class="wib-clock" id="wibClock">--:--:-- <small>WIB</small></div>
+                <div class="utc-clock" id="utcClock">--:--:-- <small>UTC</small></div>
+                <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Toggle Dark/Light Mode">🌙</button>
+                <button class="sound-toggle" id="soundToggle" onclick="enableSound()">🔇 Sound</button>
+                <div class="connection-status" id="connectionStatus">
+                    <span class="connection-dot" id="connectionDot"></span>
+                    <span id="connectionText">OFFLINE</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- SIDEBAR -->
+        <aside class="app-sidebar" id="appSidebar">
+            <!-- Airplane & Tower Decoration -->
+            <div class="airplane-decor-container fade-in" style="animation-delay:0.08s">
+                <img src="{{ url_for('static', filename='images/pesawat.png') }}" alt="Airplane Decor"
+                    class="dashboard-airplane-img">
+                <img src="{{ url_for('static', filename='images/tower.png') }}" alt="Tower Decor"
+                    class="dashboard-tower-img">
+            </div>
+            <nav class="sidebar-nav">
+                <a href="/" class="sidebar-link" id="nav-dashboard">
+                    <span class="icon">🏠</span>
+                    <span class="label">Dashboard</span>
+                </a>
+                <a href="/history_by_date" class="sidebar-link" id="nav-history">
+                    <span class="icon">📊</span>
+                    <span class="label">History</span>
+                </a>
+                <a href="/manual_parser" class="sidebar-link active" id="nav-qam">
+                    <span class="icon">📄</span>
+                    <span class="label">Manual Parser</span>
+                </a>
+            </nav>
+            <!--<div class="sidebar-footer">
+            <a href="#" class="sidebar-link" onclick="return false;">
+                <span class="icon">❓</span>
+                <span class="label">Help</span>
+            </a>
+        </div> -->
+        </aside>
+
+        <!-- MAIN -->
+        <main class="app-main">
+
+            <div class="card fade-in">
+                <div class="card-header">
+                    <h3 class="card-title"><span class="icon">🔧</span> Manual METAR Converter</h3>
+                </div>
+
+                <form method="post">
+                    <div class="form-group mb-lg">
+                        <label for="rawMetar">Paste METAR Data</label>
+                        <textarea name="raw_metar" id="rawMetar" class="form-input" rows="4"
+                            placeholder="Paste METAR here... (contoh: METAR WARR 121755Z 08004KT 9999 FEW020CB 27/24 Q1008)"
+                            style="font-family:'JetBrains Mono',monospace;resize:vertical;"
+                            required>{{ raw_metar or '' }}</textarea>
+                    </div>
+
+                    <div id="metarError" class="hidden"
+                        style="background:#FEF2F2;border:1px solid #FECACA;color:#991B1B;padding:12px 16px;border-radius:var(--radius-md);margin-bottom:var(--space-md);font-size:0.9rem;font-weight:600;">
+                        ⚠️ Format METAR tidak valid! Harap masukkan data METAR yang benar.
+                    </div>
+
+                    <button class="btn btn-primary" id="convertBtn" disabled>🔄 Convert METAR</button>
+                </form>
+
+                {% if validation_results %}
+                <div class="validation-card {% if validation_results[0].startswith('✅') %}validation-success{% else %}validation-error{% endif %}">
+                    <h4 style="margin-bottom: 10px; font-size: 0.95rem;">📋 Validation Results:</h4>
+                    <ul style="list-style: none; padding: 0; margin: 0; font-family: 'JetBrains Mono', monospace; font-size: 0.85rem;">
+                        {% for res in validation_results %}
+                        <li style="margin-bottom: 4px;">{{ res }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
+
+
+                {% if parsed_qam %}
+                <hr style="margin:var(--space-xl) 0;border-color:var(--border-color);">
+
+                <div class="card-header">
+                    <h3 class="card-title"><span class="icon">📝</span> Converted QAM</h3>
+                    <div class="flex gap-sm">
+                        <button class="btn btn-sm btn-outline" onclick="copyQam()">📋 Copy</button>
+                    </div>
+                </div>
+                <pre class="qam-display" id="qamDisplay">{{ parsed_qam }}</pre>
+                <span class="copy-feedback" id="qamCopyFeedback">Copied!</span>
+                {% endif %}
+            </div>
+
+        </main>
+    </div>
+
+    <script>
+        // METAR Validation
+        document.addEventListener('DOMContentLoaded', function () {
+            const textarea = document.getElementById('rawMetar');
+            const button = document.getElementById('convertBtn');
+            const errorMsg = document.getElementById('metarError');
+
+            function validateMetar(text) {
+                const trimmed = text.trim();
+                if (!/^[A-Z]{4}/i.test(trimmed)) return false;
+                if (!/\d{4,6}/.test(trimmed)) return false;
+                return true;
+            }
+
+            function checkInput() {
+                const text = textarea.value.trim();
+                if (text.length > 0) {
+                    if (validateMetar(text)) {
+                        button.removeAttribute('disabled');
+                        errorMsg.classList.add('hidden');
+                    } else {
+                        button.setAttribute('disabled', 'disabled');
+                        errorMsg.classList.remove('hidden');
+                    }
+                } else {
+                    button.setAttribute('disabled', 'disabled');
+                    errorMsg.classList.add('hidden');
+                }
+            }
+
+            textarea.addEventListener('input', checkInput);
+            checkInput();
+        });
+
+        // Copy QAM
+        function copyQam() {
+            const el = document.getElementById('qamDisplay');
+            if (!el) return;
+            navigator.clipboard.writeText(el.textContent).then(() => {
+                const fb = document.getElementById('qamCopyFeedback');
+                if (fb) { fb.classList.add('visible'); setTimeout(() => fb.classList.remove('visible'), 2000); }
+            });
+        }
+    </script>
+    <script src="{{ url_for('static', filename='dashboard.js') }}"></script>
+
+</body>
+
+</html>

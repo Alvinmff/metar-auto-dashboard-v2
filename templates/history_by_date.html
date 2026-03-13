@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>History — METAR Auto Dashboard</title>
+    <meta name="description" content="METAR History by Date Range - BMKG Aviation Weather">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.plot.ly/plotly-2.30.0.min.js"></script>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+</head>
+
+<body>
+
+    <audio id="lowVisSound" src="{{ url_for('static', filename='alarm.mp3') }}" preload="auto"></audio>
+    <audio id="newDataSound" src="{{ url_for('static', filename='notify.mp3') }}" preload="auto"></audio>
+
+    <div class="app-layout" id="appLayout">
+
+        <!-- HEADER -->
+        <header class="app-header">
+            <div class="header-left">
+                <button class="sidebar-toggle" id="sidebarToggle" title="Toggle Sidebar">☰</button>
+                <img src="https://yt3.googleusercontent.com/irzhWXcNV6M94Ow6P2ytjC2HFi7gVbLbkq2wcgwOyie63VkKHBiWUw1XJjc1NJUeWwgFwsWjYw=s900-c-k-c0x00ffffff-no-rj"
+                    alt="BMKG Logo" class="header-logo">
+                <div class="header-title">
+                    <h1>METAR Auto Dashboard</h1>
+                    <span class="station-badge">📅 History by Date</span>
+                </div>
+            </div>
+            <div class="header-right">
+                <div class="wib-clock" id="wibClock">--:--:-- <small>WIB</small></div>
+                <div class="utc-clock" id="utcClock">--:--:-- <small>UTC</small></div>
+                <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Toggle Dark/Light Mode">🌙</button>
+                <button class="sound-toggle" id="soundToggle" onclick="enableSound()">🔇 Sound</button>
+                <div class="connection-status" id="connectionStatus">
+                    <span class="connection-dot" id="connectionDot"></span>
+                    <span id="connectionText">OFFLINE</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- SIDEBAR -->
+        <aside class="app-sidebar" id="appSidebar">
+            <!-- Airplane & Tower Decoration -->
+            <div class="airplane-decor-container fade-in" style="animation-delay:0.08s">
+                <img src="{{ url_for('static', filename='images/pesawat.png') }}" alt="Airplane Decor"
+                    class="dashboard-airplane-img">
+                <img src="{{ url_for('static', filename='images/tower.png') }}" alt="Tower Decor"
+                    class="dashboard-tower-img">
+            </div>
+            <nav class="sidebar-nav">
+                <a href="/" class="sidebar-link" id="nav-dashboard">
+                    <span class="icon">🏠</span>
+                    <span class="label">Dashboard</span>
+                </a>
+                <a href="/history_by_date" class="sidebar-link active" id="nav-history">
+                    <span class="icon">📊</span>
+                    <span class="label">History</span>
+                </a>
+                <a href="/manual_parser" class="sidebar-link" id="nav-qam">
+                    <span class="icon">📄</span>
+                    <span class="label">Manual Parser</span>
+                </a>
+            </nav>
+            <!-- <div class="sidebar-footer">
+            <a href="#" class="sidebar-link" onclick="return false;">
+                <span class="icon">❓</span>
+                <span class="label">Help</span>
+            </a>
+        </div> -->
+        </aside>
+
+        <!-- MAIN -->
+        <main class="app-main">
+
+            <!-- Search Form -->
+            <div class="card fade-in">
+                <div class="card-header">
+                    <h3 class="card-title"><span class="icon">📅</span> Search History by Date</h3>
+                </div>
+                <form method="post" class="form-row">
+                    <div class="form-group" style="max-width:160px">
+                        <label>ICAO Station</label>
+                        <input type="text" name="icao" value="{{ station }}" class="form-input" placeholder="WARR"
+                            required>
+                    </div>
+                    <div class="form-group">
+                        <label>Start Date</label>
+                        <input type="datetime-local" name="start_date" class="form-input" value="{{ start_date }}"
+                            required>
+                    </div>
+                    <div class="form-group">
+                        <label>End Date</label>
+                        <input type="datetime-local" name="end_date" class="form-input" value="{{ end_date }}" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary" style="height:42px">🔍 Search</button>
+                </form>
+            </div>
+
+            {% if results is not none %}
+
+            {% if labels and labels|length > 0 %}
+            <!-- Period Info -->
+            <div class="card fade-in">
+                <div class="card-header">
+                    <h3 class="card-title"><span class="icon">📊</span> METAR History — {{ station }}</h3>
+                </div>
+                {% if start_date and end_date %}
+                <div
+                    style="background:var(--bg-body);padding:10px 16px;border-radius:var(--radius-sm);font-size:0.9rem;color:var(--text-secondary);">
+                    📅 Showing data from <strong>{{ start_date.replace('T', ' ') }}</strong> to <strong>{{
+                        end_date.replace('T', ' ') }}</strong>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Charts -->
+            <div class="grid-2 fade-in">
+                <div class="card chart-card">
+                    <div class="card-header">
+                        <h3 class="card-title"><span class="icon">🌡️</span> Temperature</h3>
+                        <button class="btn btn-sm btn-outline" onclick="downloadChart('tempChart')">📥 Download</button>
+                    </div>
+                    <div class="chart-container"><canvas id="tempChart"></canvas></div>
+                </div>
+                <div class="card chart-card">
+                    <div class="card-header">
+                        <h3 class="card-title"><span class="icon">📊</span> Pressure (QNH)</h3>
+                        <button class="btn btn-sm btn-outline" onclick="downloadChart('pressureChart')">📥
+                            Download</button>
+                    </div>
+                    <div class="chart-container"><canvas id="pressureChart"></canvas></div>
+                </div>
+            </div>
+
+            <div class="card chart-card fade-in">
+                <div class="card-header">
+                    <h3 class="card-title"><span class="icon">💨</span> Wind Speed</h3>
+                    <button class="btn btn-sm btn-outline" onclick="downloadChart('windChart')">📥 Download</button>
+                </div>
+                <div class="chart-container"><canvas id="windChart"></canvas></div>
+            </div>
+
+            <div class="card fade-in">
+                <div class="card-header">
+                    <h3 class="card-title"><span class="icon">🧭</span> Wind Rose (Filtered Period)</h3>
+                </div>
+                <div id="windRoseHistory" style="height:400px;"></div>
+            </div>
+            {% endif %}
+
+            <!-- Table -->
+            <div class="card fade-in">
+                <div class="card-header">
+                    <h3 class="card-title"><span class="icon">📋</span> History Results — {{ station }}</h3>
+                    <form method="post" action="/download_history" style="margin:0;">
+                        <input type="hidden" name="icao" value="{{ station }}">
+                        <input type="hidden" name="start_date" value="{{ request.form.start_date }}">
+                        <input type="hidden" name="end_date" value="{{ request.form.end_date }}">
+                        <button class="btn btn-sm btn-outline">📥 Download CSV</button>
+                    </form>
+                </div>
+                <div style="overflow-x:auto;">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Station</th>
+                                <th>Time</th>
+                                <th>METAR</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in results.itertuples() %}
+                            <tr>
+                                <td>{{ row.station }}</td>
+                                <td>{{ row.time }}</td>
+                                <td class="metar-cell">
+                                    {{ row.metar }}
+                                    {% if " COR " in row.metar or row.metar.startswith("METAR COR") or " CCA " in row.metar or "CCA" in row.metar %}
+                                    <span class="badge badge-cor" style="background-color: #f59e0b; color: #1e293b; margin-left: 6px; font-size: 0.70rem; padding: 2px 6px; vertical-align: middle;">🟡 COR</span>
+                                    {% elif " AMD " in row.metar or row.metar.startswith("METAR AMD") %}
+                                    <span class="badge badge-amd" style="background-color: #3b82f6; color: #ffffff; margin-left: 6px; font-size: 0.70rem; padding: 2px 6px; vertical-align: middle;">🔵 AMD</span>
+                                    {% elif " SPECI " in row.metar or row.metar.startswith("SPECI ") %}
+                                    <span class="badge badge-speci" style="background-color: #ef4444; color: #ffffff; margin-left: 6px; font-size: 0.70rem; padding: 2px 6px; vertical-align: middle;">🔴 SPECI</span>
+                                    {% else %}
+                                    <span class="badge badge-metar" style="background-color: #059669; color: #ffffff; margin-left: 6px; font-size: 0.70rem; padding: 2px 6px; vertical-align: middle;">🟢 METAR</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            {% endif %}
+
+        </main>
+    </div>
+
+    <!-- Charts Script -->
+    {% if labels and labels|length > 0 %}
+    <script>
+        const labels = JSON.parse('{{ labels | tojson | safe }}');
+        const temps = JSON.parse('{{ temps | tojson | safe }}');
+        const pressures = JSON.parse('{{ pressures | tojson | safe }}');
+        const winds = JSON.parse('{{ winds | tojson | safe }}');
+        const gusts = JSON.parse('{{ gusts | tojson | safe }}');
+        const thunder_flags = JSON.parse('{{ thunder_flags | tojson | safe }}');
+        const wind_dirs = JSON.parse('{{ wind_dirs | tojson | safe }}');
+
+        const gridColor = 'rgba(0,0,0,0.06)';
+        const tickColor = '#64748B';
+
+        if (labels.length > 0) {
+            new Chart(document.getElementById('tempChart'), {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Temperature (°C)',
+                        data: temps,
+                        borderColor: '#DC2626',
+                        backgroundColor: 'rgba(220,38,38,0.06)',
+                        pointBackgroundColor: '#DC2626',
+                        pointRadius: 3,
+                        fill: true, tension: 0.4, borderWidth: 2.5
+                    }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    scales: {
+                        y: { grid: { color: gridColor }, ticks: { color: tickColor, font: { family: 'Inter' } }, title: { display: true, text: '°C', color: tickColor } },
+                        x: { grid: { display: false }, ticks: { color: tickColor, font: { family: 'Inter', size: 10 }, maxRotation: 45 } }
+                    }
+                }
+            });
+
+            new Chart(document.getElementById('pressureChart'), {
+                type: 'line',
+                data: { labels, datasets: [{ label: 'QNH (hPa)', data: pressures, borderColor: '#2E5C8A', backgroundColor: 'rgba(46,92,138,0.06)', fill: true, tension: 0.4, borderWidth: 2.5, pointRadius: 3 }] },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    scales: {
+                        y: { grid: { color: gridColor }, ticks: { color: tickColor }, title: { display: true, text: 'hPa', color: tickColor } },
+                        x: { grid: { display: false }, ticks: { color: tickColor, font: { size: 10 }, maxRotation: 45 } }
+                    }
+                }
+            });
+
+            new Chart(document.getElementById('windChart'), {
+                type: 'line',
+                data: {
+                    labels,
+                    datasets: [
+                        { label: 'Wind (KT)', data: winds, borderColor: '#E8B339', backgroundColor: 'rgba(232,179,57,0.08)', fill: true, tension: 0.4, borderWidth: 2.5, pointRadius: 3 },
+                        { label: 'Gust (KT)', data: gusts, borderColor: '#059669', backgroundColor: 'rgba(5,150,105,0.06)', fill: true, tension: 0.4, borderWidth: 2, borderDash: [5, 5], pointRadius: 3 }
+                    ]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    scales: {
+                        y: { beginAtZero: true, grid: { color: gridColor }, ticks: { color: tickColor }, title: { display: true, text: 'KT', color: tickColor } },
+                        x: { grid: { display: false }, ticks: { color: tickColor, font: { size: 10 }, maxRotation: 45 } }
+                    }
+                }
+            });
+
+            // Wind Rose
+            const validWind = wind_dirs.map((dir, i) => dir !== null && winds[i] !== null ? { dir: parseInt(dir), speed: winds[i] } : null).filter(x => x);
+            if (validWind.length > 0) {
+                Plotly.newPlot('windRoseHistory', [{
+                    type: 'barpolar',
+                    r: validWind.map(d => d.speed),
+                    theta: validWind.map(d => d.dir),
+                    marker: {
+                        color: validWind.map(d => d.speed),
+                        colorscale: [[0, '#2E5C8A'], [0.5, '#E8B339'], [1, '#DC2626']],
+                        showscale: true,
+                        colorbar: { title: 'KT', thickness: 12, len: 0.6 }
+                    },
+                    hovertemplate: 'Dir: %{theta}°<br>Speed: %{r} KT<extra></extra>'
+                }], {
+                    polar: {
+                        bgcolor: 'rgba(0,0,0,0)',
+                        angularaxis: { direction: 'clockwise', rotation: 90, tickmode: 'array', tickvals: [0, 45, 90, 135, 180, 225, 270, 315], ticktext: ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'], tickfont: { size: 12, color: '#1E3A5F', family: 'Inter' } },
+                        radialaxis: { showgrid: true, gridcolor: 'rgba(0,0,0,0.06)', title: 'KT' }
+                    },
+                    showlegend: false,
+                    margin: { t: 30, b: 30, l: 50, r: 50 },
+                    paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)'
+                });
+            }
+        }
+
+        function downloadChart(chartId) {
+            if (chartId === 'windRoseChart') {
+                Plotly.downloadImage('windRoseHistory', { format: 'png', width: 800, height: 600, filename: 'windRose' });
+                return;
+            }
+            const c = document.getElementById(chartId);
+            if (!c) return;
+            const link = document.createElement('a');
+            link.download = chartId + '_' + new Date().toISOString().slice(0, 10) + '.png';
+            link.href = c.toDataURL('image/png');
+            link.click();
+        }
+    </script>
+    {% endif %}
+
+    <script src="{{ url_for('static', filename='dashboard.js') }}"></script>
+
+</body>
+
+</html>
