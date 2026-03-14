@@ -23,20 +23,28 @@ class GoogleSheetHandler:
         """Authenticate using Env Var (Vercel) or local credentials.json"""
         try:
             creds_json = os.environ.get("GOOGLE_SHEETS_CREDENTIALS")
+            creds = None
             
             if creds_json:
-                print("[SHEETS] Authenticating via Environment Variable", file=sys.stderr)
-                # Parse JSON string from env var
-                info = json.loads(creds_json)
-                creds = Credentials.from_service_account_info(info, scopes=self.scope)
+                print("[SHEETS] Found GOOGLE_SHEETS_CREDENTIALS environment variable", file=sys.stderr)
+                try:
+                    # Parse JSON string from env var
+                    info = json.loads(creds_json)
+                    creds = Credentials.from_service_account_info(info, scopes=self.scope)
+                    print("[SHEETS] Credentials parsed successfully from JSON string", file=sys.stderr)
+                except Exception as json_err:
+                    print(f"[SHEETS] ❌ JSON Parse Error on Credentials: {json_err}", file=sys.stderr)
+                    return
             else:
                 # Local fallback
                 creds_path = os.path.join(os.path.dirname(__file__), "credentials.json")
                 if os.path.exists(creds_path):
                     print(f"[SHEETS] Authenticating via {creds_path}", file=sys.stderr)
                     creds = Credentials.from_service_account_file(creds_path, scopes=self.scope)
+                else:
+                    print("[SHEETS] ❌ No credentials found: GOOGLE_SHEETS_CREDENTIALS env var is MISSING", file=sys.stderr)
+            
             if not creds:
-                print("[SHEETS] ❌ No credentials obtained!", file=sys.stderr)
                 return
 
             client = gspread.authorize(creds)
@@ -71,9 +79,13 @@ class GoogleSheetHandler:
 
     def save_metar(self, station, time, metar):
         """Append a new METAR record to Google Sheets"""
+        if self.sheet is None:
+            # Try to re-authenticate if missing (lazy auth)
+            self._authenticate()
+            
         sheet = self.sheet
         if sheet is None:
-            print("[SHEETS] ❌ Cannot save: Not authenticated", file=sys.stderr)
+            print("[SHEETS] ❌ Cannot save: Final authentication check failed", file=sys.stderr)
             return False
 
         try:
@@ -93,9 +105,12 @@ class GoogleSheetHandler:
 
     def sync_to_local(self, local_path):
         """Fetch all data from Sheets and save to local CSV (for Vercel warmup)"""
+        if self.sheet is None:
+            self._authenticate()
+            
         sheet = self.sheet
         if sheet is None:
-            print("[SHEETS] ❌ Cannot sync: Not authenticated", file=sys.stderr)
+            print("[SHEETS] ❌ Cannot sync: Authentication failed", file=sys.stderr)
             return False
 
         try:
