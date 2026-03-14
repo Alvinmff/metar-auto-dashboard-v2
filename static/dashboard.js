@@ -12,6 +12,24 @@ let lastMetarRaw = null;
 let lastMetarStatus = 'normal';
 let lastVisibility = null;
 let lastHasTS = false;
+
+// =======================
+// ALARM STATE TRACKING (Anti-spam)
+// =======================
+// Track kondisi alarm yang sudah pernah dipicu untuk mencegah spam setiap refresh
+let alarmState = {
+    lowVisTriggered: false,      // Sudah pernah trigger alarm low visibility?
+    thunderstormTriggered: false, // Sudah pernah trigger alarm TS?
+    lastMetarHash: null,         // Hash METAR terakhir yang diproses
+    lastUpdateTime: 0            // Timestamp terakhir update
+};
+
+// Helper: Buat simple hash dari string METAR untuk comparison
+function hashMetar(metar) {
+    if (!metar) return null;
+    // Normalisasi: uppercase, trim, remove =
+    return metar.toUpperCase().replace(/=/g, '').trim();
+}
 // Load soundEnabled from localStorage, default false
 let soundEnabled = localStorage.getItem('soundEnabled') === 'true';
 // Load theme from localStorage, default 'light'
@@ -61,12 +79,28 @@ async function pollLatestData() {
         const data = await response.json();
         
         console.log('[POLL] Data received:', data);
-        updateConnectionIndicator(true);
+        
+        // Cek apakah data benar-benar berbeda dari sebelumnya
+        const currentHash = hashMetar(data.raw);
+        const isDataChanged = currentHash !== alarmState.lastMetarHash;
         
         if (data.raw) {
-            handleMetarUpdate(data);
+            if (isDataChanged) {
+                console.log('[POLL] New data detected, processing...');
+                handleMetarUpdate(data);
+            } else {
+                console.log('[POLL] Data unchanged, skipping UI update');
+                // Tetap update connection indicator
+                updateConnectionIndicator(true);
+                // Update status panel saja
+                if (data.auto_fetch !== undefined) {
+                    updateStatusPanel(data);
+                }
+            }
         } else if (data.auto_fetch !== undefined) {
+            // No raw data, just update status
             updateStatusPanel(data);
+            updateConnectionIndicator(true);
         }
     } catch (error) {
         console.error('[POLL] Error:', error);
@@ -592,79 +626,126 @@ function updateThunderstormModule(raw) {
 }
 
 // =======================
-// DATA HANDLER (Formerly Socket Handler)
+// DATA HANDLER (Formerly Socket Handler) - FIXED ANTI-SPAM ALARM
 // =======================
 function handleMetarUpdate(data) {
     console.log('Processing data update:', data);
     
-    const isDuplicate = data.raw && data.raw === lastMetarRaw;
-    const isFirstLoad = lastMetarRaw === null;
+    // Buat hash dari METAR untuk cek duplikat
+    const currentHash = hashMetar(data.raw);
+    const isDuplicate = currentHash && currentHash === alarmState.lastMetarHash;
+    const isFirstLoad = alarmState.lastMetarHash === null;
     
-    // Update state
+    // Update global state
     lastMetarRaw = data.raw;
     if (data.metar_status) lastMetarStatus = data.metar_status;
     if (data.visibility_m !== undefined) lastVisibility = data.visibility_m;
     
-    // Check for TS in raw
+    // Cek kondisi berbahaya
     const tsCodes = ['TS', 'TSRA', 'VCTS', '+TS', 'TSGR'];
     const hasTS = data.raw ? tsCodes.some(c => data.raw.includes(c)) : false;
     lastHasTS = hasTS;
+    
+    const vis = data.visibility_m !== undefined ? data.visibility_m : null;
+    const isLowVis = vis !== null && vis < 3000;
 
-    // Sounds
-    if (!isFirstLoad && data.status === 'new' && soundEnabled) {
+    // ============================================================
+    // LOGIKA ANTI-SPAM: Jika data sama persis, hanya update UI tanpa alarm
+    // ============================================================
+    if (isDuplicate && !isFirstLoad) {
+        console.log('[ALARM] Data duplicate detected, skipping alarm');
+        updateConnectionIndicator(true);
+        
+        // Tetap update status panel jika ada
+        if (data.auto_fetch !== undefined) {
+            updateStatusPanel(data);
+        }
+        return; // Exit early, tidak alarm lagi
+    }
+
+    // ============================================================
+    // DATA BARU ATAU BERUBAH - Proses alarm dengan logika yang benar
+    // ============================================================
+    
+    // Update hash untuk tracking berikutnya
+    alarmState.lastMetarHash = currentHash;
+    alarmState.lastUpdateTime = Date.now();
+
+    // Cek apakah kondisi berbahaya BARU muncul (transisi dari aman ke berbahaya)
+    const isNewLowVis = isLowVis && !alarmState.lowVisTriggered;
+    const isNewThunderstorm = hasTS && !alarmState.thunderstormTriggered;
+
+    // 1. Alarm untuk Low Visibility yang BARU terdeteksi
+    if (isNewLowVis) {
+        console.log('[ALARM] New low visibility detected!');
+        document.body.classList.add('low-visibility');
+        playAlarm();
+        showToast('⚠️ LOW VISIBILITY', `Visibility reduced to ${vis}m`, 'danger', 10000);
+        alarmState.lowVisTriggered = true;
+    } 
+    // Jika visibility sudah normal, reset flag
+    else if (!isLowVis) {
+        alarmState.lowVisTriggered = false;
+        document.body.classList.remove('low-visibility');
+    }
+
+    // 2. Alarm untuk Thunderstorm yang BARU terdeteksi
+    if (isNewThunderstorm) {
+        console.log('[ALARM] New thunderstorm detected!');
+        showToast('⚡ THUNDERSTORM', 'Thunderstorm detected in METAR', 'danger', 10000);
+        playAlarm();
+        alarmState.thunderstormTriggered = true;
+    }
+    // Jika TS sudah tidak ada, reset flag
+    else if (!hasTS) {
+        alarmState.thunderstormTriggered = false;
+    }
+
+    // 3. Notifikasi suara untuk data baru (bukan alarm, hanya notify)
+    if (!isFirstLoad && soundEnabled && data.status === 'new') {
         playNotify();
     }
 
-    // Alerts
-    if (data.raw) {
-        const vis = data.visibility_m !== undefined ? data.visibility_m : null;
-        if (vis !== null && vis < 3000) {
-            document.body.classList.add('low-visibility');
-            playAlarm();
-            showToast('⚠️ LOW VISIBILITY', `Visibility reduced to ${vis}m`, 'danger', 10000);
-        } else {
-            document.body.classList.remove('low-visibility');
-        }
-
-        if (hasTS) {
-            showToast('⚡ THUNDERSTORM', 'Thunderstorm detected in METAR', 'danger', 10000);
-            playAlarm();
-        }
-    }
-
-    // Skip redundant UI updates
-    if (isDuplicate) {
-        if (data.auto_fetch !== undefined) updateStatusPanel(data);
-        return;
-    }
-
-    // NEW DATA UI REFRESH
-    if (!isFirstLoad && data.raw) {
+    // ============================================================
+    // UI UPDATES (hanya jika data berbeda atau first load)
+    // ============================================================
+    
+    // Show toast untuk data baru (non-critical)
+    if (!isFirstLoad && data.raw && data.status === 'new') {
         showToast('New METAR Received', `${STATION} — ${new Date().toUTCString().slice(17, 25)} UTC`);
     }
 
+    // Update METAR raw display
     if (data.raw) {
         const rawEl = document.getElementById('metarRawCode');
         if (rawEl) {
             let htmlStr = highlightMetar(data.raw);
+            // Badge untuk COR/AMD/SPECI
             if (data.report_type === 'COR' || data.raw.includes('COR') || data.raw.includes('CCA')) {
-                htmlStr += '\n                        <span class="badge" style="background-color: #f59e0b; color: #1e293b; margin-left: 10px; font-size: 0.75rem; padding: 4px 8px; vertical-align: middle;">⚠️ CORRECTION</span>';
+                htmlStr += ' <span class="badge" style="background-color: #f59e0b; color: #1e293b; margin-left: 10px; font-size: 0.75rem; padding: 4px 8px; vertical-align: middle;">⚠️ CORRECTION</span>';
+            } else if (data.report_type === 'AMD' || data.raw.includes('AMD')) {
+                htmlStr += ' <span class="badge" style="background-color: #3b82f6; color: #ffffff; margin-left: 10px; font-size: 0.75rem; padding: 4px 8px; vertical-align: middle;">⚠️ AMD</span>';
+            } else if (data.report_type === 'SPECI' || data.raw.includes('SPECI')) {
+                htmlStr += ' <span class="badge" style="background-color: #ef4444; color: #ffffff; margin-left: 10px; font-size: 0.75rem; padding: 4px 8px; vertical-align: middle;">⚠️ SPECI</span>';
             }
             rawEl.innerHTML = htmlStr;
         }
 
+        // Update panel status color
         const panel = document.getElementById('metarRawPanel');
         if (panel) {
             panel.classList.remove('status-danger', 'status-warning');
-            if (hasTS || (data.visibility_m && data.visibility_m < 3000)) {
+            if (hasTS || isLowVis) {
                 panel.classList.add('status-danger');
-            } else if (data.visibility_m && data.visibility_m <= 5000) {
+            } else if (vis !== null && vis <= 5000) {
                 panel.classList.add('status-warning');
             }
         }
+        
         updateDecodedPanel(data.raw);
     }
 
+    // Update QAM dan Narrative
     if (data.qam) {
         const qamEl = document.getElementById('qamDisplay');
         if (qamEl) qamEl.textContent = data.qam;
@@ -675,6 +756,7 @@ function handleMetarUpdate(data) {
         if (narEl) narEl.textContent = data.narrative;
     }
 
+    // Update last saved time
     const now = new Date();
     const formatted = now.toLocaleDateString('id-ID') + ' ' +
         now.getHours().toString().padStart(2, '0') + ':' +
@@ -684,14 +766,19 @@ function handleMetarUpdate(data) {
     const lastSaved = document.getElementById('lastSaved');
     if (lastSaved) lastSaved.textContent = formatted;
 
+    // Refresh charts dan tables
     updateCharts();
     updateHistoryTable();
     updateMiniTimeline();
     runMetarValidation(data.raw);
     
+    // Update status panel
     if (data.auto_fetch !== undefined) {
         updateStatusPanel(data);
     }
+    
+    // Update connection indicator
+    updateConnectionIndicator(true);
 }
 
 // =======================
