@@ -1475,22 +1475,22 @@ def latest_data():
 @app.route("/api/cron/sync")
 def cron_sync():
     """
-    Automated endpoint triggered by Vercel Cron.
-    Fetches latest METAR and syncs to Google Sheets without user interaction.
+    Automated endpoint triggered by Vercel Cron or External Cron service.
     """
-    # Security: Verify this request is from Vercel's Cron service
-    # Vercel adds 'X-Vercel-Cron': '1' to cron requests
-    is_cron = request.headers.get('x-vercel-cron') == '1'
+    # 1. Check for Vercel Native Cron header
+    is_vercel_cron = request.headers.get('x-vercel-cron') == '1'
     
-    # Optional: Allow manually if a secret is provided (for testing)
-    auth_header = request.headers.get('Authorization')
-    is_manual = auth_header == f"Bearer {os.environ.get('CRON_SECRET')}" if os.environ.get('CRON_SECRET') else False
+    # 2. Check for Token-based auth (for external services like Cron-job.org)
+    # Use environment variable CRON_TOKEN or fallback to a default for easy setup
+    expected_token = os.environ.get('CRON_TOKEN', 'bmkg-juanda-secret-123')
+    provided_token = request.args.get('auth')
+    is_external_cron = provided_token == expected_token
 
-    if not is_cron and not is_manual:
+    if not is_vercel_cron and not is_external_cron:
         print("[CRON] ❌ Unauthorized access attempt", file=sys.stderr)
-        return jsonify({"error": "Unauthorized"}), 401
+        return jsonify({"error": "Unauthorized", "hint": "Provide ?auth=YOUR_TOKEN"}), 401
 
-    print("[CRON] ⏰ Background sync triggered", file=sys.stderr)
+    print(f"[CRON] ⏰ Background sync triggered (Type: {'Vercel' if is_vercel_cron else 'External'})", file=sys.stderr)
     success = update_metar_data_and_sync("WARR")
     
     if success:
