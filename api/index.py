@@ -1093,42 +1093,25 @@ def home():
             fetch_needed = auto_fetch # Only fetch on GET if auto_fetch is enabled
 
         if fetch_needed:
-            print(f"[HOME] Fetching live METAR for {station}...", file=sys.stderr)
-            metar = get_metar(station)
-        else:
-            print(f"[HOME] Auto fetch is DISABLED - skipping home route live fetch", file=sys.stderr)
+            print(f"[HOME] Update triggered for {station}...", file=sys.stderr)
+            success = update_metar_data_and_sync(station)
+            if success:
+                print("[HOME] Live sync successful", file=sys.stderr)
+            else:
+                print("[HOME] Live sync failed or no new data", file=sys.stderr)
         
+        # Pull global data for display
+        metar = latest_metar_data.get("raw")
         if metar:
-            print(f"[HOME] Live METAR received: {metar[:50]}...", file=sys.stderr)
-            
-            if not os.path.exists(CSV_FILE):
-                df = pd.DataFrame(columns=["station", "time", "metar"])
-                df.to_csv(CSV_FILE, index=False)
-
-            df = pd.read_csv(CSV_FILE)
-
-            if len(df) == 0 or df.iloc[-1]["metar"] != metar:
-                new_row = {
-                    "station": station,
-                    "time": datetime.utcnow(),
-                    "metar": metar
-                }
-                df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
-                df.to_csv(CSV_FILE, index=False)
-                print("[HOME] New METAR saved to CSV", file=sys.stderr)
-                
-                # 🔥 Save to Google Sheets
-                sheets_handler.save_metar(station, new_row["time"], metar)
-
             parsed = parse_metar(metar)
-            qam = generate_qam(station, parsed, metar)
-            narrative = generate_metar_narrative(parsed, metar)
+            qam = latest_metar_data.get("qam")
+            narrative = latest_metar_data.get("narrative")
             
-            # Store wind data for Wind Rose
+            # Additional wind storage (robustness)
             store_wind(parsed, station)
-            print("[HOME] Live METAR processed successfully", file=sys.stderr)
+            print("[HOME] Display data prepared from cache", file=sys.stderr)
         else:
-            print("[HOME] No live METAR available, checking CSV history...", file=sys.stderr)
+            print("[HOME] No live data in cache, checking CSV history...", file=sys.stderr)
             # Try to get last known METAR from CSV if live fetch fails
             if os.path.exists(CSV_FILE):
                 df = pd.read_csv(CSV_FILE)
@@ -1410,8 +1393,29 @@ def toggle_fetch():
 @app.route("/api/latest-data")
 def latest_data():
     """Endpoint for frontend polling — returns latest METAR + system status"""
-    global last_metar_update
+    global last_metar_update, auto_fetch
     
+    # 🔥 VERCEL SYNC TRIGGER:
+    # If auto_fetch is on, check if we need to fetch fresh data
+    if auto_fetch:
+        now = datetime.utcnow()
+        should_update = False
+        
+        if not last_metar_update:
+            should_update = True
+        else:
+            try:
+                last_dt = pd.to_datetime(last_metar_update.replace("Z", ""))
+                # If more than 3 minutes old, trigger an update
+                if (now - last_dt).total_seconds() > 180: 
+                    should_update = True
+            except:
+                should_update = True
+        
+        if should_update:
+            print(f"[POLL] Data stale or missing, triggering sync for WARR...", file=sys.stderr)
+            update_metar_data_and_sync("WARR")
+
     # Fallback: if no cached data yet, try to build from CSV
     if not latest_metar_data and os.path.exists(CSV_FILE):
         try:
@@ -1449,13 +1453,103 @@ def latest_data():
             print(f"[POLL] Error building fallback data: {e}")
 
     # Return cached data with current system status
-    data = latest_metar_data.copy() if latest_metar_data else {}
+    data = {}
+    if latest_metar_data:
+        data = latest_metar_data.copy()
+    
     data.update({
         "auto_fetch": auto_fetch,
         "last_update": last_metar_update,
         "server": "online"
     })
     return jsonify(data)
+
+# =========================
+# CENTRALIZED METAR UPDATE DATA & SYNC
+# =========================
+def update_metar_data_and_sync(station="WARR"):
+    """
+    Central function to fetch METAR, save locally, sync to Google Sheets, 
+    and update global cache. Works on Vercel by running per-request.
+    """
+    global last_metar_update, latest_metar_data, auto_fetch
+    
+    try:
+        print(f"[SYNC] Starting update for {station}...", file=sys.stderr)
+        metar = get_metar(station)
+        
+        if not metar:
+            print("[SYNC] ❌ No METAR received", file=sys.stderr)
+            return False
+
+        # Load current CSV for comparison
+        if not os.path.exists(CSV_FILE):
+            pd.DataFrame(columns=["station", "time", "metar"]).to_csv(CSV_FILE, index=False)
+        
+        df = pd.read_csv(CSV_FILE)
+        is_new = len(df) == 0 or df.iloc[-1]["metar"] != metar
+        
+        if is_new:
+            print("[SYNC] ✨ NEW METAR detected! Saving...", file=sys.stderr)
+            new_row = {
+                "station": station,
+                "time": datetime.utcnow(),
+                "metar": metar
+            }
+            
+            # Save to CSV
+            df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
+            df.to_csv(CSV_FILE, index=False)
+            
+            # 🔥 SYNC TO GOOGLE SHEETS
+            try:
+                print(f"[SYNC] Pushing to Google Sheets...", file=sys.stderr)
+                sheets_handler.save_metar(station, new_row["time"], metar)
+            except Exception as e:
+                print(f"[SYNC] ❌ Google Sheets Error: {e}", file=sys.stderr)
+
+            # Update cache
+            parsed = parse_metar(metar)
+            qam = generate_qam(station, parsed, metar)
+            narrative = generate_metar_narrative(parsed, metar)
+            
+            # 🔥 simpan ke wind history
+            store_wind(parsed, station)
+
+            latest_metar_data = {
+                "status": "new",
+                "qam": qam,
+                "raw": metar,
+                "narrative": narrative,
+                "time": datetime.utcnow().strftime("%d-%m-%Y %H:%M:%S"),
+                "wind_dir": parsed.get("wind_dir"),
+                "wind_speed": parsed.get("wind_speed_kt"),
+                "wind_gust": parsed.get("wind_gust_kt"),
+                "temp": parsed.get("temperature_c"),
+                "dewpoint": parsed.get("dewpoint_c"),
+                "visibility_m": parsed.get("visibility_m"),
+                "cloud": parsed.get("cloud"),
+                "qnh": parsed.get("pressure_hpa"),
+                "weather": parsed.get("weather"),
+                "metar_status": parsed.get("status", "normal"),
+                "report_type": parsed.get("report_type", "METAR"),
+                "auto_fetch": auto_fetch,
+                "last_update": datetime.utcnow().isoformat() + "Z"
+            }
+            last_metar_update = latest_metar_data["last_update"]
+            return True
+        else:
+            print("[SYNC] METAR unchanged, updating cache timestamp only", file=sys.stderr)
+            # Update cache timestamp to avoid frequent retries
+            last_metar_update = datetime.utcnow().isoformat() + "Z"
+            if latest_metar_data:
+                latest_metar_data["last_update"] = last_metar_update
+            return True
+
+    except Exception as e:
+        print(f"[SYNC] ❌ Critical Update Error: {e}", file=sys.stderr)
+        traceback.print_exc()
+        return False
 
 # =========================
 
@@ -1472,78 +1566,13 @@ def background_metar_loop():
 
             station = "WARR"
             print(f"\n=== Background loop iteration ===")
-            print(f"[LOOP] Fetching METAR for station: {station}")
+            print(f"[LOOP] Triggering update for station: {station}")
             
-            metar = get_metar(station)
-            
-            if metar:
-                print(f"[LOOP] METAR received: {metar[:50]}...")
-
-                # Simpan ke CSV kalau beda
-                if not os.path.exists(CSV_FILE):
-                    print("[LOOP] CSV file doesn't exist, creating new one...")
-                    df = pd.DataFrame(columns=["station","time","metar"])
-                    df.to_csv(CSV_FILE, index=False)
-
-                df = pd.read_csv(CSV_FILE)
-                
-                print(f"[LOOP] Current CSV rows: {len(df)}")
-
-                if len(df) == 0 or df.iloc[-1]["metar"] != metar:
-                    print("[LOOP] NEW METAR detected! Saving to CSV...")
-                    new_row = {
-                        "station": station,
-                        "time": datetime.utcnow(),
-                        "metar": metar
-                    }
-
-                    df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
-                    df.to_csv(CSV_FILE, index=False)
-
-                    print("🔥 NEW METAR SAVED!")
-
-                    # 🔥 Sync to Google Sheets
-                    sheets_handler.save_metar(station, new_row["time"], metar)
-
-                    parsed = parse_metar(metar)
-
-                    # 🔥 simpan ke wind history
-                    store_wind(parsed, station)
-
-                    qam = generate_qam(station, parsed, metar)
-                    narrative = generate_metar_narrative(parsed, metar)
-                    
-                    print(f"[LOOP] QAM generated:\n{qam}")
-                    print(f"[LOOP] Narrative generated:\n{narrative}")
-
-                    # Update cached data for polling endpoint
-                    latest_metar_data = {
-                        "status": "new",
-                        "qam": qam,
-                        "raw": metar,
-                        "narrative": narrative,
-                        "time": datetime.utcnow().strftime("%d-%m-%Y %H:%M:%S"),
-                        "wind_dir": parsed.get("wind_dir"),
-                        "wind_speed": parsed.get("wind_speed_kt"),
-                        "wind_gust": parsed.get("wind_gust_kt"),
-                        "temp": parsed.get("temperature_c"),
-                        "dewpoint": parsed.get("dewpoint_c"),
-                        "visibility_m": parsed.get("visibility_m"),
-                        "cloud": parsed.get("cloud"),
-                        "qnh": parsed.get("pressure_hpa"),
-                        "weather": parsed.get("weather"),
-                        "metar_status": parsed.get("status", "normal"),
-                        "report_type": parsed.get("report_type", "METAR"),
-                        "auto_fetch": auto_fetch,
-                        "last_update": datetime.utcnow().isoformat() + "Z"
-                    }
-                else:
-                    print("[LOOP] METAR unchanged, skipping save")
-                
-                # Update last update timestamp whenever a fetch is successful
-                last_metar_update = datetime.utcnow().isoformat() + "Z"
+            success = update_metar_data_and_sync(station)
+            if success:
+                print("[LOOP] Background sync successful", file=sys.stderr)
             else:
-                print("[LOOP] ❌ No METAR received from NOAA!")
+                print("[LOOP] Background sync failed or no new data", file=sys.stderr)
 
         except Exception as e:
             print(f"[LOOP] ERROR: {e}")

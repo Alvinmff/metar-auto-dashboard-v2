@@ -83,8 +83,9 @@ class GoogleSheetHandler:
             else:
                 time_str = str(time)
 
+            print(f"[SHEETS] Appending row: {station}, {time_str}", file=sys.stderr)
             sheet.append_row([station, time_str, metar])
-            print(f"[SHEETS] Data saved: {station} at {time_str}", file=sys.stderr)
+            print(f"[SHEETS] ✅ Data successfully saved to Google Sheets for {station}", file=sys.stderr)
             return True
         except Exception as e:
             print(f"[SHEETS] ❌ Error saving to Sheets: {e}", file=sys.stderr)
