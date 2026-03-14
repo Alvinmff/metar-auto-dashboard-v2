@@ -61,15 +61,52 @@ else:
     CSV_FILE = ROOT_CSV
     print("[INIT] Running locally - Using local storage", file=sys.stderr)
 
-# ============ ERROR HANDLER ============
+# =========================
+# FAVICON HANDLER
+# =========================
+@app.route('/favicon.ico')
+def favicon_ico():
+    """Handle favicon.ico requests"""
+    return '', 204  # No content
+
+@app.route('/favicon.png')
+def favicon_png():
+    """Handle favicon.png requests"""
+    return '', 204  # No content
+
+# =========================
+# ERROR HANDLERS
+# =========================
+@app.errorhandler(404)
+def not_found_error(error):
+    """Handle 404 errors gracefully"""
+    # Log to stderr but don't crash
+    print(f"[404] Not Found: {request.path}", file=sys.stderr)
+    
+    # If request looks like favicon, return 204 without body
+    if 'favicon' in request.path.lower():
+        return '', 204
+    
+    # For API requests, return JSON
+    if request.path.startswith('/api/'):
+        return jsonify({"error": "Not found", "path": request.path}), 404
+    
+    # For web requests, return simple message
+    return "Page not found", 404
+
 @app.errorhandler(Exception)
 def handle_exception(e):
-    """Global error handler untuk catch semua exception"""
-    error_msg = f"ERROR: {str(e)}\n{traceback.format_exc()}"
+    """Global error handler to catch all exceptions"""
+    error_msg = f"ERROR: {str(e)}"
     print(error_msg, file=sys.stderr)
+    
+    # Detailed log for server/stderr
+    import traceback
+    traceback.print_exc()
+
+    # Generic error for client
     return jsonify({
-        "error": str(e),
-        "traceback": traceback.format_exc()
+        "error": str(e)
     }), 500
 
 # System Control State
