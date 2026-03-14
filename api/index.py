@@ -1130,7 +1130,7 @@ def home():
                     metar_display = metar_display[:50]
                     print(f"[HOME] Using historical METAR: {metar_display}...", file=sys.stderr)
                     try:
-                        last_metar_update = pd.to_datetime(last_row["time"]).isoformat() + "Z"
+                        last_metar_update = pd.to_datetime(last_row["time"], format='mixed').isoformat() + "Z"
                     except:
                         last_metar_update = datetime.utcnow().isoformat() + "Z"
     except Exception as e:
@@ -1410,7 +1410,7 @@ def latest_data():
             should_update = True
         else:
             try:
-                last_dt = pd.to_datetime(last_metar_update.replace("Z", ""))
+                last_dt = pd.to_datetime(last_metar_update.replace("Z", ""), format='mixed')
                 # If more than 3 minutes old, trigger an update
                 if (now - last_dt).total_seconds() > 180: 
                     should_update = True
