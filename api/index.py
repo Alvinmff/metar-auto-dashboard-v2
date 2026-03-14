@@ -1548,16 +1548,20 @@ def update_metar_data_and_sync(station="WARR"):
         print(f"[SYNC] Raw METAR: {metar[:80]}...", file=sys.stderr)
         print(f"[SYNC] Normalized: {metar_clean[:80]}...", file=sys.stderr)
 
-        # Load current CSV untuk cek duplikat
-        # Jika CSV tidak ada atau kosong, coba tarik dari Google Sheets (Vercel Warmup)
-        if not os.path.exists(CSV_FILE) or os.path.getsize(CSV_FILE) < 10:
-            print("[SYNC] Local context missing, warming up from Google Sheets...", file=sys.stderr)
-            sheets_handler.sync_to_local(CSV_FILE)
-
-        if not os.path.exists(CSV_FILE):
-            pd.DataFrame(columns=["station", "time", "metar"]).to_csv(CSV_FILE, index=False)
+        # =====================================================
+        # GLOBAL CONTEXT: Fetch recent history directly from Sheets
+        # ensures deduplication works across isolated Vercel containers.
+        # =====================================================
+        print("[SYNC] Fetching global context from Google Sheets...", file=sys.stderr)
+        recent_data = sheets_handler.get_recent_data(limit=10)
         
-        df = pd.read_csv(CSV_FILE)
+        if recent_data:
+            df = pd.DataFrame(recent_data)
+        else:
+            # Fallback to local CSV if Sheets fetch fails or is empty
+            if not os.path.exists(CSV_FILE):
+                pd.DataFrame(columns=["station", "time", "metar"]).to_csv(CSV_FILE, index=False)
+            df = pd.read_csv(CSV_FILE)
         
         # =====================================================
         # LOGIKA ANTI-DUPLIKASI - CHECK 1: 24-hour window

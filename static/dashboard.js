@@ -1473,7 +1473,7 @@ document.addEventListener('DOMContentLoaded', function () {
     // Theme (Apply saved preference)
     applyTheme(currentTheme);
 
-    // Update sound toggle button based on saved state
+    // Sync Sound Button UI with persistent state
     const soundToggleBtn = document.getElementById('soundToggle');
     if (soundToggleBtn) {
         if (soundEnabled) {
@@ -1495,7 +1495,7 @@ document.addEventListener('DOMContentLoaded', function () {
     createWindChart();
     updateCharts();
     loadHistory();
-    updateMiniTimeline(); // 🔥 NEW
+    // updateMiniTimeline(); // 🔥 DISABLED (As requested)
     loadWindCompass();
     loadWindRose();
 
