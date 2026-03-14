@@ -1398,7 +1398,7 @@ def favicon():
 @app.route("/api/latest-data")
 def latest_data():
     """Endpoint for frontend polling — returns latest METAR + system status"""
-    global last_metar_update, auto_fetch
+    global last_metar_update, auto_fetch, latest_metar_data
     
     # 🔥 VERCEL SYNC TRIGGER:
     # If auto_fetch is on, check if we need to fetch fresh data
