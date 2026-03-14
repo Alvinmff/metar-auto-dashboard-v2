@@ -12,6 +12,10 @@ import threading
 from collections import deque
 import sys
 import traceback
+try:
+    from .sheets_handler import sheets_handler
+except (ImportError, ValueError):
+    from sheets_handler import sheets_handler
 
 # Resolve absolute paths for Vercel
 # Vercel structured as /var/task/api/index.py
@@ -39,14 +43,20 @@ if IS_VERCEL:
     
     # 🔥 HYBRID HISTORY STRATEGY:
     # Jika /tmp/metar_history.csv belum ada, copykan dari root folder (Git)
-    # Ini memastikan history yang sudah masuk kodingan tidak hilang di dashboard
-    if not os.path.exists(CSV_FILE) and os.path.exists(ROOT_CSV):
-        try:
-            import shutil
-            shutil.copy2(ROOT_CSV, CSV_FILE)
-            print("[INIT] Base history copied from project root to /tmp/", file=sys.stderr)
-        except Exception as e:
-            print(f"[INIT] Failed to copy base history: {e}", file=sys.stderr)
+    # ATAU sync dari Google Sheets untuk data terbaru
+    if not os.path.exists(CSV_FILE):
+        sync_success = False
+        if IS_VERCEL:
+            print("[INIT] Attempting sync from Google Sheets...", file=sys.stderr)
+            sync_success = sheets_handler.sync_to_local(CSV_FILE)
+        
+        if not sync_success and os.path.exists(ROOT_CSV):
+            try:
+                import shutil
+                shutil.copy2(ROOT_CSV, CSV_FILE)
+                print("[INIT] Base history copied from project root to /tmp/", file=sys.stderr)
+            except Exception as e:
+                print(f"[INIT] Failed to copy base history: {e}", file=sys.stderr)
 else:
     CSV_FILE = ROOT_CSV
     print("[INIT] Running locally - Using local storage", file=sys.stderr)
@@ -1106,6 +1116,9 @@ def home():
                 df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
                 df.to_csv(CSV_FILE, index=False)
                 print("[HOME] New METAR saved to CSV", file=sys.stderr)
+                
+                # 🔥 Save to Google Sheets
+                sheets_handler.save_metar(station, new_row["time"], metar)
 
             parsed = parse_metar(metar)
             qam = generate_qam(station, parsed, metar)
@@ -1488,6 +1501,9 @@ def background_metar_loop():
                     df.to_csv(CSV_FILE, index=False)
 
                     print("🔥 NEW METAR SAVED!")
+
+                    # 🔥 Sync to Google Sheets
+                    sheets_handler.save_metar(station, new_row["time"], metar)
 
                     parsed = parse_metar(metar)
 
