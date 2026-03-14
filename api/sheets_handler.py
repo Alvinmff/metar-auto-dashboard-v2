@@ -106,6 +106,36 @@ class GoogleSheetHandler:
             print(f"[SHEETS] ❌ Error saving to Sheets: {e}", file=sys.stderr)
             return False
 
+    def get_recent_data(self, limit=20):
+        """Fetch the last N records from Sheets for deduplication context"""
+        if self.sheet is None:
+            self._authenticate()
+            
+        sheet = self.sheet
+        if sheet is None:
+            return []
+
+        try:
+            # Get total rows
+            all_rows = sheet.get_all_values()
+            if len(all_rows) <= 1: # Header only
+                return []
+            
+            # Extract header
+            header = all_rows[0]
+            # Get last 'limit' rows
+            recent_rows = all_rows[-limit:]
+            
+            # Convert to list of dicts (like get_all_records)
+            data = []
+            for row in recent_rows:
+                if len(row) >= len(header):
+                    data.append(dict(zip(header, row)))
+            return data
+        except Exception as e:
+            print(f"[SHEETS] ❌ Error fetching recent data: {e}", file=sys.stderr)
+            return []
+
     def sync_to_local(self, local_path):
         """Fetch all data from Sheets and save to local CSV (for Vercel warmup)"""
         if self.sheet is None:
