@@ -839,6 +839,30 @@ a:hover {
   border-radius: var(--radius-md);
 }
 
+/* Charts Stack (Stacked Vertically) */
+.charts-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  width: 100%;
+}
+
+.charts-stack .chart-card {
+  width: 100%;
+}
+
+.charts-stack .chart-container {
+  position: relative;
+  height: 300px;
+  width: 100%;
+}
+
+/* Responsive: pastikan canvas mengisi container */
+.charts-stack canvas {
+  width: 100% !important;
+  height: 100% !important;
+}
+
 /* ============================================= */
 /* CROSSWIND CALCULATOR                          */
 /* ============================================= */

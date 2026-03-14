@@ -118,36 +118,46 @@
                 {% endif %}
             </div>
 
-            <!-- Charts -->
-            <div class="grid-2 fade-in">
-                <div class="card chart-card">
+            <!-- Charts Stacked Vertically (3 Rows) -->
+            <div class="charts-stack fade-in">
+                <!-- Chart 1: Temperature -->
+                <div class="card chart-card" style="margin-bottom: 20px;">
                     <div class="card-header">
                         <h3 class="card-title"><span class="icon">🌡️</span> Temperature</h3>
                         <button class="btn btn-sm btn-outline" onclick="downloadChart('tempChart')">📥 Download</button>
                     </div>
-                    <div class="chart-container"><canvas id="tempChart"></canvas></div>
+                    <div class="chart-container" style="height: 300px;">
+                        <canvas id="tempChart"></canvas>
+                    </div>
                 </div>
-                <div class="card chart-card">
+
+                <!-- Chart 2: Pressure -->
+                <div class="card chart-card" style="margin-bottom: 20px;">
                     <div class="card-header">
                         <h3 class="card-title"><span class="icon">📊</span> Pressure (QNH)</h3>
-                        <button class="btn btn-sm btn-outline" onclick="downloadChart('pressureChart')">📥
-                            Download</button>
+                        <button class="btn btn-sm btn-outline" onclick="downloadChart('pressureChart')">📥 Download</button>
                     </div>
-                    <div class="chart-container"><canvas id="pressureChart"></canvas></div>
+                    <div class="chart-container" style="height: 300px;">
+                        <canvas id="pressureChart"></canvas>
+                    </div>
                 </div>
-            </div>
 
-            <div class="card chart-card fade-in">
-                <div class="card-header">
-                    <h3 class="card-title"><span class="icon">💨</span> Wind Speed</h3>
-                    <button class="btn btn-sm btn-outline" onclick="downloadChart('windChart')">📥 Download</button>
+                <!-- Chart 3: Wind Speed -->
+                <div class="card chart-card" style="margin-bottom: 20px;">
+                    <div class="card-header">
+                        <h3 class="card-title"><span class="icon">💨</span> Wind Speed</h3>
+                        <button class="btn btn-sm btn-outline" onclick="downloadChart('windChart')">📥 Download</button>
+                    </div>
+                    <div class="chart-container" style="height: 300px;">
+                        <canvas id="windChart"></canvas>
+                    </div>
                 </div>
-                <div class="chart-container"><canvas id="windChart"></canvas></div>
             </div>
 
             <div class="card fade-in">
                 <div class="card-header">
                     <h3 class="card-title"><span class="icon">🧭</span> Wind Rose (Filtered Period)</h3>
+                    <button class="btn btn-sm btn-outline" onclick="downloadChart('windRoseChart')">📥 Download</button>
                 </div>
                 <div id="windRoseHistory" style="height:400px;"></div>
             </div>
@@ -210,7 +220,6 @@
         </main>
     </div>
 
-    <!-- Charts Script -->
     {% if labels and labels|length > 0 %}
     <script>
         const labels = JSON.parse('{{ labels | tojson | safe }}');
@@ -224,7 +233,33 @@
         const gridColor = 'rgba(0,0,0,0.06)';
         const tickColor = '#64748B';
 
+        // Common chart options untuk konsistensi
+        const commonOptions = {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                mode: 'index',
+                intersect: false,
+            },
+            plugins: {
+                legend: {
+                    labels: {
+                        font: { family: 'Inter', size: 12 },
+                        color: '#475569'
+                    }
+                },
+                tooltip: {
+                    backgroundColor: '#1E3A5F',
+                    titleFont: { family: 'Inter', size: 13 },
+                    bodyFont: { family: 'JetBrains Mono', size: 12 },
+                    padding: 12,
+                    cornerRadius: 8
+                }
+            }
+        };
+
         if (labels.length > 0) {
+            // Chart 1: Temperature (Full Width)
             new Chart(document.getElementById('tempChart'), {
                 type: 'line',
                 data: {
@@ -233,53 +268,162 @@
                         label: 'Temperature (°C)',
                         data: temps,
                         borderColor: '#DC2626',
-                        backgroundColor: 'rgba(220,38,38,0.06)',
+                        backgroundColor: 'rgba(220, 38, 38, 0.08)',
                         pointBackgroundColor: '#DC2626',
-                        pointRadius: 3,
-                        fill: true, tension: 0.4, borderWidth: 2.5
+                        pointRadius: 4,
+                        pointHoverRadius: 6,
+                        fill: true,
+                        tension: 0.4,
+                        borderWidth: 2.5
                     }]
                 },
                 options: {
-                    responsive: true, maintainAspectRatio: false,
+                    ...commonOptions,
                     scales: {
-                        y: { grid: { color: gridColor }, ticks: { color: tickColor, font: { family: 'Inter' } }, title: { display: true, text: '°C', color: tickColor } },
-                        x: { grid: { display: false }, ticks: { color: tickColor, font: { family: 'Inter', size: 10 }, maxRotation: 45 } }
+                        y: {
+                            beginAtZero: false,
+                            grid: { color: gridColor },
+                            ticks: { 
+                                color: tickColor, 
+                                font: { family: 'Inter', size: 11 } 
+                            },
+                            title: { 
+                                display: true, 
+                                text: 'Temperature (°C)', 
+                                color: tickColor,
+                                font: { family: 'Inter', weight: 'bold' }
+                            }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: { 
+                                color: tickColor, 
+                                font: { family: 'Inter', size: 10 }, 
+                                maxRotation: 45,
+                                maxTicksLimit: 15
+                            }
+                        }
                     }
                 }
             });
 
+            // Chart 2: Pressure (Full Width)
             new Chart(document.getElementById('pressureChart'), {
                 type: 'line',
-                data: { labels, datasets: [{ label: 'QNH (hPa)', data: pressures, borderColor: '#2E5C8A', backgroundColor: 'rgba(46,92,138,0.06)', fill: true, tension: 0.4, borderWidth: 2.5, pointRadius: 3 }] },
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'QNH (hPa)',
+                        data: pressures,
+                        borderColor: '#2E5C8A',
+                        backgroundColor: 'rgba(46, 92, 138, 0.08)',
+                        pointBackgroundColor: '#2E5C8A',
+                        pointRadius: 4,
+                        pointHoverRadius: 6,
+                        fill: true,
+                        tension: 0.4,
+                        borderWidth: 2.5
+                    }]
+                },
                 options: {
-                    responsive: true, maintainAspectRatio: false,
+                    ...commonOptions,
                     scales: {
-                        y: { grid: { color: gridColor }, ticks: { color: tickColor }, title: { display: true, text: 'hPa', color: tickColor } },
-                        x: { grid: { display: false }, ticks: { color: tickColor, font: { size: 10 }, maxRotation: 45 } }
+                        y: {
+                            beginAtZero: false,
+                            grid: { color: gridColor },
+                            ticks: { 
+                                color: tickColor,
+                                font: { family: 'Inter', size: 11 }
+                            },
+                            title: { 
+                                display: true, 
+                                text: 'Pressure (hPa)', 
+                                color: tickColor,
+                                font: { family: 'Inter', weight: 'bold' }
+                            }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: { 
+                                color: tickColor, 
+                                font: { size: 10 }, 
+                                maxRotation: 45,
+                                maxTicksLimit: 15
+                            }
+                        }
                     }
                 }
             });
 
+            // Chart 3: Wind Speed (Full Width)
             new Chart(document.getElementById('windChart'), {
                 type: 'line',
                 data: {
-                    labels,
+                    labels: labels,
                     datasets: [
-                        { label: 'Wind (KT)', data: winds, borderColor: '#E8B339', backgroundColor: 'rgba(232,179,57,0.08)', fill: true, tension: 0.4, borderWidth: 2.5, pointRadius: 3 },
-                        { label: 'Gust (KT)', data: gusts, borderColor: '#059669', backgroundColor: 'rgba(5,150,105,0.06)', fill: true, tension: 0.4, borderWidth: 2, borderDash: [5, 5], pointRadius: 3 }
+                        {
+                            label: 'Wind Speed (KT)',
+                            data: winds,
+                            borderColor: '#E8B339',
+                            backgroundColor: 'rgba(232, 179, 57, 0.1)',
+                            pointBackgroundColor: '#E8B339',
+                            pointRadius: 4,
+                            pointHoverRadius: 6,
+                            fill: true,
+                            tension: 0.4,
+                            borderWidth: 2.5
+                        },
+                        {
+                            label: 'Wind Gust (KT)',
+                            data: gusts,
+                            borderColor: '#059669',
+                            backgroundColor: 'rgba(5, 150, 105, 0.08)',
+                            pointBackgroundColor: '#059669',
+                            pointRadius: 4,
+                            pointHoverRadius: 6,
+                            fill: true,
+                            tension: 0.4,
+                            borderWidth: 2,
+                            borderDash: [5, 5],
+                            spanGaps: true
+                        }
                     ]
                 },
                 options: {
-                    responsive: true, maintainAspectRatio: false,
+                    ...commonOptions,
                     scales: {
-                        y: { beginAtZero: true, grid: { color: gridColor }, ticks: { color: tickColor }, title: { display: true, text: 'KT', color: tickColor } },
-                        x: { grid: { display: false }, ticks: { color: tickColor, font: { size: 10 }, maxRotation: 45 } }
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: gridColor },
+                            ticks: { 
+                                color: tickColor,
+                                font: { family: 'Inter', size: 11 }
+                            },
+                            title: { 
+                                display: true, 
+                                text: 'Speed (KT)', 
+                                color: tickColor,
+                                font: { family: 'Inter', weight: 'bold' }
+                            }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: { 
+                                color: tickColor, 
+                                font: { size: 10 }, 
+                                maxRotation: 45,
+                                maxTicksLimit: 15
+                            }
+                        }
                     }
                 }
             });
 
-            // Wind Rose
-            const validWind = wind_dirs.map((dir, i) => dir !== null && winds[i] !== null ? { dir: parseInt(dir), speed: winds[i] } : null).filter(x => x);
+            // Wind Rose (tetap di bawah)
+            const validWind = wind_dirs.map((dir, i) => 
+                dir !== null && winds[i] !== null ? { dir: parseInt(dir), speed: winds[i] } : null
+            ).filter(x => x);
+
             if (validWind.length > 0) {
                 Plotly.newPlot('windRoseHistory', [{
                     type: 'barpolar',
@@ -289,25 +433,49 @@
                         color: validWind.map(d => d.speed),
                         colorscale: [[0, '#2E5C8A'], [0.5, '#E8B339'], [1, '#DC2626']],
                         showscale: true,
-                        colorbar: { title: 'KT', thickness: 12, len: 0.6 }
+                        colorbar: { 
+                            title: 'KT', 
+                            thickness: 12, 
+                            len: 0.6,
+                            tickfont: { family: 'Inter', size: 10 },
+                            titlefont: { family: 'Inter', size: 12 }
+                        }
                     },
                     hovertemplate: 'Dir: %{theta}°<br>Speed: %{r} KT<extra></extra>'
                 }], {
                     polar: {
                         bgcolor: 'rgba(0,0,0,0)',
-                        angularaxis: { direction: 'clockwise', rotation: 90, tickmode: 'array', tickvals: [0, 45, 90, 135, 180, 225, 270, 315], ticktext: ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'], tickfont: { size: 12, color: '#1E3A5F', family: 'Inter' } },
-                        radialaxis: { showgrid: true, gridcolor: 'rgba(0,0,0,0.06)', title: 'KT' }
+                        angularaxis: { 
+                            direction: 'clockwise', 
+                            rotation: 90, 
+                            tickmode: 'array', 
+                            tickvals: [0, 45, 90, 135, 180, 225, 270, 315], 
+                            ticktext: ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'], 
+                            tickfont: { size: 12, color: '#1E3A5F', family: 'Inter' } 
+                        },
+                        radialaxis: { 
+                            showgrid: true, 
+                            gridcolor: 'rgba(0,0,0,0.06)', 
+                            title: 'KT',
+                            tickfont: { family: 'Inter', size: 10 }
+                        }
                     },
                     showlegend: false,
                     margin: { t: 30, b: 30, l: 50, r: 50 },
-                    paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)'
+                    paper_bgcolor: 'rgba(0,0,0,0)', 
+                    plot_bgcolor: 'rgba(0,0,0,0)'
                 });
             }
         }
 
         function downloadChart(chartId) {
             if (chartId === 'windRoseChart') {
-                Plotly.downloadImage('windRoseHistory', { format: 'png', width: 800, height: 600, filename: 'windRose' });
+                Plotly.downloadImage('windRoseHistory', { 
+                    format: 'png', 
+                    width: 800, 
+                    height: 600, 
+                    filename: 'windRose' 
+                });
                 return;
             }
             const c = document.getElementById(chartId);

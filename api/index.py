@@ -1328,6 +1328,9 @@ def history_by_date():
                         thunder_flags.append(any(code in metar for code in thunder_codes))
                     
                     print(f"[HISTORY] Chart data extracted: {len(labels)} points")
+                    
+                    # Reverse results for table display (newest first)
+                    results = results.iloc[::-1]
             else:
                 print("[HISTORY] CSV file does not exist")
 
