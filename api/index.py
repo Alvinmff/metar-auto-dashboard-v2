@@ -1480,21 +1480,25 @@ def cron_sync():
     # 1. Check for Vercel Native Cron header
     is_vercel_cron = request.headers.get('x-vercel-cron') == '1'
     
-    # 2. Check for Token-based auth (for external services like Cron-job.org)
-    # Use environment variable CRON_TOKEN or fallback to a default for easy setup
+    # 2. Check for Token-based auth
     expected_token = os.environ.get('CRON_TOKEN', 'bmkg-juanda-secret-123')
     provided_token = request.args.get('auth')
     is_external_cron = provided_token == expected_token
 
     if not is_vercel_cron and not is_external_cron:
-        print("[CRON] ❌ Unauthorized access attempt", file=sys.stderr)
-        return jsonify({"error": "Unauthorized", "hint": "Provide ?auth=YOUR_TOKEN"}), 401
+        print(f"[CRON] ❌ Unauthorized attempt from {request.remote_addr}. Token provided: {'YES' if provided_token else 'NO'}", file=sys.stderr)
+        return jsonify({
+            "error": "Unauthorized", 
+            "hint": "Provide valid ?auth= token",
+            "received_token": provided_token[:3] + "..." if provided_token else None
+        }), 401
 
-    print(f"[CRON] ⏰ Background sync triggered (Type: {'Vercel' if is_vercel_cron else 'External'})", file=sys.stderr)
+    auth_type = 'Vercel' if is_vercel_cron else 'External'
+    print(f"[CRON] ⏰ Background sync triggered (Type: {auth_type})", file=sys.stderr)
     success = update_metar_data_and_sync("WARR")
     
     if success:
-        return jsonify({"status": "success", "message": "Background sync complete"}), 200
+        return jsonify({"status": "success", "message": f"Sync complete via {auth_type}"}), 200
     else:
         return jsonify({"status": "failed", "message": "Sync failed or no new data"}), 500
 
