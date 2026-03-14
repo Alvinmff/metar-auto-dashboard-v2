@@ -1470,6 +1470,35 @@ def latest_data():
     return jsonify(data)
 
 # =========================
+# CRON JOB ENDPOINT (For 24/7 background sync)
+# =========================
+@app.route("/api/cron/sync")
+def cron_sync():
+    """
+    Automated endpoint triggered by Vercel Cron.
+    Fetches latest METAR and syncs to Google Sheets without user interaction.
+    """
+    # Security: Verify this request is from Vercel's Cron service
+    # Vercel adds 'X-Vercel-Cron': '1' to cron requests
+    is_cron = request.headers.get('x-vercel-cron') == '1'
+    
+    # Optional: Allow manually if a secret is provided (for testing)
+    auth_header = request.headers.get('Authorization')
+    is_manual = auth_header == f"Bearer {os.environ.get('CRON_SECRET')}" if os.environ.get('CRON_SECRET') else False
+
+    if not is_cron and not is_manual:
+        print("[CRON] ❌ Unauthorized access attempt", file=sys.stderr)
+        return jsonify({"error": "Unauthorized"}), 401
+
+    print("[CRON] ⏰ Background sync triggered", file=sys.stderr)
+    success = update_metar_data_and_sync("WARR")
+    
+    if success:
+        return jsonify({"status": "success", "message": "Background sync complete"}), 200
+    else:
+        return jsonify({"status": "failed", "message": "Sync failed or no new data"}), 500
+
+# =========================
 # CENTRALIZED METAR UPDATE DATA & SYNC
 # =========================
 def update_metar_data_and_sync(station="WARR"):
