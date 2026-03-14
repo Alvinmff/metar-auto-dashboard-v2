@@ -1421,7 +1421,8 @@ def latest_data():
             print(f"[POLL] Data stale or missing, triggering sync for WARR...", file=sys.stderr)
             update_metar_data_and_sync("WARR")
 
-    # Fallback: if no cached data yet, try to build from CSV
+    # Ensure latest_metar_data is populated if available in CSV but missing in cache
+    # (Happens on first load or after server restart in serverless environments)
     if not latest_metar_data and os.path.exists(CSV_FILE):
         try:
             df = pd.read_csv(CSV_FILE)
@@ -1434,7 +1435,7 @@ def latest_data():
                 narrative = generate_metar_narrative(parsed, metar)
                 last_metar_update = pd.to_datetime(last_row["time"]).isoformat() + "Z"
                 
-                return jsonify({
+                latest_metar_data = {
                     "status": "cached",
                     "raw": metar,
                     "qam": qam,
@@ -1449,13 +1450,10 @@ def latest_data():
                     "qnh": parsed.get("pressure_hpa"),
                     "weather": parsed.get("weather"),
                     "metar_status": parsed.get("status", "normal"),
-                    "report_type": parsed.get("report_type", "METAR"),
-                    "auto_fetch": auto_fetch,
-                    "last_update": last_metar_update,
-                    "server": "online"
-                })
+                    "report_type": parsed.get("report_type", "METAR")
+                }
         except Exception as e:
-            print(f"[POLL] Error building fallback data: {e}")
+            print(f"[POLL] Error building fallback data: {e}", file=sys.stderr)
 
     # Return cached data with current system status
     data = {}

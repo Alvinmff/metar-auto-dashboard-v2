@@ -770,10 +770,14 @@ function handleMetarUpdate(data) {
     const lastSaved = document.getElementById('lastSaved');
     if (lastSaved) lastSaved.textContent = formatted;
 
-    // Refresh charts dan tables
-    updateCharts();
-    updateHistoryTable();
-    updateMiniTimeline();
+    // Refresh ALL UI Components in sync
+    if (typeof loadHistory === 'function') loadHistory(); // Updates Charts
+    if (typeof updateHistoryTable === 'function') updateHistoryTable(); // Updates Table
+    if (typeof loadWindCompass === 'function') loadWindCompass();
+    if (typeof loadWindRose === 'function') loadWindRose();
+    
+    // updateMiniTimeline(); // 🔥 DISABLED
+    
     runMetarValidation(data.raw);
     
     // Update status panel
@@ -1205,31 +1209,7 @@ async function loadHistory() {
 // =======================
 // FETCH METAR DATA
 // =======================
-async function fetchMetar() {
-    try {
-        const res = await fetch(`/api/metar/${STATION}`);
-        const data = await res.json();
-        if (data.error) return;
-
-        if (data.raw) {
-            updateDecodedPanel(data.raw);
-            const rawEl = document.getElementById('metarRawCode');
-            if (rawEl) {
-                let htmlStr = highlightMetar(data.raw);
-                if (data.report_type === 'COR' || data.raw.includes('COR') || data.raw.includes('CCA')) {
-                    htmlStr += '\n                        <span class="badge" style="background-color: #f59e0b; color: #1e293b; margin-left: 10px; font-size: 0.75rem; padding: 4px 8px; vertical-align: middle;">⚠️ COR</span>';
-                } else if (data.report_type === 'AMD' || data.raw.includes('AMD')) {
-                    htmlStr += '\n                        <span class="badge" style="background-color: #3b82f6; color: #ffffff; margin-left: 10px; font-size: 0.75rem; padding: 4px 8px; vertical-align: middle;">⚠️ AMD</span>';
-                } else if (data.report_type === 'SPECI' || data.raw.includes('SPECI')) {
-                    htmlStr += '\n                        <span class="badge" style="background-color: #ef4444; color: #ffffff; margin-left: 10px; font-size: 0.75rem; padding: 4px 8px; vertical-align: middle;">⚠️ SPECI</span>';
-                }
-                rawEl.innerHTML = htmlStr;
-            }
-        }
-    } catch (e) {
-        console.error('METAR fetch error:', e);
-    }
-}
+// 🗑️ fetchMetar() removed - replaced by pollLatestData() for consistency
 
 // =======================
 // HISTORY TABLE UPDATE
@@ -1505,44 +1485,10 @@ document.addEventListener('DOMContentLoaded', function () {
     loadWindCompass();
     loadWindRose();
 
-    // Initial METAR fetch & decode
-    if (typeof STATION !== 'undefined' && STATION) {
-        fetch(`/api/metar/${STATION}`)
-            .then(r => r.json())
-            .then(data => {
-                if (data.raw) {
-                    lastMetarRaw = data.raw;
-                    lastVisibility = data.visibility_m;
-                    lastMetarStatus = data.status || 'normal';
-                    const tsCodes = ['TS', 'TSRA', 'VCTS', '+TS', 'TSGR'];
-                    lastHasTS = tsCodes.some(c => data.raw.includes(c));
-                    
-                    updateDecodedPanel(data.raw);
-                    const rawEl = document.getElementById('metarRawCode');
-                    if (rawEl) {
-                        let htmlStr = highlightMetar(data.raw);
-                        if (data.report_type === 'COR' || data.raw.includes('COR') || data.raw.includes('CCA')) {
-                            htmlStr += '\n                        <span class="badge" style="background-color: #f59e0b; color: #1e293b; margin-left: 10px; font-size: 0.75rem; padding: 4px 8px; vertical-align: middle;">⚠️ COR</span>';
-                        } else if (data.report_type === 'AMD' || data.raw.includes('AMD')) {
-                            htmlStr += '\n                        <span class="badge" style="background-color: #3b82f6; color: #ffffff; margin-left: 10px; font-size: 0.75rem; padding: 4px 8px; vertical-align: middle;">⚠️ AMD</span>';
-                        } else if (data.report_type === 'SPECI' || data.raw.includes('SPECI')) {
-                            htmlStr += '\n                        <span class="badge" style="background-color: #ef4444; color: #ffffff; margin-left: 10px; font-size: 0.75rem; padding: 4px 8px; vertical-align: middle;">⚠️ SPECI</span>';
-                        }
-                        rawEl.innerHTML = htmlStr;
-                    }
-                    
-                    // If sound is ALREADY enabled and condition is bad, try to play 
-                    // (though browser may block until interaction)
-                    if (soundEnabled && (lastVisibility < 3000 || lastHasTS)) {
-                         playAlarm();
-                    }
+    // 6. Initial poll replaces old individual fetch
+    console.log('[INIT] Triggering first poll...');
+    pollLatestData();
 
-                    // Initial Validation
-                    runMetarValidation(data.raw);
-                }
-            });
-    }
-
-    // Auto refresh
-    setInterval(fetchMetar, 60000);
+    // Initial poll will handle first load
+    // setInterval(fetchMetar, 60000); // 🗑️ REMOVED REDUNDANT LOOP
 });
