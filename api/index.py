@@ -1388,6 +1388,11 @@ def toggle_fetch():
     })
 
 # =========================
+@app.route('/favicon.ico')
+def favicon():
+    return '', 204
+
+# =========================
 # POLLING ENDPOINT (replaces WebSocket)
 # =========================
 @app.route("/api/latest-data")

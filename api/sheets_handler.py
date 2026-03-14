@@ -24,14 +24,12 @@ class GoogleSheetHandler:
         try:
             creds_json = os.environ.get("GOOGLE_SHEETS_CREDENTIALS")
             creds = None
-            
             if creds_json:
-                print("[SHEETS] Found GOOGLE_SHEETS_CREDENTIALS environment variable", file=sys.stderr)
                 try:
                     # Parse JSON string from env var
                     info = json.loads(creds_json)
                     creds = Credentials.from_service_account_info(info, scopes=self.scope)
-                    print("[SHEETS] Credentials parsed successfully from JSON string", file=sys.stderr)
+                    print(f"[SHEETS] Credentials for {info.get('client_email')} parsed successfully", file=sys.stderr)
                 except Exception as json_err:
                     print(f"[SHEETS] ❌ JSON Parse Error on Credentials: {json_err}", file=sys.stderr)
                     return
@@ -47,13 +45,16 @@ class GoogleSheetHandler:
             if not creds:
                 return
 
+            print("[SHEETS] Authorizing client...", file=sys.stderr)
             client = gspread.authorize(creds)
             self.client = client
             
             # Try to open the spreadsheet
             if client is not None:
+                print(f"[SHEETS] Opening spreadsheet by key: {SPREADSHEET_ID}", file=sys.stderr)
                 spreadsheet = client.open_by_key(SPREADSHEET_ID)
                 if spreadsheet is not None:
+                    print("[SHEETS] Spreadsheet opened, fetching worksheet...", file=sys.stderr)
                     worksheet = spreadsheet.get_worksheet(0)
                     if worksheet is not None:
                         self.sheet = worksheet
@@ -75,7 +76,9 @@ class GoogleSheetHandler:
                 print("[SHEETS] ❌ Failed to authorize client", file=sys.stderr)
 
         except Exception as e:
+            import traceback
             print(f"[SHEETS] ❌ Authentication Error: {e}", file=sys.stderr)
+            traceback.print_exc()
 
     def save_metar(self, station, time, metar):
         """Append a new METAR record to Google Sheets"""
