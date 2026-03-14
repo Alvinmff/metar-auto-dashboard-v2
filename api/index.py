@@ -1503,12 +1503,35 @@ def cron_sync():
         return jsonify({"status": "failed", "message": "Sync failed or no new data"}), 500
 
 # =========================
-# CENTRALIZED METAR UPDATE DATA & SYNC
+# HELPER: Normalize METAR for accurate comparison
+# =========================
+def normalize_metar(metar: str) -> str:
+    """
+    Normalisasi string METAR untuk comparison yang akurat.
+    Menghilangkan perbedaan formatting yang tidak signifikan.
+    """
+    if not metar:
+        return ""
+    # Remove trailing = (marker akhir METAR)
+    metar = metar.replace("=", "")
+    # Normalize whitespace (multiple spaces -> single space, strip ends)
+    metar = " ".join(metar.split())
+    # Uppercase untuk consistency
+    metar = metar.upper().strip()
+    return metar
+
+# =========================
+# CENTRALIZED METAR UPDATE DATA & SYNC (ANTI-DUPLIKASI)
 # =========================
 def update_metar_data_and_sync(station="WARR"):
     """
     Central function to fetch METAR, save locally, sync to Google Sheets, 
-    and update global cache. Works on Vercel by running per-request.
+    and update global cache. 
+    
+    LOGIKA ANTI-DUPLIKASI:
+    - Hanya menyimpan jika METAR benar-benar berbeda dari yang sudah ada
+      dalam 24 jam terakhir, ATAU jika sudah lewat 30 menit dari update terakhir
+      dengan data yang sama (untuk tracking continuity).
     """
     global last_metar_update, latest_metar_data, auto_fetch
     
@@ -1519,76 +1542,151 @@ def update_metar_data_and_sync(station="WARR"):
         if not metar:
             print("[SYNC] ❌ No METAR received", file=sys.stderr)
             return False
+        
+        # Normalisasi untuk comparison
+        metar_clean = normalize_metar(metar)
+        print(f"[SYNC] Raw METAR: {metar[:80]}...", file=sys.stderr)
+        print(f"[SYNC] Normalized: {metar_clean[:80]}...", file=sys.stderr)
 
-        # Load current CSV for comparison
+        # Load current CSV untuk cek duplikat
         if not os.path.exists(CSV_FILE):
             pd.DataFrame(columns=["station", "time", "metar"]).to_csv(CSV_FILE, index=False)
         
         df = pd.read_csv(CSV_FILE)
-        is_new = len(df) == 0 or df.iloc[-1]["metar"] != metar
         
-        if is_new:
-            print("[SYNC] ✨ NEW METAR detected! Saving...", file=sys.stderr)
-            new_row = {
-                "station": station,
-                "time": datetime.utcnow(),
-                "metar": metar
-            }
+        # =====================================================
+        # LOGIKA ANTI-DUPLIKASI - CHECK 1: 24-hour window
+        # =====================================================
+        should_save = True
+        skip_reason = ""
+        
+        if len(df) > 0:
+            df["time"] = pd.to_datetime(df["time"], errors='coerce')
             
-            # Save to CSV with consistent format (no milliseconds)
-            new_row_df = pd.DataFrame([new_row])
-            new_row_df["time"] = pd.to_datetime(new_row_df["time"]).dt.strftime("%Y-%m-%d %H:%M:%S")
+            # Cek dalam 24 jam terakhir: apakah METAR ini sudah pernah tercatat?
+            time_24h_ago = datetime.utcnow() - timedelta(hours=24)
+            recent_df = df[df["time"] > time_24h_ago]
             
-            df = pd.concat([df, new_row_df], ignore_index=True)
-            df.to_csv(CSV_FILE, index=False)
-            
-            # 🔥 SYNC TO GOOGLE SHEETS
+            if len(recent_df) > 0:
+                # Normalisasi semua METAR recent untuk comparison
+                recent_metars_clean = [normalize_metar(str(m)) for m in recent_df["metar"].tolist()]
+                
+                if metar_clean in recent_metars_clean:
+                    # METAR ini sudah ada dalam 24 jam terakhir
+                    # Cari entri yang sama untuk cek waktunya
+                    # Find all indices where metar matches
+                    matching_indices = [i for i, m in enumerate(recent_metars_clean) if m == metar_clean]
+                    # Get the most recent match
+                    last_match_idx = matching_indices[-1]
+                    matching_time = recent_df.iloc[last_match_idx]["time"]
+                    
+                    if pd.notnull(matching_time):
+                        time_diff = (datetime.utcnow() - matching_time).total_seconds()
+                        
+                        # Jika sudah lewat 30 menit (1800 detik) dari entri yang sama,
+                        # kita boleh save lagi untuk tracking continuity
+                        if time_diff < 1800:  # Kurang dari 30 menit
+                            should_save = False
+                            skip_reason = f"Duplikat: METAR identik sudah tercatat {time_diff/60:.1f} menit lalu"
+                        else:
+                            # Lebih dari 30 menit, save lagi meski sama (refresh data)
+                            should_save = True
+                            skip_reason = ""
+                            print(f"[SYNC] METAR sama tapi sudah {time_diff/60:.1f} menit, akan di-refresh", file=sys.stderr)
+        
+        # =====================================================
+        # LOGIKA ANTI-DUPLIKASI - CHECK 2: Last entry immediate check
+        # =====================================================
+        if should_save and len(df) > 0:
+            last_row = df.iloc[-1]
+            last_metar_clean = normalize_metar(str(last_row["metar"]))
             try:
-                print(f"[SYNC] Pushing to Google Sheets...", file=sys.stderr)
-                sheets_handler.save_metar(station, new_row["time"], metar)
-            except Exception as e:
-                print(f"[SYNC] ❌ Google Sheets Error: {e}", file=sys.stderr)
-
-            # Update cache
-            parsed = parse_metar(metar)
-            qam = generate_qam(station, parsed, metar)
-            narrative = generate_metar_narrative(parsed, metar)
-            
-            # 🔥 simpan ke wind history
-            store_wind(parsed, station)
-
-            latest_metar_data = {
-                "status": "new",
-                "qam": qam,
-                "raw": metar,
-                "narrative": narrative,
-                "time": datetime.utcnow().strftime("%d-%m-%Y %H:%M:%S"),
-                "wind_dir": parsed.get("wind_dir"),
-                "wind_speed": parsed.get("wind_speed_kt"),
-                "wind_gust": parsed.get("wind_gust_kt"),
-                "temp": parsed.get("temperature_c"),
-                "dewpoint": parsed.get("dewpoint_c"),
-                "visibility_m": parsed.get("visibility_m"),
-                "cloud": parsed.get("cloud"),
-                "qnh": parsed.get("pressure_hpa"),
-                "weather": parsed.get("weather"),
-                "metar_status": parsed.get("status", "normal"),
-                "report_type": parsed.get("report_type", "METAR"),
-                "auto_fetch": auto_fetch,
-                "last_update": datetime.utcnow().isoformat() + "Z"
-            }
-            last_metar_update = latest_metar_data["last_update"]
-            return True
-        else:
-            print("[SYNC] METAR unchanged, updating cache timestamp only", file=sys.stderr)
-            # Update cache timestamp to avoid frequent retries
+                last_time = pd.to_datetime(last_row["time"])
+                if pd.notnull(last_time):
+                    # Jika METAR sama persis dengan yang terakhir DAN waktunya kurang dari 5 menit
+                    if metar_clean == last_metar_clean:
+                        time_diff_last = (datetime.utcnow() - last_time).total_seconds()
+                        if time_diff_last < 300:  # Kurang dari 5 menit
+                            should_save = False
+                            skip_reason = f"Duplikat immediate: data sama {time_diff_last:.0f} detik yang lalu"
+            except:
+                pass
+        
+        # =====================================================
+        # EXECUTE SAVE OR SKIP
+        # =====================================================
+        if not should_save:
+            print(f"[SYNC] ⏭️ SKIP: {skip_reason}", file=sys.stderr)
+            # Update timestamp saja untuk tracking
             last_metar_update = datetime.utcnow().isoformat() + "Z"
             if latest_metar_data:
                 latest_metar_data["last_update"] = last_metar_update
-            return True
-
+                latest_metar_data["status"] = "duplicate_skipped"
+            return True  # Return True karena bukan error
+        
+        # =====================================================
+        # SAVE NEW DATA
+        # =====================================================
+        print("[SYNC] ✨ NEW/REFRESHED METAR detected! Saving...", file=sys.stderr)
+        
+        new_row = {
+            "station": station,
+            "time": datetime.utcnow(),
+            "metar": metar  # Simpan original, tidak normalized
+        }
+        
+        # Format waktu tanpa milliseconds untuk consistency
+        new_row_df = pd.DataFrame([new_row])
+        new_row_df["time"] = pd.to_datetime(new_row_df["time"]).dt.strftime("%Y-%m-%d %H:%M:%S")
+        
+        df = pd.concat([df, new_row_df], ignore_index=True)
+        df.to_csv(CSV_FILE, index=False)
+        
+        # 🔥 SYNC TO GOOGLE SHEETS
+        try:
+            print(f"[SYNC] Pushing to Google Sheets...", file=sys.stderr)
+            sheets_handler.save_metar(station, new_row["time"], metar)
+            print(f"[SYNC] ✅ Google Sheets synced", file=sys.stderr)
+        except Exception as e:
+            print(f"[SYNC] ❌ Google Sheets Error: {e}", file=sys.stderr)
+            # Tetap lanjut meski Sheets gagal, data sudah di CSV
+        
+        # Update cache dengan data baru
+        parsed = parse_metar(metar)
+        qam = generate_qam(station, parsed, metar)
+        narrative = generate_metar_narrative(parsed, metar)
+        
+        # Simpan ke wind history
+        store_wind(parsed, station)
+        
+        latest_metar_data = {
+            "status": "new",
+            "qam": qam,
+            "raw": metar,
+            "narrative": narrative,
+            "time": datetime.utcnow().strftime("%d-%m-%Y %H:%M:%S"),
+            "wind_dir": parsed.get("wind_dir"),
+            "wind_speed": parsed.get("wind_speed_kt"),
+            "wind_gust": parsed.get("wind_gust_kt"),
+            "temp": parsed.get("temperature_c"),
+            "dewpoint": parsed.get("dewpoint_c"),
+            "visibility_m": parsed.get("visibility_m"),
+            "cloud": parsed.get("cloud"),
+            "qnh": parsed.get("pressure_hpa"),
+            "weather": parsed.get("weather"),
+            "metar_status": parsed.get("status", "normal"),
+            "report_type": parsed.get("report_type", "METAR"),
+            "auto_fetch": auto_fetch,
+            "last_update": datetime.utcnow().isoformat() + "Z"
+        }
+        last_metar_update = latest_metar_data["last_update"]
+        
+        print(f"[SYNC] ✅ Data saved successfully at {last_metar_update}", file=sys.stderr)
+        return True
+        
     except Exception as e:
         print(f"[SYNC] ❌ Critical Update Error: {e}", file=sys.stderr)
+        import traceback
         traceback.print_exc()
         return False
 
