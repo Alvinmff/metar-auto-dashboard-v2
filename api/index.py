@@ -13,9 +13,9 @@ from collections import deque
 import sys
 import traceback
 try:
-    from .sheets_handler import sheets_handler
+    from .sheets_handler import sheets_handler  # type: ignore
 except (ImportError, ValueError):
-    from sheets_handler import sheets_handler
+    from sheets_handler import sheets_handler  # type: ignore
 
 # Resolve absolute paths for Vercel
 # Vercel structured as /var/task/api/index.py
@@ -1138,7 +1138,7 @@ def home():
                 print("[HOME] Live sync failed or no new data", file=sys.stderr)
         
         # Pull global data for display
-        metar = latest_metar_data.get("raw")
+        metar = str(latest_metar_data.get("raw") or "")
         if metar:
             parsed = parse_metar(metar)
             qam = latest_metar_data.get("qam")
@@ -1583,8 +1583,8 @@ def update_metar_data_and_sync(station="WARR"):
         
         # Normalisasi untuk comparison
         metar_clean = normalize_metar(metar)
-        print(f"[SYNC] Raw METAR: {metar[:80]}...", file=sys.stderr)
-        print(f"[SYNC] Normalized: {metar_clean[:80]}...", file=sys.stderr)
+        print(f"[SYNC] Raw METAR: {str(metar)[:80]}...", file=sys.stderr)  # type: ignore
+        print(f"[SYNC] Normalized: {str(metar_clean)[:80]}...", file=sys.stderr)  # type: ignore
 
         # =====================================================
         # GLOBAL CONTEXT: Fetch recent history directly from Sheets
