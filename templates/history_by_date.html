@@ -33,7 +33,8 @@
             <div class="header-right">
                 <div class="wib-clock" id="wibClock">--:--:-- <small>WIB</small></div>
                 <div class="utc-clock" id="utcClock">--:--:-- <small>UTC</small></div>
-                <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Toggle Dark/Light Mode">🌙</button>
+                <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()"
+                    title="Toggle Dark/Light Mode">🌙</button>
                 <button class="sound-toggle" id="soundToggle" onclick="enableSound()">🔇 Sound</button>
                 <div class="connection-status" id="connectionStatus">
                     <span class="connection-dot" id="connectionDot"></span>
@@ -46,7 +47,7 @@
         <aside class="app-sidebar" id="appSidebar">
             <!-- Airplane & Tower Decoration -->
             <div class="airplane-decor-container fade-in" style="animation-delay:0.08s">
-                <img src="{{ url_for('static', filename='images/pesawat.png') }}" alt="Airplane Decor"
+                <img src="{{ url_for('static', filename='images/pesawat2.png') }}" alt="Airplane Decor"
                     class="dashboard-airplane-img">
                 <img src="{{ url_for('static', filename='images/tower.png') }}" alt="Tower Decor"
                     class="dashboard-tower-img">
@@ -179,14 +180,23 @@
                                 <td>{{ row.time }}</td>
                                 <td class="metar-cell">
                                     {{ row.metar }}
-                                    {% if " COR " in row.metar or row.metar.startswith("METAR COR") or " CCA " in row.metar or "CCA" in row.metar %}
-                                    <span class="badge badge-cor" style="background-color: #f59e0b; color: #1e293b; margin-left: 6px; font-size: 0.70rem; padding: 2px 6px; vertical-align: middle;">🟡 COR</span>
+                                    {% if " COR " in row.metar or row.metar.startswith("METAR COR") or " CCA " in
+                                    row.metar or "CCA" in row.metar %}
+                                    <span class="badge badge-cor"
+                                        style="background-color: #f59e0b; color: #1e293b; margin-left: 6px; font-size: 0.70rem; padding: 2px 6px; vertical-align: middle;">🟡
+                                        COR</span>
                                     {% elif " AMD " in row.metar or row.metar.startswith("METAR AMD") %}
-                                    <span class="badge badge-amd" style="background-color: #3b82f6; color: #ffffff; margin-left: 6px; font-size: 0.70rem; padding: 2px 6px; vertical-align: middle;">🔵 AMD</span>
+                                    <span class="badge badge-amd"
+                                        style="background-color: #3b82f6; color: #ffffff; margin-left: 6px; font-size: 0.70rem; padding: 2px 6px; vertical-align: middle;">🔵
+                                        AMD</span>
                                     {% elif " SPECI " in row.metar or row.metar.startswith("SPECI ") %}
-                                    <span class="badge badge-speci" style="background-color: #ef4444; color: #ffffff; margin-left: 6px; font-size: 0.70rem; padding: 2px 6px; vertical-align: middle;">🔴 SPECI</span>
+                                    <span class="badge badge-speci"
+                                        style="background-color: #ef4444; color: #ffffff; margin-left: 6px; font-size: 0.70rem; padding: 2px 6px; vertical-align: middle;">🔴
+                                        SPECI</span>
                                     {% else %}
-                                    <span class="badge badge-metar" style="background-color: #059669; color: #ffffff; margin-left: 6px; font-size: 0.70rem; padding: 2px 6px; vertical-align: middle;">🟢 METAR</span>
+                                    <span class="badge badge-metar"
+                                        style="background-color: #059669; color: #ffffff; margin-left: 6px; font-size: 0.70rem; padding: 2px 6px; vertical-align: middle;">🟢
+                                        METAR</span>
                                     {% endif %}
                                 </td>
                             </tr>

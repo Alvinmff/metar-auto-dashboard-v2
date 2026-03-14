@@ -31,7 +31,8 @@
             <div class="header-right">
                 <div class="wib-clock" id="wibClock">--:--:-- <small>WIB</small></div>
                 <div class="utc-clock" id="utcClock">--:--:-- <small>UTC</small></div>
-                <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Toggle Dark/Light Mode">🌙</button>
+                <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()"
+                    title="Toggle Dark/Light Mode">🌙</button>
                 <button class="sound-toggle" id="soundToggle" onclick="enableSound()">🔇 Sound</button>
                 <div class="connection-status" id="connectionStatus">
                     <span class="connection-dot" id="connectionDot"></span>
@@ -44,7 +45,7 @@
         <aside class="app-sidebar" id="appSidebar">
             <!-- Airplane & Tower Decoration -->
             <div class="airplane-decor-container fade-in" style="animation-delay:0.08s">
-                <img src="{{ url_for('static', filename='images/pesawat.png') }}" alt="Airplane Decor"
+                <img src="{{ url_for('static', filename='images/pesawat2.png') }}" alt="Airplane Decor"
                     class="dashboard-airplane-img">
                 <img src="{{ url_for('static', filename='images/tower.png') }}" alt="Tower Decor"
                     class="dashboard-tower-img">
@@ -97,9 +98,11 @@
                 </form>
 
                 {% if validation_results %}
-                <div class="validation-card {% if validation_results[0].startswith('✅') %}validation-success{% else %}validation-error{% endif %}">
+                <div
+                    class="validation-card {% if validation_results[0].startswith('✅') %}validation-success{% else %}validation-error{% endif %}">
                     <h4 style="margin-bottom: 10px; font-size: 0.95rem;">📋 Validation Results:</h4>
-                    <ul style="list-style: none; padding: 0; margin: 0; font-family: 'JetBrains Mono', monospace; font-size: 0.85rem;">
+                    <ul
+                        style="list-style: none; padding: 0; margin: 0; font-family: 'JetBrains Mono', monospace; font-size: 0.85rem;">
                         {% for res in validation_results %}
                         <li style="margin-bottom: 4px;">{{ res }}</li>
                         {% endfor %}

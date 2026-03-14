@@ -113,10 +113,11 @@ async function pollLatestData() {
 // =======================
 // KEEP-ALIVE PING
 // =======================
-// Start polling every 30 seconds
-setInterval(pollLatestData, 30000);
-// Initial poll
-pollLatestData();
+// Start polling every 30 seconds (only if we have pollLatestData)
+if (typeof pollLatestData === 'function') {
+    setInterval(pollLatestData, 30000);
+    pollLatestData();
+}
 
 // =======================
 // CLOCKS (UTC & WIB)
@@ -191,8 +192,10 @@ function updateChartColors() {
     const gridColor = isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.06)';
     const tickColor = isDark ? '#94A3B8' : '#64748B';
 
-    [tempChart, pressureChart, windChart].forEach(chart => {
-        if (chart) {
+    // Update charts if they exist and library is loaded
+    if (typeof Chart !== 'undefined') {
+        [tempChart, pressureChart, windChart].forEach(chart => {
+            if (chart) {
             if (chart.options && chart.options.scales) {
                 if (chart.options.scales.x) {
                     chart.options.scales.x.grid.color = gridColor;
@@ -212,6 +215,7 @@ function updateChartColors() {
             chart.update();
         }
     });
+    }
 
     // Update Wind widgets if Plotly is used
     if (typeof loadWindCompass === 'function') {
@@ -1403,6 +1407,8 @@ function updateWindCompassDisplay(windDir, windSpeed) {
 // WIND ROSE (Plotly)
 // =======================
 function loadWindRose() {
+    if (typeof Plotly === 'undefined') return;
+    if (typeof STATION === 'undefined' || !STATION) return;
     fetch(`/api/windrose/${STATION}`)
         .then(r => r.json())
         .then(data => {
@@ -1464,16 +1470,7 @@ setInterval(loadWindRose, 10000);
 // INITIALIZATION
 // =======================
 document.addEventListener('DOMContentLoaded', function () {
-    // Clocks
-    updateClocks();
-
-    // Sidebar
-    initSidebar();
-
-    // Theme (Apply saved preference)
-    applyTheme(currentTheme);
-
-    // Sync Sound Button UI with persistent state
+    // 1. Sync Sound Button UI FIRST (Most critical for UX persistence)
     const soundToggleBtn = document.getElementById('soundToggle');
     if (soundToggleBtn) {
         if (soundEnabled) {
@@ -1485,9 +1482,18 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
-    // Staggered card fade-in
+    // 2. Clocks
+    updateClocks();
+
+    // 3. Sidebar
+    initSidebar();
+
+    // 4. Theme (Apply saved preference)
+    applyTheme(currentTheme);
+
+    // 5. Staggered card fade-in
     document.querySelectorAll('.card, .metar-raw-panel').forEach((el, i) => {
-        el.style.animationDelay = `${0.05 + i * 0.06}s`;
+        if (el) el.style.animationDelay = `${0.05 + i * 0.06}s`;
     });
 
     // Create charts
