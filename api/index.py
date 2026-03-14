@@ -847,7 +847,7 @@ def api_metar_history():
 
     df = pd.read_csv(CSV_FILE).tail(30)
 
-    df["time"] = pd.to_datetime(df["time"])
+    df["time"] = pd.to_datetime(df["time"], format='mixed')
     df = df.sort_values("time")
 
     df["metar"] = df["metar"].fillna("").astype(str)
@@ -1535,8 +1535,11 @@ def update_metar_data_and_sync(station="WARR"):
                 "metar": metar
             }
             
-            # Save to CSV
-            df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
+            # Save to CSV with consistent format (no milliseconds)
+            new_row_df = pd.DataFrame([new_row])
+            new_row_df["time"] = pd.to_datetime(new_row_df["time"]).dt.strftime("%Y-%m-%d %H:%M:%S")
+            
+            df = pd.concat([df, new_row_df], ignore_index=True)
             df.to_csv(CSV_FILE, index=False)
             
             # 🔥 SYNC TO GOOGLE SHEETS

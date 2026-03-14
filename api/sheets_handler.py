@@ -124,6 +124,9 @@ class GoogleSheetHandler:
                 return False
 
             df = pd.DataFrame(all_data)
+            # Standardize time format during sync
+            if "time" in df.columns:
+                df["time"] = pd.to_datetime(df["time"], format='mixed').dt.strftime("%Y-%m-%d %H:%M:%S")
             df.to_csv(local_path, index=False)
             print(f"[SHEETS] ✅ Sync complete: {len(df)} rows saved to local", file=sys.stderr)
             return True
