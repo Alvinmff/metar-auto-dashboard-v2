@@ -1664,11 +1664,36 @@ def update_metar_data_and_sync(station="WARR"):
         # =====================================================
         if not should_save:
             print(f"[SYNC] ⏭️ SKIP: {skip_reason}", file=sys.stderr)
-            # Update timestamp saja untuk tracking
+            # Update timestamp and cache even if skip saving
             last_metar_update = datetime.utcnow().isoformat() + "Z"
-            if latest_metar_data:
-                latest_metar_data["last_update"] = last_metar_update
-                latest_metar_data["status"] = "duplicate_skipped"
+            
+            # 🔥 CRITICAL: Update global cache with freshly fetched data 
+            # even if we didn't save a new row to the database.
+            # This prevents "flip-flop" in serverless environments.
+            parsed = parse_metar(metar)
+            qam = generate_qam(station, parsed, metar)
+            narrative = generate_metar_narrative(parsed, metar)
+            
+            latest_metar_data = {
+                "status": "duplicate_skipped",
+                "qam": qam,
+                "raw": metar,
+                "narrative": narrative,
+                "time": datetime.utcnow().strftime("%d-%m-%Y %H:%M:%S"),
+                "wind_dir": parsed.get("wind_dir"),
+                "wind_speed": parsed.get("wind_speed_kt"),
+                "wind_gust": parsed.get("wind_gust_kt"),
+                "temp": parsed.get("temperature_c"),
+                "dewpoint": parsed.get("dewpoint_c"),
+                "visibility_m": parsed.get("visibility_m"),
+                "cloud": parsed.get("cloud"),
+                "qnh": parsed.get("pressure_hpa"),
+                "weather": parsed.get("weather"),
+                "metar_status": parsed.get("status", "normal"),
+                "report_type": parsed.get("report_type", "METAR"),
+                "auto_fetch": auto_fetch,
+                "last_update": last_metar_update
+            }
             return True  # Return True karena bukan error
         
         # =====================================================

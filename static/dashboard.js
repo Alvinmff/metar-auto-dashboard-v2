@@ -21,7 +21,8 @@ let alarmState = {
     lowVisTriggered: false,      // Sudah pernah trigger alarm low visibility?
     thunderstormTriggered: false, // Sudah pernah trigger alarm TS?
     lastMetarHash: null,         // Hash METAR terakhir yang diproses
-    lastUpdateTime: 0            // Timestamp terakhir update
+    lastUpdateTime: 0,           // Timestamp terakhir update (ms)
+    lastProcessedServerTime: null // ISO timestamp dari server (data.last_update)
 };
 
 // Helper: Buat simple hash dari string METAR untuk comparison
@@ -640,6 +641,18 @@ function handleMetarUpdate(data) {
     const isDuplicate = currentHash && currentHash === alarmState.lastMetarHash;
     const isFirstLoad = alarmState.lastMetarHash === null;
     
+    // 🔥 DATA FLIP-FLOP GUARD: 
+    // Jika data yang datang lebih lama (older) dari yang sudah kita display, abaikan.
+    if (data.last_update && alarmState.lastProcessedServerTime) {
+        const incomingTime = new Date(data.last_update).getTime();
+        const existingTime = new Date(alarmState.lastProcessedServerTime).getTime();
+        
+        if (incomingTime < existingTime) {
+            console.warn('[SYNC] 🛑 Stale data detected (incoming time earlier than existing). Ignoring update.');
+            return;
+        }
+    }
+    
     // Update global state
     lastMetarRaw = data.raw;
     if (data.metar_status) lastMetarStatus = data.metar_status;
@@ -674,6 +687,9 @@ function handleMetarUpdate(data) {
     // Update hash untuk tracking berikutnya
     alarmState.lastMetarHash = currentHash;
     alarmState.lastUpdateTime = Date.now();
+    if (data.last_update) {
+        alarmState.lastProcessedServerTime = data.last_update;
+    }
 
     // Cek apakah kondisi berbahaya BARU muncul (transisi dari aman ke berbahaya)
     const isNewLowVis = isLowVis && !alarmState.lowVisTriggered;
