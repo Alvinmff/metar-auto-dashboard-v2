@@ -17,13 +17,19 @@ let lastHasTS = false;
 // ALARM STATE TRACKING (Anti-spam)
 // =======================
 // Track kondisi alarm yang sudah pernah dipicu untuk mencegah spam setiap refresh
-let alarmState = {
+// PERSISTENCE: Data dimuat dari localStorage untuk mencegah alarm bunyi lagi saat pindah halaman
+let alarmState = JSON.parse(localStorage.getItem('alarmState')) || {
     lowVisTriggered: false,      // Sudah pernah trigger alarm low visibility?
     thunderstormTriggered: false, // Sudah pernah trigger alarm TS?
     lastMetarHash: null,         // Hash METAR terakhir yang diproses
     lastUpdateTime: 0,           // Timestamp terakhir update (ms)
     lastProcessedServerTime: null // ISO timestamp dari server (data.last_update)
 };
+
+// Helper: Simpan state alarm ke localStorage
+function saveAlarmState() {
+    localStorage.setItem('alarmState', JSON.stringify(alarmState));
+}
 
 // Helper: Buat simple hash dari string METAR untuk comparison
 function hashMetar(metar) {
@@ -690,6 +696,7 @@ function handleMetarUpdate(data) {
     if (data.last_update) {
         alarmState.lastProcessedServerTime = data.last_update;
     }
+    saveAlarmState(); // 🔥 COMMIT TO LOCALSTORAGE
 
     // Cek apakah kondisi berbahaya BARU muncul (transisi dari aman ke berbahaya)
     const isNewLowVis = isLowVis && !alarmState.lowVisTriggered;
@@ -702,11 +709,13 @@ function handleMetarUpdate(data) {
         playAlarm();
         showToast('⚠️ LOW VISIBILITY', `Visibility reduced to ${vis}m`, 'danger', 10000);
         alarmState.lowVisTriggered = true;
+        saveAlarmState(); // 🔥 PERSIST
     } 
     // Jika visibility sudah normal, reset flag
-    else if (!isLowVis) {
+    else if (!isLowVis && alarmState.lowVisTriggered) {
         alarmState.lowVisTriggered = false;
         document.body.classList.remove('low-visibility');
+        saveAlarmState(); // 🔥 PERSIST
     }
 
     // 2. Alarm untuk Thunderstorm yang BARU terdeteksi
@@ -715,10 +724,12 @@ function handleMetarUpdate(data) {
         showToast('⚡ THUNDERSTORM', 'Thunderstorm detected in METAR', 'danger', 10000);
         playAlarm();
         alarmState.thunderstormTriggered = true;
+        saveAlarmState(); // 🔥 PERSIST
     }
     // Jika TS sudah tidak ada, reset flag
-    else if (!hasTS) {
+    else if (!hasTS && alarmState.thunderstormTriggered) {
         alarmState.thunderstormTriggered = false;
+        saveAlarmState(); // 🔥 PERSIST
     }
 
     // 3. Notifikasi suara untuk data baru (bukan alarm, hanya notify)

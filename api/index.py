@@ -1009,42 +1009,72 @@ def api_crosswind():
 # =========================
 @app.route("/api/windrose/<station>")
 def windrose_api(station):
-    """API endpoint untuk Wind Rose 24 jam terakhir"""
-    global wind_history, CSV_FILE
-    
-    # Fallback: if wind_history is empty, try to populate from CSV
-    if not wind_history and os.path.exists(CSV_FILE):
-        load_wind_history()
+    """API endpoint untuk Wind Rose 24 jam terakhir - FETCH FROM SHEETS for Real-time Sync"""
+    global CSV_FILE
     
     # Filter untuk 24 jam terakhir
     cutoff_time = datetime.utcnow() - timedelta(hours=24)
     
+    print(f"[WINDROSE 24H] {station}: Fetching from Google Sheets for last 24h", file=sys.stderr)
+    
     filtered_data = []
-    # wind_history might be a deque or list depending on initialization
-    history_list = list(wind_history)
-    
-    for item in history_list:
-        try:
-            # Handle both string and datetime objects if they exist
-            raw_time = item["time"]
-            if isinstance(raw_time, str):
-                item_time = datetime.strptime(raw_time, "%Y-%m-%d %H:%M:%S")
-            elif isinstance(raw_time, datetime):
-                item_time = raw_time
-            else:
-                continue
+    # 🔥 FETCH DIRECTLY FROM GOOGLE SHEETS for consistent sync
+    try:
+        all_records = sheets_handler.get_all_data()
+        if all_records:
+            df = pd.DataFrame(all_records)
+            df["time"] = pd.to_datetime(df["time"], errors='coerce')
+            
+            # Filter untuk station dan 24 jam terakhir
+            station_df = df[
+                (df["station"].str.strip().str.upper() == station.upper()) &
+                (df["time"] >= cutoff_time)
+            ]
+            
+            print(f"[WINDROSE 24H] Found {len(station_df)} rows in Sheets", file=sys.stderr)
+            
+            for _, row in station_df.iterrows():
+                metar = str(row["metar"]) if pd.notna(row["metar"]) else ""
+                if not metar:
+                    continue
                 
-            if item_time >= cutoff_time and item.get("station") == station:
-                # Ensure time is string for JSON
-                item_copy = dict(item)
-                copy_time = item_copy["time"]
-                if isinstance(copy_time, datetime):
-                    item_copy["time"] = copy_time.strftime("%Y-%m-%d %H:%M:%S")
-                # else it's already a string or something we don't know, but we'll try to keep it
-                filtered_data.append(item_copy)
-        except:
-            continue
-    
+                # Extract wind data using regex (standardize with monthly API)
+                wind_match = re.search(r'\b(\d{3}|VRB)(\d{2,3})(G\d{2,3})?KT\b', metar)
+                if wind_match:
+                    try:
+                        wind_dir = wind_match.group(1)
+                        if wind_dir != "VRB":
+                            filtered_data.append({
+                                "time": row["time"].strftime("%Y-%m-%d %H:%M:%S"),
+                                "station": station,
+                                "dir": int(wind_dir),
+                                "speed": float(wind_match.group(2))
+                            })
+                    except:
+                        continue
+    except Exception as e:
+        print(f"[WINDROSE 24H] Sheets Error: {e}", file=sys.stderr)
+        # Fallback to local CSV if Sheets fails
+        if os.path.exists(CSV_FILE):
+             try:
+                df_local = pd.read_csv(CSV_FILE)
+                df_local["time"] = pd.to_datetime(df_local["time"], errors='coerce')
+                local_filtered = df_local[
+                    (df_local["station"].str.strip().str.upper() == station.upper()) &
+                    (df_local["time"] >= cutoff_time)
+                ]
+                for _, row in local_filtered.iterrows():
+                    metar = str(row["metar"])
+                    wind_match = re.search(r'\b(\d{3}|VRB)(\d{2,3})(G\d{2,3})?KT\b', metar)
+                    if wind_match and wind_match.group(1) != "VRB":
+                        filtered_data.append({
+                            "time": row["time"].strftime("%Y-%m-%d %H:%M:%S"),
+                            "station": station,
+                            "dir": int(wind_match.group(1)),
+                            "speed": float(wind_match.group(2))
+                        })
+             except: pass
+
     return jsonify({
         "period": "24h",
         "data": filtered_data,
