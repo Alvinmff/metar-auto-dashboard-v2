@@ -45,6 +45,8 @@ let currentRunwayHeading = 100;  // Default RWY 10
 let currentWindDir = null;
 let currentWindSpeed = null;
 let currentWindGust = null;
+// Persistent auto-fetch state (persists across page reloads & server restarts)
+let autoFetchEnabled = localStorage.getItem('autoFetchEnabled') === null ? true : localStorage.getItem('autoFetchEnabled') === 'true';
 
 // WebSocket removed for Vercel/Polling compatibility
 // const socket = io(window.location.origin);
@@ -885,6 +887,10 @@ async function toggleSystem() {
         const res = await fetch("/api/toggle_fetch", { method: "POST" });
         const data = await res.json();
         
+        // Update local state and persistence
+        autoFetchEnabled = data.auto_fetch;
+        localStorage.setItem('autoFetchEnabled', autoFetchEnabled);
+        
         updateStatusPanel(data);
         showToast(
             'System Control',
@@ -1655,9 +1661,24 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
-    // 7. Initial poll handles health check and syncs with server state
-    console.log('[INIT] Triggering first poll...');
-    pollLatestData();
+    // 7. Sync System Fetch Status and trigger first poll
+    console.log('[INIT] Syncing system fetch status with server...');
+    fetch("/api/set_fetch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled: autoFetchEnabled })
+    })
+    .then(r => r.json())
+    .then(data => {
+        updateStatusPanel(data);
+        console.log('[INIT] Server fetch status synced:', data.auto_fetch);
+        // Start polling now that we are synced
+        pollLatestData();
+    })
+    .catch(err => {
+        console.error('[INIT] Failed to sync fetch status:', err);
+        pollLatestData(); // Fallback to poll anyway
+    });
 
     // Initial poll will handle first load
     // setInterval(fetchMetar, 60000); // 🗑️ REMOVED REDUNDANT LOOP

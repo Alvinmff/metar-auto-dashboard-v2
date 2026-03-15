@@ -1593,6 +1593,20 @@ def toggle_fetch():
         "message": f"Auto fetch {'ENABLED' if auto_fetch else 'DISABLED'}"
     })
 
+@app.route("/api/set_fetch", methods=["POST"])
+def set_fetch():
+    """Explicitly set system status from client"""
+    global auto_fetch
+    data = request.json
+    if data and "enabled" in data:
+        auto_fetch = bool(data["enabled"])
+        print(f"[SYSTEM] Fetch status set to: {auto_fetch} (client sync)", file=sys.stderr)
+    
+    return jsonify({
+        "auto_fetch": auto_fetch,
+        "last_update": last_metar_update
+    })
+
 # =========================
 @app.route('/favicon.ico')
 def favicon():
