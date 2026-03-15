@@ -780,11 +780,11 @@ function handleMetarUpdate(data) {
         if (rawEl) {
             let htmlStr = highlightMetar(data.raw);
             // Badge untuk COR/AMD/SPECI
-            if (data.report_type === 'COR' || data.raw.includes('COR') || data.raw.includes('CCA')) {
+            if (data.raw.includes(' COR ') || data.raw.includes('METAR COR') || data.raw.includes('CCA')) {
                 htmlStr += ' <span class="badge" style="background-color: #f59e0b; color: #1e293b; margin-left: 10px; font-size: 0.75rem; padding: 4px 8px; vertical-align: middle;">⚠️ CORRECTION</span>';
-            } else if (data.report_type === 'AMD' || data.raw.includes('AMD')) {
+            } else if (data.raw.includes(' AMD ') || data.raw.includes('METAR AMD')) {
                 htmlStr += ' <span class="badge" style="background-color: #3b82f6; color: #ffffff; margin-left: 10px; font-size: 0.75rem; padding: 4px 8px; vertical-align: middle;">⚠️ AMD</span>';
-            } else if (data.report_type === 'SPECI' || data.raw.includes('SPECI')) {
+            } else if (data.raw.includes(' SPECI ') || data.raw.startsWith('SPECI ')) {
                 htmlStr += ' <span class="badge" style="background-color: #ef4444; color: #ffffff; margin-left: 10px; font-size: 0.75rem; padding: 4px 8px; vertical-align: middle;">⚠️ SPECI</span>';
             }
             rawEl.innerHTML = htmlStr;
@@ -1621,6 +1621,20 @@ document.addEventListener('DOMContentLoaded', function () {
     if (initialRaw && initialRaw.textContent.trim()) {
         const rawContent = initialRaw.textContent.trim();
         console.log('[INIT] Pre-populating UI from DOM content...');
+        
+        // Preserve badge if present in the SSR text (it's actually outside the textContent usually but let's be safe)
+        // Actually, we can just re-highlight the clean text
+        initialRaw.innerHTML = highlightMetar(rawContent); 
+        
+        // Check for badges in the raw text to re-append them visually
+        if (rawContent.includes(' COR ') || rawContent.includes('CCA')) {
+            initialRaw.innerHTML += ' <span class="badge" style="background-color: #f59e0b; color: #1e293b; margin-left: 10px; font-size: 0.75rem; padding: 4px 8px; vertical-align: middle;">⚠️ CORRECTION</span>';
+        } else if (rawContent.includes(' AMD ')) {
+            initialRaw.innerHTML += ' <span class="badge" style="background-color: #3b82f6; color: #ffffff; margin-left: 10px; font-size: 0.75rem; padding: 4px 8px; vertical-align: middle;">⚠️ AMD</span>';
+        } else if (rawContent.includes(' SPECI ')) {
+            initialRaw.innerHTML += ' <span class="badge" style="background-color: #ef4444; color: #ffffff; margin-left: 10px; font-size: 0.75rem; padding: 4px 8px; vertical-align: middle;">⚠️ SPECI</span>';
+        }
+
         updateDecodedPanel(rawContent);
         runMetarValidation(rawContent);
         lastMetarRaw = rawContent; // Mark as populated

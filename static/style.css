@@ -633,44 +633,55 @@ a:hover {
 
 /* METAR Syntax Highlighting */
 .metar-raw-code .metar-station {
-  color: #0891B2;
-  font-weight: 700;
+  color: #0d9488; /* Teal 600 */
+  font-weight: 800;
 }
 
 .metar-raw-code .metar-time {
-  color: #D97706;
+  color: #ca8a04; /* Yellow 600 */
   font-weight: 600;
 }
 
 .metar-raw-code .metar-wind {
-  color: #059669;
-  font-weight: 600;
-}
-
-.metar-raw-code .metar-weather {
-  color: #DC2626;
+  color: #16a34a; /* Green 600 */
   font-weight: 700;
 }
 
+.metar-raw-code .metar-weather {
+  color: #dc2626; /* Red 600 */
+  font-weight: 800;
+}
+
 .metar-raw-code .metar-cloud {
-  color: #2563EB;
+  color: #2563eb; /* Blue 600 */
   font-weight: 600;
 }
 
 .metar-raw-code .metar-temp {
-  color: #7C3AED;
+  color: #9333ea; /* Purple 600 */
   font-weight: 600;
 }
 
 .metar-raw-code .metar-pressure {
-  color: #0D9488;
-  font-weight: 600;
+  color: #0891b2; /* Cyan 600 */
+  font-weight: 700;
 }
 
 .metar-raw-code .metar-trend {
-  color: #64748B;
-  font-weight: 500;
+  color: #4b5563; /* Gray 600 */
+  font-weight: 600;
+  font-style: italic;
 }
+
+/* Dark Mode Overrides for more vibrant colors */
+[data-theme="dark"] .metar-raw-code .metar-station { color: #2dd4bf; } /* Teal 400 */
+[data-theme="dark"] .metar-raw-code .metar-time { color: #fbbf24; }    /* Amber 400 */
+[data-theme="dark"] .metar-raw-code .metar-wind { color: #4ade80; }    /* Green 400 */
+[data-theme="dark"] .metar-raw-code .metar-weather { color: #f87171; } /* Red 400 */
+[data-theme="dark"] .metar-raw-code .metar-cloud { color: #60a5fa; }   /* Blue 400 */
+[data-theme="dark"] .metar-raw-code .metar-temp { color: #c084fc; }    /* Purple 400 */
+[data-theme="dark"] .metar-raw-code .metar-pressure { color: #22d3ee; } /* Cyan 400 */
+[data-theme="dark"] .metar-raw-code .metar-trend { color: #94a3b8; }    /* Slate 400 */
 
 .metar-actions {
   display: flex;
