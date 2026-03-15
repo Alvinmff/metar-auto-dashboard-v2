@@ -181,20 +181,33 @@ function initSidebar() {
         }
     });
 
-    // Close on backdrop click (mobile)
-    backdrop.addEventListener('click', () => {
-        layout.classList.remove('sidebar-mobile-active');
+    // Close sidebar saat resize ke desktop
+    window.addEventListener('resize', () => {
+        if (window.innerWidth > 768) {
+            sidebar.classList.remove('open');
+            if (overlay) overlay.classList.remove('active');
+        }
     });
 
-    // Close on link click (mobile)
+    // Auto-close on link click (mobile)
     document.querySelectorAll('.sidebar-link').forEach(link => {
         link.addEventListener('click', () => {
-            if (window.innerWidth <= 767) {
-                layout.classList.remove('sidebar-mobile-active');
+            if (window.innerWidth <= 768) {
+                closeSidebar();
             }
         });
     });
 }
+
+function closeSidebar() {
+    const sidebar = document.getElementById('appSidebar');
+    const overlay = document.getElementById('sidebarOverlay');
+    if (sidebar) sidebar.classList.remove('open');
+    if (overlay) overlay.classList.remove('active');
+}
+
+// Global expose
+window.closeSidebar = closeSidebar;
 
 // =======================
 // THEME MANAGEMENT (Dark/Light)
