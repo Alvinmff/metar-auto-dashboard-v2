@@ -1305,29 +1305,42 @@ def history_by_date():
         print(f"[HISTORY] Station: {station}, Start: {start_date}, End: {end_date}")
 
         if start_date and end_date:
+            # 🔥 SYNC: Ensure latest data is pulled from Google Sheets before search
+            # This is critical on Vercel where /tmp/ storage might be stale
+            try:
+                print("[HISTORY] Syncing latest data from Sheets before filtering...", file=sys.stderr)
+                sheets_handler.sync_to_local(CSV_FILE)
+            except Exception as sync_err:
+                print(f"[HISTORY] Sync warning (proceeding with local data): {sync_err}", file=sys.stderr)
+
             # Read CSV
             if os.path.exists(CSV_FILE):
                 df = pd.read_csv(CSV_FILE)
                 print(f"[HISTORY] Total rows in CSV: {len(df)}")
                 
                 # Convert time column to datetime
-                df["time"] = pd.to_datetime(df["time"], errors='coerce')
+                df["time"] = pd.to_datetime(df["time"], errors='coerce', format='mixed')
                 
-                # Convert input dates (datetime-local gives format like "2026-02-23T13:29")
-                start = pd.to_datetime(start_date)
-                # Add one day to end date to include the full day
-                end = pd.to_datetime(end_date) + pd.Timedelta(days=1)
+                # Convert input dates (WIB) to UTC (Database stores UTC)
+                # WIB is UTC+7, so search inputs must be shifted back by 7 hours
+                start = pd.to_datetime(start_date) - timedelta(hours=7)
+                end = pd.to_datetime(end_date) - timedelta(hours=7)
                 
-                print(f"[HISTORY] Filter: station={station}, start={start}, end={end}")
+                # If user selected exactly midnight for end_date, they likely want the whole day
+                if "T00:00" in end_date:
+                    end = end + timedelta(days=1)
+                
+                print(f"[HISTORY] Filter (UTC): station={station}, start={start}, end={end}")
                 
                 # Filter by station and date range
+                # Ensure station comparison handles any whitespace
                 results = df[
-                    (df["station"] == station) &
+                    (df["station"].str.strip() == station) &
                     (df["time"] >= start) &
                     (df["time"] <= end)
                 ]
                 
-                print(f"[HISTORY] Filtered rows: {len(results) if results is not None else 0}")
+                print(f"[HISTORY] Filtered rows found: {len(results) if results is not None else 0}")
                 
                 # Extract chart data if results exist
                 if results is not None and not results.empty:
