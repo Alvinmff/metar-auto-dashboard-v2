@@ -156,29 +156,26 @@ setInterval(updateClocks, 1000);
 updateClocks(); // Run immediately on load
 
 // =======================
-// SIDEBAR TOGGLE
+// SIDEBAR TOGGLE - UPDATED FOR STICKY LAYOUT
 // =======================
 function initSidebar() {
     const toggle = document.getElementById('sidebarToggle');
+    const sidebar = document.getElementById('appSidebar');
+    const overlay = document.getElementById('sidebarOverlay');
     const layout = document.getElementById('appLayout');
-    if (!toggle || !layout) return;
+    
+    if (!toggle || !sidebar) return;
 
-    // Create backdrop for mobile if it doesn't exist
-    let backdrop = document.querySelector('.sidebar-backdrop');
-    if (!backdrop) {
-        backdrop = document.createElement('div');
-        backdrop.className = 'sidebar-backdrop';
-        document.body.appendChild(backdrop);
-    }
-
-    const saved = localStorage.getItem('sidebarCollapsed');
-    if (saved === 'true') layout.classList.add('sidebar-collapsed');
+    // Check saved state
+    const isMobile = window.innerWidth <= 768;
 
     toggle.addEventListener('click', () => {
-        const isMobile = window.innerWidth <= 767;
-        if (isMobile) {
-            layout.classList.toggle('sidebar-mobile-active');
+        if (window.innerWidth <= 768) {
+            // Mobile: toggle sidebar dengan overlay
+            sidebar.classList.toggle('open');
+            if (overlay) overlay.classList.toggle('active');
         } else {
+            // Desktop: toggle collapse
             layout.classList.toggle('sidebar-collapsed');
             localStorage.setItem('sidebarCollapsed', layout.classList.contains('sidebar-collapsed'));
         }

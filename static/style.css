@@ -46,10 +46,15 @@
   --space-xl: 2rem;
   --space-2xl: 3rem;
 
-  /* Layout */
+  /* Colors */
+  --header-bg: #ffffff;
+  --sidebar-bg: #f8fafc;
+  --text-on-header: #ffffff; /* Contrast for the gradient */
+  
+  /* Dimensions */
   --header-height: 64px;
-  --sidebar-width: 240px;
-  --sidebar-collapsed: 68px;
+  --sidebar-width: 260px;
+  --sidebar-collapsed: 70px;
 
   /* Transitions */
   --transition-fast: 150ms ease;
@@ -127,14 +132,13 @@ a:hover {
 
 .app-layout {
   display: grid;
+  grid-template-areas: 
+      "header header"
+      "sidebar main";
   grid-template-columns: var(--sidebar-width) 1fr;
   grid-template-rows: var(--header-height) 1fr;
-  grid-template-areas:
-    "header header"
-    "sidebar main";
   min-height: 100vh;
   width: 100%;
-  overflow-x: hidden;
   transition: grid-template-columns var(--transition-smooth);
 }
 
@@ -148,17 +152,18 @@ a:hover {
 
 .app-header {
   grid-area: header;
+  position: sticky;           /* Tetap di atas saat scroll */
+  top: 0;
+  z-index: 1000;              /* Di atas semua elemen lain */
+  height: var(--header-height);
   background: var(--bg-header);
   border-bottom: 3px solid var(--bmkg-accent);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.15);
+  
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0 var(--space-xl);
-  position: sticky;
-  top: 0;
-  z-index: 100;
-  height: var(--header-height);
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.15);
 }
 
 .header-left {
@@ -362,19 +367,30 @@ a:hover {
 
 .app-sidebar {
   grid-area: sidebar;
+  position: sticky;           /* Tetap di kiri saat scroll */
+  top: var(--header-height);  /* Di bawah header */
+  height: calc(100vh - var(--header-height));
+  overflow-y: auto;           /* Scrollable jika konten panjang */
+  z-index: 900;
+  
   background: var(--bg-sidebar);
   border-right: 1px solid var(--border-color);
-  padding: var(--space-lg) 0;
+  
   display: flex;
   flex-direction: column;
-  gap: var(--space-xs);
-  position: sticky;
-  top: var(--header-height);
-  height: calc(100vh - var(--header-height));
-  overflow-y: auto;
-  overflow-x: hidden;
   transition: width var(--transition-smooth);
-  z-index: 50;
+}
+
+/* Hide scrollbar untuk sidebar tapi tetap bisa scroll */
+.app-sidebar::-webkit-scrollbar {
+  width: 6px;
+}
+.app-sidebar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.app-sidebar::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 3px;
 }
 
 .sidebar-nav {
@@ -447,8 +463,8 @@ a:hover {
 .app-main {
   grid-area: main;
   padding: var(--space-xl);
+  min-height: calc(100vh - var(--header-height));
   overflow-y: auto;
-  max-width: 100%;
 }
 
 /* ============================================= */
@@ -1591,14 +1607,13 @@ body.low-visibility .chart-card {
 }
 
 /* Mobile */
-@media (max-width: 767px) {
+@media (max-width: 768px) {
   .app-layout {
+    grid-template-areas: 
+        "header header"
+        "main main";         /* Sidebar hidden di mobile */
     grid-template-columns: 1fr;
     grid-template-rows: var(--header-height) 1fr auto;
-    grid-template-areas:
-      "header"
-      "main"
-      "sidebar";
   }
 
   .app-header {
@@ -1626,37 +1641,47 @@ body.low-visibility .chart-card {
     gap: var(--space-sm);
   }
 
-  /* Header simplification removed - restoring all elements */
-
   .utc-clock {
     font-size: 0.8rem;
     padding: 2px 6px;
   }
 
-  /* Decorative elements - HIDE ON MOBILE as requested */
   .airplane-decor-container {
     display: none !important;
   }
 
   .app-sidebar {
     position: fixed;
-    top: 0;
-    left: -280px; /* Hidden off-screen by default */
-    bottom: 0;
+    left: -260px;           /* Hidden by default */
+    top: var(--header-height);
     width: 260px;
-    height: 100vh;
+    height: calc(100vh - var(--header-height));
+    transition: left 0.3s ease;
+    z-index: 950;
+    box-shadow: 10px 0 30px rgba(0,0,0,0.3);
     flex-direction: column;
     padding: var(--space-md) 0;
-    border-right: 1px solid var(--border-color);
     background: var(--bg-surface);
-    z-index: 2000; /* Higher than everything else */
-    transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    box-shadow: 10px 0 30px rgba(0,0,0,0.3);
+  }
+  
+  .app-sidebar.open {
+    left: 0;                /* Muncul saat toggle */
   }
 
-  /* When mobile sidebar is active */
-  .sidebar-mobile-active .app-sidebar {
+  .sidebar-overlay {
+    display: none;
+    position: fixed;
+    top: var(--header-height);
     left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(2px);
+    z-index: 940;
+  }
+  
+  .sidebar-overlay.active {
+    display: block;
   }
 
   .sidebar-nav {
@@ -1686,24 +1711,6 @@ body.low-visibility .chart-card {
     width: auto !important;
     overflow: visible !important;
     font-size: 0.9rem;
-  }
-
-  /* Backdrop for mobile sidebar */
-  .sidebar-backdrop {
-    display: none;
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.5);
-    backdrop-filter: blur(2px);
-    z-index: 1999;
-    animation: fadeIn 0.3s ease-out;
-  }
-
-  .sidebar-mobile-active .sidebar-backdrop {
-    display: block;
   }
 
   /* Only show these in sidebar on mobile */
