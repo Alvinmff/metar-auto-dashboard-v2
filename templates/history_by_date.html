@@ -111,10 +111,15 @@
                     <h3 class="card-title"><span class="icon">📊</span> METAR History — {{ station }}</h3>
                 </div>
                 {% if start_date and end_date %}
-                <div
-                    style="background:var(--bg-body);padding:10px 16px;border-radius:var(--radius-sm);font-size:0.9rem;color:var(--text-secondary);">
-                    📅 Showing data from <strong>{{ start_date.replace('T', ' ') }}</strong> to <strong>{{
-                        end_date.replace('T', ' ') }}</strong>
+                <div style="background:var(--bg-body);padding:10px 16px;border-radius:var(--radius-sm);font-size:0.9rem;border-left:4px solid var(--accent-primary);">
+                    <div style="color:var(--text-secondary); margin-bottom: 4px;">
+                        📅 Showing data from <strong>{{ start_date.replace('T', ' ') }}</strong> to <strong>{{ end_date.replace('T', ' ') }}</strong>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 12px; font-weight: 600;">
+                        <span style="color:var(--accent-primary)">📊 {% if results is not none %}{{ results|length }}{% else %}0{% endif %} records found</span>
+                        <span style="height: 12px; width: 1px; background: var(--border-color);"></span>
+                        <span style="color:var(--text-muted); font-size: 0.8rem; font-weight: 400;">🌐 Searches are performed in WIB and converted to UTC database time.</span>
+                    </div>
                 </div>
                 {% endif %}
             </div>
@@ -151,6 +156,33 @@
                     </div>
                     <div class="chart-container" style="height: 300px;">
                         <canvas id="windChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Wind Rose Section - Dual View -->
+            <div class="grid-2 fade-in">
+                <!-- Wind Rose 1: 24 Hours -->
+                <div class="card chart-card">
+                    <div class="card-header">
+                        <h3 class="card-title"><span class="icon">🧭</span> Wind Rose (24 Hours)</h3>
+                        <span id="windrose24h-badge" class="badge" style="background-color: #3b82f6; color: white; margin-left: 10px;">Loading...</span>
+                    </div>
+                    <div id="windRose24h" style="height:400px;"></div>
+                    <div id="windrose24h-info" style="padding: 10px 16px; font-size: 0.85rem; color: var(--text-secondary); border-top: 1px solid var(--border-color);">
+                        Showing data from last 24 hours
+                    </div>
+                </div>
+
+                <!-- Wind Rose 2: Previous Month (Direct from Sheets) -->
+                <div class="card chart-card">
+                    <div class="card-header">
+                        <h3 class="card-title"><span class="icon">🧭</span> Wind Rose (Previous Month)</h3>
+                        <span id="windroseMonth-badge" class="badge" style="background-color: #059669; color: white; margin-left: 10px;">Loading...</span>
+                    </div>
+                    <div id="windRoseMonth" style="height:400px;"></div>
+                    <div id="windroseMonth-info" style="padding: 10px 16px; font-size: 0.85rem; color: var(--text-secondary); border-top: 1px solid var(--border-color);">
+                        Loading monthly data...
                     </div>
                 </div>
             </div>
@@ -469,13 +501,124 @@
             }
         }
 
+        // =========================
+        // DUAL WIND ROSE LOADER
+        // =========================
+        async function loadDualWindRoses(station) {
+            try {
+                // Load Wind Rose 24h
+                const res24h = await fetch(`/api/windrose/${station}`);
+                const data24h = await res24h.json();
+                
+                renderWindRose('windRose24h', data24h.data, {
+                    title: 'Last 24 Hours',
+                    colorScale: [[0, '#2E5C8A'], [0.5, '#E8B339'], [1, '#DC2626']]
+                });
+                
+                // Update badge dan info
+                const badge24h = document.getElementById('windrose24h-badge');
+                const info24h = document.getElementById('windrose24h-info');
+                if (badge24h) badge24h.textContent = `${data24h.count} records`;
+                if (info24h) info24h.textContent = `Last 24 hours • ${data24h.count} data points`;
+                
+                // Load Wind Rose Monthly
+                const resMonth = await fetch(`/api/windrose-monthly/${station}`);
+                const dataMonth = await resMonth.json();
+                
+                renderWindRose('windRoseMonth', dataMonth.data, {
+                    title: `${dataMonth.month_name} ${dataMonth.year}`,
+                    colorScale: [[0, '#059669'], [0.5, '#E8B339'], [1, '#DC2626']] // Green to Red
+                });
+                
+                // Update badge dan info
+                const badgeMonth = document.getElementById('windroseMonth-badge');
+                const infoMonth = document.getElementById('windroseMonth-info');
+                if (badgeMonth) badgeMonth.textContent = `${dataMonth.month_name} ${dataMonth.year}`;
+                if (infoMonth) {
+                    infoMonth.textContent = `${dataMonth.range.start} to ${dataMonth.range.end} • ${dataMonth.count} records`;
+                }
+                
+            } catch (e) {
+                console.error('Dual Wind Rose error:', e);
+            }
+        }
+
+        function renderWindRose(containerId, data, options) {
+            if (!data || data.length === 0) {
+                document.getElementById(containerId).innerHTML = 
+                    '<div style="display:flex;justify-content:center;align-items:center;height:100%;color:#64748B;font-family:Inter;font-size:0.9rem;">No wind data available</div>';
+                return;
+            }
+
+            const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+            const gridColor = isDark ? 'rgba(255, 255, 255, 0.4)' : '#1E3A5F';
+
+            Plotly.newPlot(containerId, [{
+                type: 'barpolar',
+                r: data.map(d => d.speed),
+                theta: data.map(d => d.dir),
+                marker: {
+                    color: data.map(d => d.speed),
+                    colorscale: options.colorScale || [[0, '#2E5C8A'], [0.5, '#E8B339'], [1, '#DC2626']],
+                    showscale: true,
+                    colorbar: { 
+                        title: 'KT', 
+                        thickness: 12, 
+                        len: 0.6,
+                        tickfont: { family: 'Inter', size: 10, color: isDark ? '#F1F5F9' : '#475569' },
+                        titlefont: { family: 'Inter', size: 12, color: isDark ? '#F1F5F9' : '#475569' }
+                    }
+                },
+                hovertemplate: 'Dir: %{theta}°<br>Speed: %{r} KT<extra></extra>',
+                opacity: 0.85
+            }], {
+                polar: {
+                    bgcolor: 'rgba(0,0,0,0)',
+                    angularaxis: {
+                        direction: 'clockwise',
+                        rotation: 90,
+                        tickmode: 'array',
+                        tickvals: [0, 45, 90, 135, 180, 225, 270, 315],
+                        ticktext: ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'],
+                        tickfont: { size: 12, color: gridColor, family: 'Inter', weight: isDark ? 'bold' : 'normal' }
+                    },
+                    radialaxis: { 
+                        showgrid: true, 
+                        gridcolor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)',
+                        title: 'KT',
+                        tickfont: { color: isDark ? '#94A3B8' : '#64748B' }
+                    }
+                },
+                showlegend: false,
+                margin: { t: 50, b: 30, l: 50, r: 50 },
+                paper_bgcolor: 'rgba(0,0,0,0)', 
+                plot_bgcolor: 'rgba(0,0,0,0)',
+                title: {
+                    text: options.title || '',
+                    font: { family: 'Inter', size: 16, color: isDark ? '#F1F5F9' : '#475569', weight: 'bold' }
+                }
+            }, { responsive: true });
+        }
+
         function downloadChart(chartId) {
+            // ... (keep existing downloadChart logic)
             if (chartId === 'windRoseChart') {
                 Plotly.downloadImage('windRoseHistory', { 
                     format: 'png', 
                     width: 800, 
                     height: 600, 
-                    filename: 'windRose' 
+                    filename: 'windRose_Filtered' 
+                });
+                return;
+            }
+            // Add download for new roses
+            if (chartId === 'windRose24h' || chartId === 'windRoseMonth') {
+                const title = chartId === 'windRose24h' ? 'Wind_Rose_24h' : 'Wind_Rose_Monthly';
+                Plotly.downloadImage(chartId, { 
+                    format: 'png', 
+                    width: 800, 
+                    height: 600, 
+                    filename: title 
                 });
                 return;
             }
@@ -486,6 +629,11 @@
             link.href = c.toDataURL('image/png');
             link.click();
         }
+
+        // Initialize Dual Wind Roses
+        document.addEventListener('DOMContentLoaded', () => {
+            loadDualWindRoses('{{ station }}');
+        });
     </script>
     {% endif %}
 

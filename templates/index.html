@@ -260,15 +260,28 @@
             <div class="grid-2 fade-in" style="animation-delay:0.2s">
                 <div class="card">
                     <div class="card-header">
-                        <h3 class="card-title"><span class="icon"></span> Wind Compass</h3>
+                        <h3 class="card-title"><span class="icon">🧭</span> Wind Compass</h3>
                     </div>
                     <div id="windCompassChart" style="height:320px;"></div>
                 </div>
-                <div class="card">
+                
+                <div class="card flex flex-col">
                     <div class="card-header">
-                        <h3 class="card-title"><span class="icon"></span> Wind Rose (24 Jam Terakhir)</h3>
+                        <h3 class="card-title"><span class="icon">🧭</span> Wind Rose (24 Hours)</h3>
+                        <span id="windrose24h-badge" class="badge" style="background-color: #3b82f6; color: white;">Loading...</span>
                     </div>
-                    <div id="windRoseChart" style="height:320px;"></div>
+                    <div id="windRose24h" style="height:280px;"></div>
+                </div>
+            </div>
+
+            <div class="card fade-in" style="animation-delay:0.25s">
+                <div class="card-header">
+                    <h3 class="card-title"><span class="icon">🧭</span> Wind Rose (Previous Month)</h3>
+                    <span id="windroseMonth-badge" class="badge" style="background-color: #059669; color: white;">Loading...</span>
+                </div>
+                <div id="windRoseMonth" style="height:350px;"></div>
+                <div id="windroseMonth-info" style="padding: 10px 16px; font-size: 0.85rem; color: var(--text-secondary); border-top: 1px solid var(--border-color);">
+                    Fetching monthly data from Google Sheets...
                 </div>
             </div>
 

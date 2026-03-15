@@ -1398,65 +1398,110 @@ function updateWindCompassDisplay(windDir, windSpeed) {
         }]
     }, { responsive: true });
 }
-
-// =======================
 // WIND ROSE (Plotly)
 // =======================
-function loadWindRose() {
+async function loadWindRose(station = STATION) {
     if (typeof Plotly === 'undefined') return;
-    if (typeof STATION === 'undefined' || !STATION) return;
-    fetch(`/api/windrose/${STATION}`)
-        .then(r => r.json())
-        .then(data => {
-            if (!data || data.length === 0) return;
+    if (!station) return;
 
-            const isDark = currentTheme === 'dark';
-            const gridColor = isDark ? 'rgba(255, 255, 255, 0.4)' : '#1E3A5F';
+    try {
+        // 1. Fetch & Render 24h Wind Rose
+        const res24h = await fetch(`/api/windrose/${station}`);
+        const data24h = await res24h.json();
+        
+        renderWindRose('windRose24h', data24h.data, {
+            title: 'Last 24 Hours',
+            colorScale: currentTheme === 'dark' 
+                ? [[0, '#4ade80'], [0.5, '#facc15'], [1, '#f87171']] 
+                : [[0, '#2E5C8A'], [0.5, '#E8B339'], [1, '#DC2626']]
+        });
+        
+        const badge24h = document.getElementById('windrose24h-badge');
+        if (badge24h && data24h.count !== undefined) {
+            badge24h.textContent = `${data24h.count} records`;
+        }
 
-            Plotly.newPlot('windRoseChart', [{
-                type: 'barpolar',
-                r: data.map(d => d.speed),
-                theta: data.map(d => d.dir),
-                marker: {
-                    color: data.map(d => d.speed),
-                    colorscale: isDark 
-                        ? [[0, '#4ade80'], [0.5, '#facc15'], [1, '#f87171']] // Brighter colors for dark mode
-                        : [[0, '#2E5C8A'], [0.5, '#E8B339'], [1, '#DC2626']],
-                    showscale: true,
-                    colorbar: { 
-                        title: 'kt', 
-                        thickness: 12, 
-                        len: 0.5, 
-                        tickfont: { family: 'Inter', size: 10, color: isDark ? '#F1F5F9' : '#475569' },
-                        titlefont: { color: isDark ? '#F1F5F9' : '#475569' }
-                    }
-                },
-                opacity: 0.85
-            }], {
-                polar: {
-                    bgcolor: 'rgba(0,0,0,0)',
-                    angularaxis: {
-                        direction: 'clockwise',
-                        rotation: 90,
-                        tickmode: 'array',
-                        tickvals: [0, 45, 90, 135, 180, 225, 270, 315],
-                        ticktext: ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'],
-                        tickfont: { size: 12, color: gridColor, family: 'Inter', weight: isDark ? 'bold' : 'normal' },
-                        gridcolor: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'
-                    },
-                    radialaxis: { 
-                        visible: true,
-                        gridcolor: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)',
-                        tickfont: { color: isDark ? '#94A3B8' : '#64748B' }
-                    }
-                },
-                showlegend: false,
-                margin: { t: 20, b: 30, l: 30, r: 30 },
-                paper_bgcolor: 'rgba(0,0,0,0)',
-                plot_bgcolor: 'rgba(0,0,0,0)'
-            }, { responsive: true });
-        })
-        .catch(e => console.error('Wind rose error:', e));
+        // 2. Fetch & Render Monthly Wind Rose
+        const resMonth = await fetch(`/api/windrose-monthly/${station}`);
+        const dataMonth = await resMonth.json();
+        
+        renderWindRose('windRoseMonth', dataMonth.data, {
+            title: `${dataMonth.month_name} ${dataMonth.year}`,
+            colorScale: currentTheme === 'dark' 
+                ? [[0, '#10b981'], [0.5, '#facc15'], [1, '#f87171']] 
+                : [[0, '#059669'], [0.5, '#E8B339'], [1, '#DC2626']]
+        });
+        
+        const badgeMonth = document.getElementById('windroseMonth-badge');
+        const infoMonth = document.getElementById('windroseMonth-info');
+        if (badgeMonth) badgeMonth.textContent = `${dataMonth.month_name} ${dataMonth.year}`;
+        if (infoMonth) {
+            infoMonth.textContent = `${dataMonth.range.start} to ${dataMonth.range.end} • ${dataMonth.count} records (from Sheets)`;
+        }
+
+    } catch (e) {
+        console.error('Dual Wind Rose error:', e);
+    }
+}
+
+function renderWindRose(containerId, data, options) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+
+    if (!data || data.length === 0) {
+        container.innerHTML = 
+            '<div style="display:flex;justify-content:center;align-items:center;height:100%;color:#64748B;font-family:Inter;font-size:0.9rem;">No wind data available</div>';
+        return;
+    }
+
+    const isDark = currentTheme === 'dark';
+    const gridColor = isDark ? 'rgba(255, 255, 255, 0.4)' : '#1E3A5F';
+
+    Plotly.newPlot(containerId, [{
+        type: 'barpolar',
+        r: data.map(d => d.speed),
+        theta: data.map(d => d.dir),
+        marker: {
+            color: data.map(d => d.speed),
+            colorscale: options.colorScale,
+            showscale: true,
+            colorbar: { 
+                title: 'kt', 
+                thickness: 12, 
+                len: 0.6,
+                tickfont: { family: 'Inter', size: 10, color: isDark ? '#F1F5F9' : '#475569' },
+                titlefont: { family: 'Inter', size: 12, color: isDark ? '#F1F5F9' : '#475569' }
+            }
+        },
+        hovertemplate: 'Dir: %{theta}°<br>Speed: %{r} KT<extra></extra>',
+        opacity: 0.85
+    }], {
+        polar: {
+            bgcolor: 'rgba(0,0,0,0)',
+            angularaxis: {
+                direction: 'clockwise',
+                rotation: 90,
+                tickmode: 'array',
+                tickvals: [0, 45, 90, 135, 180, 225, 270, 315],
+                ticktext: ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'],
+                tickfont: { size: 12, color: gridColor, family: 'Inter', weight: isDark ? 'bold' : 'normal' }
+            },
+            radialaxis: { 
+                showgrid: true, 
+                gridcolor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)',
+                title: 'KT',
+                tickfont: { color: isDark ? '#94A3B8' : '#64748B' }
+            }
+        },
+        showlegend: false,
+        margin: { t: 50, b: 30, l: 50, r: 50 },
+        paper_bgcolor: 'rgba(0,0,0,0)', 
+        plot_bgcolor: 'rgba(0,0,0,0)',
+        title: {
+            text: options.title || '',
+            font: { family: 'Inter', size: 15, color: isDark ? '#F1F5F9' : '#475569', weight: 'bold' }
+        }
+    }, { responsive: true });
 }
 
 setInterval(loadWindCompass, 5000);

@@ -138,6 +138,22 @@ class GoogleSheetHandler:
             print(f"[SHEETS] ❌ Error fetching recent data: {e}", file=sys.stderr)
             return []
 
+    def get_all_data(self):
+        """Fetch all records from Sheets as a list of dicts"""
+        if self.sheet is None:
+            self._authenticate()
+            
+        sheet = self.sheet
+        if sheet is None:
+            return []
+
+        try:
+            print("[SHEETS] Fetching all data records...", file=sys.stderr)
+            return sheet.get_all_records()
+        except Exception as e:
+            print(f"[SHEETS] ❌ Error fetching all data: {e}", file=sys.stderr)
+            return []
+
     def sync_to_local(self, local_path):
         """Fetch all data from Sheets and save to local CSV (for Vercel warmup)"""
         if self.sheet is None:

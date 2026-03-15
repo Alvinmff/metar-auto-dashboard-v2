@@ -1017,17 +1017,135 @@ def api_crosswind():
 # =========================
 # API WIND ROSE - Historical Wind Data
 # =========================
+# =========================
+# API WIND ROSE - Dual Time Range Filter
+# =========================
 @app.route("/api/windrose/<station>")
 def windrose_api(station):
-    """API endpoint to get historical wind data for Wind Rose chart"""
-    global wind_history
+    """API endpoint untuk Wind Rose 24 jam terakhir"""
+    global wind_history, CSV_FILE
     
     # Fallback: if wind_history is empty, try to populate from CSV
     if not wind_history and os.path.exists(CSV_FILE):
         load_wind_history()
-        
-    data = list(wind_history)
-    return jsonify(data)
+    
+    # Filter untuk 24 jam terakhir
+    cutoff_time = datetime.utcnow() - timedelta(hours=24)
+    
+    filtered_data = []
+    # wind_history might be a deque or list depending on initialization
+    history_list = list(wind_history)
+    
+    for item in history_list:
+        try:
+            # Handle both string and datetime objects if they exist
+            raw_time = item["time"]
+            if isinstance(raw_time, str):
+                item_time = datetime.strptime(raw_time, "%Y-%m-%d %H:%M:%S")
+            elif isinstance(raw_time, datetime):
+                item_time = raw_time
+            else:
+                continue
+                
+            if item_time >= cutoff_time and item.get("station") == station:
+                # Ensure time is string for JSON
+                item_copy = dict(item)
+                copy_time = item_copy["time"]
+                if isinstance(copy_time, datetime):
+                    item_copy["time"] = copy_time.strftime("%Y-%m-%d %H:%M:%S")
+                # else it's already a string or something we don't know, but we'll try to keep it
+                filtered_data.append(item_copy)
+        except:
+            continue
+    
+    return jsonify({
+        "period": "24h",
+        "data": filtered_data,
+        "count": len(filtered_data)
+    })
+
+@app.route("/api/windrose-monthly/<station>")
+def windrose_monthly_api(station):
+    """API endpoint untuk Wind Rose 1 bulan penuh (bulan sebelumnya) - FETCH FROM SHEETS"""
+    now = datetime.utcnow()
+    
+    # Hitung bulan sebelumnya
+    if now.month == 1:
+        target_year = now.year - 1
+        target_month = 12  # Desember
+    else:
+        target_year = now.year
+        target_month = now.month - 1
+    
+    # Buat rentang waktu: 1 hari target_month sampai akhir target_month
+    start_date = datetime(target_year, target_month, 1)
+    # Hitung akhir bulan (hari pertama bulan berikutnya dikurangi 1 detik)
+    if target_month == 12:
+        end_date = datetime(target_year + 1, 1, 1) - timedelta(seconds=1)
+    else:
+        end_date = datetime(target_year, target_month + 1, 1) - timedelta(seconds=1)
+    
+    print(f"[WINDROSE MONTHLY] {station}: Fetching from Google Sheets for {target_year}-{target_month:02d}", file=sys.stderr)
+    
+    monthly_data = []
+    # 🔥 FETCH DIRECTLY FROM GOOGLE SHEETS AS REQUESTED
+    try:
+        all_records = sheets_handler.get_all_data()
+        if all_records:
+            df = pd.DataFrame(all_records)
+            df["time"] = pd.to_datetime(df["time"], errors='coerce')
+            
+            # Filter untuk station dan rentang bulan target
+            station_df = df[
+                (df["station"].str.strip().str.upper() == station.upper()) &
+                (df["time"] >= start_date) &
+                (df["time"] <= end_date)
+            ]
+            
+            print(f"[WINDROSE MONTHLY] Found {len(station_df)} rows in Sheets", file=sys.stderr)
+            
+            for _, row in station_df.iterrows():
+                metar = str(row["metar"]) if pd.notna(row["metar"]) else ""
+                if not metar:
+                    continue
+                
+                # Extract wind data using regex
+                wind_match = re.search(r'\b(\d{3}|VRB)(\d{2,3})(G\d{2,3})?KT\b', metar)
+                if wind_match:
+                    try:
+                        wind_dir = wind_match.group(1)
+                        if wind_dir != "VRB":
+                            monthly_data.append({
+                                "time": row["time"].strftime("%Y-%m-%d %H:%M:%S"),
+                                "station": station,
+                                "dir": int(wind_dir),
+                                "speed": float(wind_match.group(2))
+                            })
+                    except:
+                        continue
+    except Exception as e:
+        print(f"[WINDROSE MONTHLY] Sheets Error: {e}", file=sys.stderr)
+    
+    # Format nama bulan untuk display
+    month_names = {
+        1: "Januari", 2: "Februari", 3: "Maret", 4: "April",
+        5: "Mei", 6: "Juni", 7: "Juli", 8: "Agustus",
+        9: "September", 10: "Oktober", 11: "November", 12: "Desember"
+    }
+    month_name = month_names.get(target_month, str(target_month))
+    
+    return jsonify({
+        "period": "monthly",
+        "month": target_month,
+        "year": target_year,
+        "month_name": month_name,
+        "data": monthly_data,
+        "count": len(monthly_data),
+        "range": {
+            "start": start_date.strftime("%Y-%m-%d"),
+            "end": end_date.strftime("%Y-%m-%d")
+        }
+    })
 
 # =========================
 # API HISTORY - Technical History for Charts
@@ -1308,79 +1426,95 @@ def history_by_date():
             # 🔥 SYNC: Ensure latest data is pulled from Google Sheets before search
             # This is critical on Vercel where /tmp/ storage might be stale
             try:
-                print("[HISTORY] Syncing latest data from Sheets before filtering...", file=sys.stderr)
+                print(f"[HISTORY] Syncing latest data from Sheets for {station}...", file=sys.stderr)
                 sheets_handler.sync_to_local(CSV_FILE)
             except Exception as sync_err:
                 print(f"[HISTORY] Sync warning (proceeding with local data): {sync_err}", file=sys.stderr)
 
             # Read CSV
             if os.path.exists(CSV_FILE):
-                df = pd.read_csv(CSV_FILE)
-                print(f"[HISTORY] Total rows in CSV: {len(df)}")
-                
-                # Convert time column to datetime
-                df["time"] = pd.to_datetime(df["time"], errors='coerce', format='mixed')
-                
-                # Convert input dates (WIB) to UTC (Database stores UTC)
-                # WIB is UTC+7, so search inputs must be shifted back by 7 hours
-                start = pd.to_datetime(start_date) - timedelta(hours=7)
-                end = pd.to_datetime(end_date) - timedelta(hours=7)
-                
-                # If user selected exactly midnight for end_date, they likely want the whole day
-                if "T00:00" in end_date:
-                    end = end + timedelta(days=1)
-                
-                print(f"[HISTORY] Filter (UTC): station={station}, start={start}, end={end}")
-                
-                # Filter by station and date range
-                # Ensure station comparison handles any whitespace
-                results = df[
-                    (df["station"].str.strip() == station) &
-                    (df["time"] >= start) &
-                    (df["time"] <= end)
-                ]
-                
-                print(f"[HISTORY] Filtered rows found: {len(results) if results is not None else 0}")
-                
-                # Extract chart data if results exist
-                if results is not None and not results.empty:
-                    results = results.sort_values("time")  # Sort by time for chart
+                try:
+                    df = pd.read_csv(CSV_FILE)
+                    print(f"[HISTORY] Loaded {len(df)} rows from CSV", file=sys.stderr)
                     
-                    for _, row in results.iterrows():
-                        metar = str(row["metar"]) if pd.notna(row["metar"]) else ""
-                        
-                        # Format time for label
-                        labels.append(str(row["time"]))
-                        
-                        # Extract temperature (format: XX/XX)
-                        temp_match = re.search(r'(\d{2})/(\d{2})', metar)
-                        temps.append(int(temp_match.group(1)) if temp_match else None)
-                        
-                        # Extract pressure (QNH format: QXXXX)
-                        qnh_match = re.search(r'Q(\d{4})', metar)
-                        pressures.append(int(qnh_match.group(1)) if qnh_match else None)
-                        
-                        # Extract wind speed, gust, and direction
-                        wind_match = re.search(r'(\d{3}|VRB)(\d{2,3})(G(\d{2,3}))?KT', metar)
-                        
-                        if wind_match:
-                            wind_dir = wind_match.group(1)
-                            wind_dirs.append(wind_dir if wind_dir != "VRB" else None)
-                            winds.append(int(wind_match.group(2)))
-                            gusts.append(int(wind_match.group(4)) if wind_match.group(4) else None)
-                        else:
-                            wind_dirs.append(None)
-                            winds.append(None)
-                            gusts.append(None)
-                        
-                        # Detect thunderstorm
-                        thunder_codes = ["TS", "TSRA", "VCTS", "+TS", "TSGR", "-TS", "+TSRA", "-TSRA"]
-                        thunder_flags.append(any(code in metar for code in thunder_codes))
+                    # 1. Cleaning: Drop completely empty rows and handle NaT
+                    df = df.dropna(subset=["time", "metar"])
+                    df["time"] = pd.to_datetime(df["time"], errors='coerce', format='mixed')
+                    df = df.dropna(subset=["time"])
                     
-                    print(f"[HISTORY] Chart data extracted: {len(labels)} points")
+                    # 2. De-duplication: Ensure charts don't show redundant points
+                    # Sort by time first to keep the most recent entries if duplicates exist
+                    df = df.sort_values("time")
+                    df = df.drop_duplicates(subset=["station", "time", "metar"], keep="last")
                     
-                    # Reverse results for table display (newest first)
-                    results = results.iloc[::-1]
+                    # 3. Timezone Correction (WIB -> UTC)
+                    # User inputs WIB (local), DB stores UTC. Shift back 7 hours.
+                    start_dt = pd.to_datetime(start_date)
+                    end_dt = pd.to_datetime(end_date)
+                    
+                    # If end date is exactly at midnight (T00:00), the user likely picked a date 
+                    # without a time, implying they want the WHOLE day up to 23:59 WIB.
+                    if "T00:00" in end_date:
+                        end_dt = end_dt.replace(hour=23, minute=59, second=59)
+                    
+                    # Convert WIB to UTC (-7 hours)
+                    start_utc = start_dt - timedelta(hours=7)
+                    end_utc = end_dt - timedelta(hours=7)
+                    
+                    print(f"[HISTORY] Filter (UTC Range): {start_utc} to {end_utc}", file=sys.stderr)
+                    
+                    # 4. Apply Filter
+                    station_clean = station.strip().upper()
+                    results = df[
+                        (df["station"].str.strip().str.upper() == station_clean) &
+                        (df["time"] >= start_utc) &
+                        (df["time"] <= end_utc)
+                    ]
+                    
+                    print(f"[HISTORY] Found {len(results)} matching records", file=sys.stderr)
+                    
+                    # Extract chart data if results exist
+                    if results is not None and not results.empty:
+                        results = results.sort_values("time")  # Sort by time for chart
+                        
+                        for _, row in results.iterrows():
+                            metar = str(row["metar"]) if pd.notna(row["metar"]) else ""
+                            
+                            # Format time for label
+                            labels.append(str(row["time"]))
+                            
+                            # Extract temperature (format: XX/XX)
+                            temp_match = re.search(r'(\d{2})/(\d{2})', metar)
+                            temps.append(int(temp_match.group(1)) if temp_match else None)
+                            
+                            # Extract pressure (QNH format: QXXXX)
+                            qnh_match = re.search(r'Q(\d{4})', metar)
+                            pressures.append(int(qnh_match.group(1)) if qnh_match else None)
+                            
+                            # Extract wind speed, gust, and direction
+                            wind_match = re.search(r'(\d{3}|VRB)(\d{2,3})(G(\d{2,3}))?KT', metar)
+                            
+                            if wind_match:
+                                wind_dir = wind_match.group(1)
+                                wind_dirs.append(wind_dir if wind_dir != "VRB" else None)
+                                winds.append(int(wind_match.group(2)))
+                                gusts.append(int(wind_match.group(4)) if wind_match.group(4) else None)
+                            else:
+                                wind_dirs.append(None)
+                                winds.append(None)
+                                gusts.append(None)
+                            
+                            # Detect thunderstorm
+                            thunder_codes = ["TS", "TSRA", "VCTS", "+TS", "TSGR", "-TS", "+TSRA", "-TSRA"]
+                            thunder_flags.append(any(code in metar for code in thunder_codes))
+                        
+                        print(f"[HISTORY] Chart data extracted: {len(labels)} points")
+                        
+                        # Reverse results for table display (newest first)
+                        results = results.iloc[::-1]
+                except Exception as e:
+                    print(f"[HISTORY] Error processing CSV: {e}", file=sys.stderr)
+                    results = None
             else:
                 print("[HISTORY] CSV file does not exist")
 
