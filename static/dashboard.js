@@ -87,16 +87,17 @@ async function pollLatestData() {
         
         console.log('[POLL] Data received:', data);
         
-        // Cek apakah data benar-benar berbeda dari sebelumnya
+        // Cek apakah data benar-benar berbeda dari sebelumnya ATAU UI belum pernah diupdate (lastMetarRaw masih null)
         const currentHash = hashMetar(data.raw);
         const isDataChanged = currentHash !== alarmState.lastMetarHash;
+        const isUIEmpty = lastMetarRaw === null;
         
         if (data.raw) {
-            if (isDataChanged) {
-                console.log('[POLL] New data detected, processing...');
+            if (isDataChanged || isUIEmpty) {
+                console.log(isUIEmpty ? '[POLL] Initial UI population...' : '[POLL] New data detected, processing...');
                 handleMetarUpdate(data);
             } else {
-                console.log('[POLL] Data unchanged, skipping UI update');
+                console.log('[POLL] Data unchanged and UI already populated, skipping update');
                 // Tetap update connection indicator
                 updateConnectionIndicator(true);
                 // Update status panel saja
@@ -162,12 +163,39 @@ function initSidebar() {
     const layout = document.getElementById('appLayout');
     if (!toggle || !layout) return;
 
+    // Create backdrop for mobile if it doesn't exist
+    let backdrop = document.querySelector('.sidebar-backdrop');
+    if (!backdrop) {
+        backdrop = document.createElement('div');
+        backdrop.className = 'sidebar-backdrop';
+        document.body.appendChild(backdrop);
+    }
+
     const saved = localStorage.getItem('sidebarCollapsed');
     if (saved === 'true') layout.classList.add('sidebar-collapsed');
 
     toggle.addEventListener('click', () => {
-        layout.classList.toggle('sidebar-collapsed');
-        localStorage.setItem('sidebarCollapsed', layout.classList.contains('sidebar-collapsed'));
+        const isMobile = window.innerWidth <= 767;
+        if (isMobile) {
+            layout.classList.toggle('sidebar-mobile-active');
+        } else {
+            layout.classList.toggle('sidebar-collapsed');
+            localStorage.setItem('sidebarCollapsed', layout.classList.contains('sidebar-collapsed'));
+        }
+    });
+
+    // Close on backdrop click (mobile)
+    backdrop.addEventListener('click', () => {
+        layout.classList.remove('sidebar-mobile-active');
+    });
+
+    // Close on link click (mobile)
+    document.querySelectorAll('.sidebar-link').forEach(link => {
+        link.addEventListener('click', () => {
+            if (window.innerWidth <= 767) {
+                layout.classList.remove('sidebar-mobile-active');
+            }
+        });
     });
 }
 
@@ -1610,7 +1638,17 @@ document.addEventListener('DOMContentLoaded', function () {
     loadWindCompass();
     loadWindRose();
 
-    // 6. Initial poll replaces old individual fetch
+    // 6. Instant UI Population from SSR content (Eliminates loading delay)
+    const initialRaw = document.getElementById('metarRawCode');
+    if (initialRaw && initialRaw.textContent.trim()) {
+        const rawContent = initialRaw.textContent.trim();
+        console.log('[INIT] Pre-populating UI from DOM content...');
+        updateDecodedPanel(rawContent);
+        runMetarValidation(rawContent);
+        lastMetarRaw = rawContent; // Mark as populated
+    }
+
+    // 7. Initial poll handles health check and syncs with server state
     console.log('[INIT] Triggering first poll...');
     pollLatestData();
 
