@@ -121,10 +121,10 @@ async function pollLatestData() {
 // =======================
 // KEEP-ALIVE PING
 // =======================
-// Start polling every 30 seconds (only if we have pollLatestData)
+// Start polling every 15 seconds
 if (typeof pollLatestData === 'function') {
     setInterval(pollLatestData, 15000);
-    pollLatestData();
+    // Removed duplicate pollLatestData() here, DOMContentLoaded will trigger it
 }
 
 // =======================
@@ -1615,26 +1615,31 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // 6. Instant UI Population from SSR content (Eliminates loading delay)
     const initialRaw = document.getElementById('metarRawCode');
-    if (initialRaw && initialRaw.textContent.trim()) {
-        const rawContent = initialRaw.textContent.trim();
-        console.log('[INIT] Pre-populating UI from DOM content...');
+    if (initialRaw) {
+        // Clean text content (remove any existing badge text that might be inside)
+        // We clone it to get clean text without the badge span contents if they were rendered
+        const cleanText = initialRaw.innerText.split('⚠️')[0].trim().split('🟢')[0].trim();
         
-        // Preserve badge if present in the SSR text (it's actually outside the textContent usually but let's be safe)
-        // Actually, we can just re-highlight the clean text
-        initialRaw.innerHTML = highlightMetar(rawContent); 
-        
-        // Check for badges in the raw text to re-append them visually
-        if (rawContent.includes(' COR ') || rawContent.includes('CCA')) {
-            initialRaw.innerHTML += ' <span class="badge" style="background-color: #f59e0b; color: #1e293b; margin-left: 10px; font-size: 0.75rem; padding: 4px 8px; vertical-align: middle;">⚠️ CORRECTION</span>';
-        } else if (rawContent.includes(' AMD ')) {
-            initialRaw.innerHTML += ' <span class="badge" style="background-color: #3b82f6; color: #ffffff; margin-left: 10px; font-size: 0.75rem; padding: 4px 8px; vertical-align: middle;">⚠️ AMD</span>';
-        } else if (rawContent.includes(' SPECI ')) {
-            initialRaw.innerHTML += ' <span class="badge" style="background-color: #ef4444; color: #ffffff; margin-left: 10px; font-size: 0.75rem; padding: 4px 8px; vertical-align: middle;">⚠️ SPECI</span>';
-        }
+        if (cleanText && cleanText !== '{{ latest.metar }}' && cleanText !== '--') {
+            console.log('[INIT] Pre-populating UI from clean text:', cleanText);
+            
+            initialRaw.innerHTML = highlightMetar(cleanText);
+            
+            // Re-append badges based on text content
+            if (cleanText.includes(' COR ') || cleanText.includes('CCA')) {
+                initialRaw.innerHTML += ' <span class="badge" style="background-color: #f59e0b; color: #1e293b; margin-left: 10px; font-size: 0.75rem; padding: 4px 8px; vertical-align: middle;">⚠️ COR</span>';
+            } else if (cleanText.includes(' AMD ')) {
+                initialRaw.innerHTML += ' <span class="badge" style="background-color: #3b82f6; color: #ffffff; margin-left: 10px; font-size: 0.75rem; padding: 4px 8px; vertical-align: middle;">⚠️ AMD</span>';
+            } else if (cleanText.includes(' SPECI ')) {
+                initialRaw.innerHTML += ' <span class="badge" style="background-color: #ef4444; color: #ffffff; margin-left: 10px; font-size: 0.75rem; padding: 4px 8px; vertical-align: middle;">⚠️ SPECI</span>';
+            }
 
-        updateDecodedPanel(rawContent);
-        runMetarValidation(rawContent);
-        lastMetarRaw = rawContent; // Mark as populated
+            updateDecodedPanel(cleanText);
+            runMetarValidation(cleanText);
+            lastMetarRaw = cleanText;
+            alarmState.lastMetarHash = hashMetar(cleanText);
+            saveAlarmState();
+        }
     }
 
     // 7. Initial poll handles health check and syncs with server state
