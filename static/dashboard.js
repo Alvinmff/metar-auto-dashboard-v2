@@ -205,6 +205,10 @@ function initSidebar() {
 function applyTheme(theme) {
     const html = document.documentElement;
     const btn = document.getElementById('themeToggle');
+    
+    html.setAttribute('data-theme', theme);
+    localStorage.setItem('theme', theme);
+    
     if (btn) {
         btn.textContent = theme === 'light' ? '🌙' : '☀️';
     }
