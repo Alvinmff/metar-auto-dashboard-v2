@@ -1451,8 +1451,8 @@ def latest_data():
         else:
             try:
                 last_dt = pd.to_datetime(last_metar_update.replace("Z", ""), format='mixed')
-                # If more than 3 minutes old, trigger an update
-                if (now - last_dt).total_seconds() > 180: 
+                # If more than 45 seconds old, trigger an update
+                if (now - last_dt).total_seconds() > 45: 
                     should_update = True
             except:
                 should_update = True
@@ -1765,8 +1765,8 @@ def background_metar_loop():
             import traceback
             traceback.print_exc()
 
-        print(f"[LOOP] Sleeping for 80 seconds...")
-        time.sleep(80)
+        print(f"[LOOP] Sleeping for 60 seconds...")
+        time.sleep(60)
 
 @app.route("/download_history", methods=["POST"])
 def download_history():

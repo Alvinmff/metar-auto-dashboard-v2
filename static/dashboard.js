@@ -115,7 +115,7 @@ async function pollLatestData() {
 // =======================
 // Start polling every 30 seconds (only if we have pollLatestData)
 if (typeof pollLatestData === 'function') {
-    setInterval(pollLatestData, 30000);
+    setInterval(pollLatestData, 15000);
     pollLatestData();
 }
 

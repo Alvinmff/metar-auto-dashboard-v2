@@ -1,8 +1,8 @@
-import gspread
-from google.oauth2.service_account import Credentials
+import gspread  # type: ignore
+from google.oauth2.service_account import Credentials  # type: ignore
 import os
 import json
-import pandas as pd
+import pandas as pd  # type: ignore
 from datetime import datetime
 import sys
 
@@ -130,7 +130,9 @@ class GoogleSheetHandler:
             data = []
             for row in recent_rows:
                 if len(row) >= len(header):
-                    data.append(dict(zip(header, row)))
+                    # Use comprehension with type ignore for persistent linter confusion
+                    row_dict = {header[i]: row[i] for i in range(len(header))}  # type: ignore
+                    data.append(row_dict)
             return data
         except Exception as e:
             print(f"[SHEETS] ❌ Error fetching recent data: {e}", file=sys.stderr)
