@@ -1387,13 +1387,13 @@ function updateWindCompassDisplay(windDir, windSpeed) {
             radialaxis: { visible: false }
         },
         showlegend: false,
-        margin: { t: 30, b: 30, l: 30, r: 30 },
+        margin: { t: 40, b: 40, l: 40, r: 40 },
         paper_bgcolor: 'rgba(0,0,0,0)',
         plot_bgcolor: 'rgba(0,0,0,0)',
         annotations: [{
             text: `<b>${dir}°</b><br>${speed} kt`,
             showarrow: false,
-            font: { size: 20, color: textColor, family: 'Inter' },
+            font: { size: 24, color: textColor, family: 'Inter' },
             y: 0.5, x: 0.5, xref: 'paper', yref: 'paper'
         }]
     }, { responsive: true });
@@ -1494,18 +1494,71 @@ function renderWindRose(containerId, data, options) {
             }
         },
         showlegend: false,
-        margin: { t: 50, b: 30, l: 50, r: 50 },
+        margin: { t: 60, b: 40, l: 60, r: 60 },
         paper_bgcolor: 'rgba(0,0,0,0)', 
         plot_bgcolor: 'rgba(0,0,0,0)',
         title: {
             text: options.title || '',
-            font: { family: 'Inter', size: 15, color: isDark ? '#F1F5F9' : '#475569', weight: 'bold' }
+            font: { family: 'Inter', size: 18, color: isDark ? '#F1F5F9' : '#475569', weight: 'bold' },
+            y: 0.98,
+            x: 0.5,
+            xanchor: 'center',
+            yanchor: 'top'
         }
     }, { responsive: true });
 }
 
 setInterval(loadWindCompass, 5000);
 setInterval(loadWindRose, 10000);
+
+/**
+ * Global Chart Download Handler
+ * Supports both Chart.js and Plotly.js charts
+ */
+function downloadChart(chartId) {
+    console.log(`[DOWNLOAD] Initiating export for: ${chartId}`);
+    
+    // 1. Handle Plotly.js Charts (Compass & Roses)
+    const plotlyCharts = ['windCompassChart', 'windRose24h', 'windRoseMonth'];
+    if (plotlyCharts.includes(chartId)) {
+        if (typeof Plotly !== 'undefined') {
+            const filename = chartId.replace(/([A-Z])/g, '_$1').replace(/^./, str => str.toUpperCase());
+            Plotly.downloadImage(chartId, {
+                format: 'png',
+                width: 1000,
+                height: 800,
+                filename: `${filename}_${STATION}`
+            });
+        }
+        return;
+    }
+
+    // 2. Handle Chart.js Plots (Trends)
+    let chartInstance = null;
+    let fallbackFilename = 'Chart';
+
+    if (chartId === 'tempChart') { chartInstance = tempChart; fallbackFilename = 'Temperature_Trend'; }
+    else if (chartId === 'pressureChart') { chartInstance = pressureChart; fallbackFilename = 'Pressure_Trend'; }
+    else if (chartId === 'windChart') { chartInstance = windChart; fallbackFilename = 'Wind_Speed_Trend'; }
+
+    if (chartInstance) {
+        const link = document.createElement('a');
+        link.download = `${fallbackFilename}_${STATION}_${new Date().toISOString().slice(0, 10)}.png`;
+        link.href = chartInstance.toBase64Image();
+        link.click();
+    } else {
+        // Fallback for canvas elements not using the global instances
+        const canvas = document.getElementById(chartId);
+        if (canvas && canvas.toDataURL) {
+            const link = document.createElement('a');
+            link.download = `${chartId}_Export.png`;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        } else {
+            console.error(`[DOWNLOAD] Chart instance or canvas not found for ID: ${chartId}`);
+        }
+    }
+}
 
 // =======================
 // INITIALIZATION

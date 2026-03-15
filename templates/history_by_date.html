@@ -168,7 +168,7 @@
                         <h3 class="card-title"><span class="icon">🧭</span> Wind Rose (24 Hours)</h3>
                         <span id="windrose24h-badge" class="badge" style="background-color: #3b82f6; color: white; margin-left: 10px;">Loading...</span>
                     </div>
-                    <div id="windRose24h" style="height:400px;"></div>
+                    <div id="windRose24h" style="height:500px;"></div>
                     <div id="windrose24h-info" style="padding: 10px 16px; font-size: 0.85rem; color: var(--text-secondary); border-top: 1px solid var(--border-color);">
                         Showing data from last 24 hours
                     </div>
@@ -180,7 +180,7 @@
                         <h3 class="card-title"><span class="icon">🧭</span> Wind Rose (Previous Month)</h3>
                         <span id="windroseMonth-badge" class="badge" style="background-color: #059669; color: white; margin-left: 10px;">Loading...</span>
                     </div>
-                    <div id="windRoseMonth" style="height:400px;"></div>
+                    <div id="windRoseMonth" style="height:500px;"></div>
                     <div id="windroseMonth-info" style="padding: 10px 16px; font-size: 0.85rem; color: var(--text-secondary); border-top: 1px solid var(--border-color);">
                         Loading monthly data...
                     </div>
@@ -192,7 +192,7 @@
                     <h3 class="card-title"><span class="icon">🧭</span> Wind Rose (Filtered Period)</h3>
                     <button class="btn btn-sm btn-outline" onclick="downloadChart('windRoseChart')">📥 Download</button>
                 </div>
-                <div id="windRoseHistory" style="height:400px;"></div>
+                <div id="windRoseHistory" style="height:500px;"></div>
             </div>
             {% endif %}
 
@@ -494,9 +494,14 @@
                         }
                     },
                     showlegend: false,
-                    margin: { t: 30, b: 30, l: 50, r: 50 },
+                    margin: { t: 60, b: 40, l: 60, r: 60 },
                     paper_bgcolor: 'rgba(0,0,0,0)', 
-                    plot_bgcolor: 'rgba(0,0,0,0)'
+                    plot_bgcolor: 'rgba(0,0,0,0)',
+                    title: {
+                        text: 'Wind Rose (Filtered Period)',
+                        font: { family: 'Inter', size: 18, color: '#1E3A5F', weight: 'bold' },
+                        y: 0.95
+                    }
                 });
             }
         }
@@ -590,12 +595,13 @@
                     }
                 },
                 showlegend: false,
-                margin: { t: 50, b: 30, l: 50, r: 50 },
+                margin: { t: 60, b: 40, l: 60, r: 60 },
                 paper_bgcolor: 'rgba(0,0,0,0)', 
                 plot_bgcolor: 'rgba(0,0,0,0)',
                 title: {
                     text: options.title || '',
-                    font: { family: 'Inter', size: 16, color: isDark ? '#F1F5F9' : '#475569', weight: 'bold' }
+                    font: { family: 'Inter', size: 18, color: isDark ? '#F1F5F9' : '#475569', weight: 'bold' },
+                    y: 0.95
                 }
             }, { responsive: true });
         }
