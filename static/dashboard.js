@@ -205,18 +205,8 @@ function initSidebar() {
 function applyTheme(theme) {
     const html = document.documentElement;
     const btn = document.getElementById('themeToggle');
-    const btnSidebar = document.getElementById('themeToggleSidebar');
-    
-    html.setAttribute('data-theme', theme);
-    localStorage.setItem('theme', theme);
-    
-    const icon = theme === 'light' ? '🌙' : '☀️';
-    if (btn) btn.textContent = icon;
-    if (btnSidebar) {
-        const label = btnSidebar.querySelector('.label');
-        const iconEl = btnSidebar.querySelector('.icon');
-        if (iconEl) iconEl.textContent = icon;
-        if (label) label.textContent = theme === 'light' ? 'Dark Mode' : 'Light Mode';
+    if (btn) {
+        btn.textContent = theme === 'light' ? '🌙' : '☀️';
     }
 
     // Update charts if they exist
@@ -948,51 +938,15 @@ window.copyQam = copyQam;
 function enableSound() {
     soundEnabled = !soundEnabled;
     const btn = document.getElementById('soundToggle');
-    const btnSidebar = document.getElementById('soundToggleSidebar');
 
     // Save state to localStorage
     localStorage.setItem('soundEnabled', soundEnabled);
 
-    const updateBtn = (b) => {
-        if (!b) return;
-        const isSidebar = b.id === 'soundToggleSidebar';
-        if (isSidebar) {
-            const label = b.querySelector('.label');
-            const icon = b.querySelector('.icon');
-            if (icon) icon.textContent = soundEnabled ? '🔊' : '🔇';
-            if (label) label.textContent = soundEnabled ? 'Sound ON' : 'Sound OFF';
-        } else {
-            b.textContent = soundEnabled ? '🔊 Sound ON' : '🔇 Sound OFF';
-            if (soundEnabled) b.classList.add('active');
-            else b.classList.remove('active');
-        }
-    };
-
     if (soundEnabled) {
-        // Unlock audio context on first enable (browser autoplay policy)
-        const a1 = document.getElementById('lowVisSound');
-        const a2 = document.getElementById('newDataSound');
-        
-        const unlockAudio = (audioElement) => {
-            if (!audioElement) return;
-            audioElement.currentTime = 0;
-            audioElement.play()
-                .then(() => {
-                    console.log('Audio unlocked successfully');
-                    audioElement.pause();
-                    audioElement.currentTime = 0;
-                })
-                .catch(error => {
-                    console.warn('Audio unlock failed:', error);
-                    audioElement.load();
-                });
-        };
-
-        if (a1) unlockAudio(a1);
-        if (a2) unlockAudio(a2);
-
-        updateBtn(btn);
-        updateBtn(btnSidebar);
+        if (btn) {
+            btn.textContent = '🔊 Sound ON';
+            btn.classList.add('active');
+        }
         console.log('Sound ENABLED');
 
         // Immediate check: If there's an active critical condition, play alarm now
@@ -1001,8 +955,10 @@ function enableSound() {
             playAlarm();
         }
     } else {
-        updateBtn(btn);
-        updateBtn(btnSidebar);
+        if (btn) {
+            btn.textContent = '🔇 Sound OFF';
+            btn.classList.remove('active');
+        }
         console.log('Sound DISABLED');
     }
 }
@@ -1623,25 +1579,15 @@ function downloadChart(chartId) {
 document.addEventListener('DOMContentLoaded', function () {
     // 1. Sync Sound Button UI FIRST (Most critical for UX persistence)
     const soundToggleBtn = document.getElementById('soundToggle');
-    const soundToggleSidebar = document.getElementById('soundToggleSidebar');
-    
-    const syncSoundBtn = (btn) => {
-        if (!btn) return;
-        const isSidebar = btn.id === 'soundToggleSidebar';
-        if (isSidebar) {
-            const label = btn.querySelector('.label');
-            const icon = btn.querySelector('.icon');
-            if (icon) icon.textContent = soundEnabled ? '🔊' : '🔇';
-            if (label) label.textContent = soundEnabled ? 'Sound ON' : 'Sound OFF';
+    if (soundToggleBtn) {
+        if (soundEnabled) {
+            soundToggleBtn.textContent = '🔊 Sound ON';
+            soundToggleBtn.classList.add('active');
         } else {
-            btn.textContent = soundEnabled ? '🔊 Sound ON' : '🔇 Sound OFF';
-            if (soundEnabled) btn.classList.add('active');
-            else btn.classList.remove('active');
+            soundToggleBtn.textContent = '🔇 Sound OFF';
+            soundToggleBtn.classList.remove('active');
         }
-    };
-
-    syncSoundBtn(soundToggleBtn);
-    syncSoundBtn(soundToggleSidebar);
+    }
 
     // 2. Clocks
     updateClocks();

@@ -1615,12 +1615,7 @@ body.low-visibility .chart-card {
     gap: var(--space-sm);
   }
 
-  .wib-clock,
-  .sound-toggle,
-  .theme-toggle,
-  .connection-status #connectionText {
-    display: none !important; /* Extremely simplified header for mobile */
-  }
+  /* Header simplification removed - restoring all elements */
 
   .utc-clock {
     font-size: 0.8rem;
@@ -1698,37 +1693,6 @@ body.low-visibility .chart-card {
 
   .sidebar-mobile-active .sidebar-backdrop {
     display: block;
-  }
-
-  .sidebar-footer {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-sm);
-    margin-top: auto;
-    padding: var(--space-md);
-    border-top: 1px solid var(--border-color);
-  }
-
-  /* Shared style for sidebar controls */
-  .sidebar-control {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 10px 16px;
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius-md);
-    color: var(--text-primary);
-    font-size: 0.85rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: var(--transition-base);
-    width: 100%;
-    text-align: left;
-  }
-
-  .sidebar-control:hover {
-    background: rgba(255, 255, 255, 0.08);
   }
 
   /* Only show these in sidebar on mobile */
