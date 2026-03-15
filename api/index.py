@@ -2114,6 +2114,7 @@ def api_validate():
 @app.route("/manual_parser", methods=["GET", "POST"])
 def manual_parser():
 
+    station = "WARR"
     raw_metar = None
     parsed_qam = None
     validation_results = None
