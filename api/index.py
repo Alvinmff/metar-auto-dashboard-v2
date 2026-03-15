@@ -12,6 +12,7 @@ import threading
 from collections import deque
 import sys
 import traceback
+from typing import Optional, List, Dict, Any, Union
 try:
     from .sheets_handler import sheets_handler  # type: ignore
 except (ImportError, ValueError):
@@ -562,210 +563,182 @@ TREND   : {display['trend']}
     return qam
 
 # =========================
-# GENERATE NARRATIVE TEXT
+# GENERATE NARRATIVE TEXT - FINAL IMPROVED VERSION
 # =========================
 def generate_metar_narrative(parsed, raw_metar=None):
-    """Generate Indonesian narrative text from METAR data (without emojis)"""
+    """Generate Indonesian narrative text from METAR data with natural language format"""
     if not parsed:
         return "Data METAR tidak valid."
     
-    # Use format_parsed_for_display to convert new structure to display format
     display = format_parsed_for_display(parsed)
-    
-    text: list[str] = []
+    # Rename 'text' to 'narrative' to avoid potential shadowing or LiteralString inference issues
+    narrative: list[str] = []
     
     # Get station info
     station = display.get('station', 'Unknown')
-    if raw_metar and station == "-":
+    if raw_metar and (not station or station == "-"):
         station_match = re.match(r'([A-Z]{4})', raw_metar)
         if station_match:
             station = station_match.group(1)
-    if station == "-":
+    if not station or station == "-":
         station = "Unknown"
     
-    # Get observation time from METAR or parsed data
+    # Get observation time
     day, hour, minute = "??", "??", "??"
-    month_name = ""
+    month_indonesian = ""
     year = datetime.utcnow().year
+    
+    current_month_name = datetime.utcnow().strftime("%B")
     
     if raw_metar:
         time_match = re.search(r'(\d{2})(\d{2})(\d{2})Z', raw_metar)
         if time_match:
             day, hour, minute = time_match.groups()
-            # Get month from current date
-            month_name = datetime.utcnow().strftime("%B")
     elif display.get('day') != "-":
         day = display.get('day', '??')
         hour = display.get('hour', '??')
         minute = display.get('minute', '??')
-        month_name = datetime.utcnow().strftime("%B")
     
     # Convert month name to Indonesian
     month_map = {
-        "January": "Januari",
-        "February": "Februari",
-        "March": "Maret",
-        "April": "April",
-        "May": "Mei",
-        "June": "Juni",
-        "July": "Juli",
-        "August": "Agustus",
-        "September": "September",
-        "October": "Oktober",
-        "November": "November",
-        "December": "Desember"
+        "January": "Januari", "February": "Februari", "March": "Maret", "April": "April",
+        "May": "Mei", "June": "Juni", "July": "Juli", "August": "Agustus",
+        "September": "September", "October": "Oktober", "November": "November", "December": "Desember"
     }
-    month_indonesian = month_map.get(month_name, month_name)
+    month_indonesian = month_map.get(current_month_name, current_month_name)
     
-    text.append(f"Observasi cuaca di Bandara Juanda ({station}) pada tanggal {day} {month_indonesian} {year} pukul {hour}:{minute} UTC menunjukkan kondisi berikut:")
+    # Opening sentence
+    narrative.append(f"Observasi cuaca di Bandara Juanda ({station}) pada tanggal {day} {month_indonesian} {year} pukul {hour}:{minute} UTC menunjukkan kondisi berikut:")
     
-    # Wind information
+    # Wind information - FORMAT: "160° derajat 13 Gust 27 Knot"
     wind = display.get('wind', '')
     if wind and wind != 'NIL':
-        text.append(f"Angin dari arah {wind}.")
+        # Parse wind format: 160°/13G27KT atau 160°/13KT
+        wind_match = re.match(r'(\d{3})°/(\d{2,3})(G(\d{2,3}))?KT', str(wind))
+        if wind_match:
+            wind_dir = wind_match.group(1)
+            wind_speed = wind_match.group(2)
+            wind_gust = wind_match.group(4)
+            
+            if wind_gust:
+                wind_text = f"Angin dari arah {wind_dir}° derajat {wind_speed} Gust {wind_gust} Knot."
+            else:
+                wind_text = f"Angin dari arah {wind_dir}° derajat {wind_speed} Knot."
+            narrative.append(wind_text)
+        else:
+            narrative.append(f"Angin dari arah {wind}.")
     
     # Visibility information
     vis = display.get('visibility', '')
     if vis and vis != 'NIL':
         if vis == "10 KM":
-            text.append("Jarak pandang sekitar 10 kilometer.")
-        elif "KM" in vis:
-            km_val = vis.replace("KM", "").strip()
-            text.append(f"Jarak pandang sekitar {km_val} kilometer.")
-        elif "M" in vis:
-            m_val = vis.replace("M", "").strip()
-            text.append(f"Jarak pandang sekitar {m_val} meter.")
+            narrative.append("Jarak pandang sekitar 10 kilometer.")
+        elif "KM" in str(vis):
+            km_val = str(vis).replace("KM", "").strip()
+            # Hilangkan .0 jika ada
+            km_val_clean = km_val.replace(".0", "") if ".0" in km_val else km_val
+            narrative.append(f"Jarak pandang sekitar {km_val_clean} kilometer.")
+        elif "M" in str(vis):
+            m_val = str(vis).replace("M", "").strip()
+            narrative.append(f"Jarak pandang sekitar {m_val} meter.")
         else:
-            text.append(f"Visibilitas {vis}.")
+            narrative.append(f"Visibilitas {vis}.")
     
     # Weather information
     weather = display.get('weather', '')
     if weather and weather != 'NIL':
         weather_map = {
-            "HZ": "kabut asap",
-            "RA": "hujan",
-            "+RA": "hujan lebat",
-            "-RA": "hujan ringan",
-            "TS": "badai petir",
-            "-TS": "badai petir ringan",
-            "+TS": "badai petir kuat",
-            "SH": "hujan shower",
-            "DS": "debu pasir",
-            "SS": "pasir badai",
-            "-TSRA": "badai petir ringan disertai hujan",
-            "TSRA": "badai petir disertai hujan",
-            "+TSRA": "badai petir kuat disertai hujan"
+            "HZ": "kabut asap", "RA": "hujan", "+RA": "hujan lebat", "-RA": "hujan ringan",
+            "TS": "badai petir", "-TS": "badai petir ringan", "+TS": "badai petir kuat",
+            "TSRA": "badai petir disertai hujan", "-TSRA": "badai petir ringan disertai hujan", 
+            "+TSRA": "badai petir kuat disertai hujan", "VCTS": "badai petir di sekitar",
+            "SH": "hujan shower", "SHRA": "hujan shower", "DS": "debu pasir", "SS": "pasir badai",
+            "FG": "kabut", "BR": "kabut tipis", "DZ": "gerimis", "SN": "salju", "GR": "hujan es",
+            "SQ": "angin kencang", "FC": "puting beliung"
         }
-        desc = weather_map.get(weather, weather)
-        text.append(f"Terdapat fenomena cuaca berupa {desc}.")
+        weather_desc = weather_map.get(str(weather), str(weather))
+        narrative.append(f"Terdapat fenomena cuaca berupa {weather_desc}.")
     
-    # Cloud information with cloud_map
+    # Cloud information - FORMAT: "awan banyak pada ketinggian 1800 kaki CB (Cumulonimbus)"
     cloud = display.get('cloud', '')
     if cloud and cloud != 'NIL':
         cloud_map = {
-            "FEW": "awan sedikit",
-            "SCT": "awan tersebar",
-            "BKN": "awan banyak",
-            "OVC": "awan menutup langit"
+            "FEW": "awan sedikit", "SCT": "awan tersebar", "BKN": "awan banyak", "OVC": "awan menutup langit"
         }
-        
-        # Parse cloud format: "BKN 2500FT" or "FEW015CB"
-        cloud_match = re.match(r'([A-Z]{3})\s*(\d+)', cloud)
+        # Parse cloud: BKN 1800FT CB atau BKN018CB
+        cloud_match = re.match(r'([A-Z]{3})\s*(\d+)(?:FT)?(CB|TCU)?', str(cloud))
         if cloud_match:
-            cloud_type = cloud_match.group(1)
-            cloud_height = cloud_match.group(2)
-            desc = cloud_map.get(cloud_type, cloud_type)
-            extra = ""
-            if "CB" in cloud:
-                extra = " CB (Cumulonimbus)"
-            elif "TCU" in cloud:
-                extra = " TCU (Towering Cumulus)"
-            text.append(f"Terdapat {desc} pada ketinggian {cloud_height} kaki.{extra}")
+            c_type, c_height, c_extra = cloud_match.groups()
+            c_desc = cloud_map.get(c_type, c_type)
+            if c_extra == "CB":
+                narrative.append(f"Terdapat {c_desc} pada ketinggian {c_height} kaki CB (Cumulonimbus).")
+            elif c_extra == "TCU":
+                narrative.append(f"Terdapat {c_desc} pada ketinggian {c_height} kaki TCU (Towering Cumulus).")
+            else:
+                narrative.append(f"Terdapat {c_desc} pada ketinggian {c_height} kaki.")
         else:
-            text.append(f"Awan: {cloud}.")
+            narrative.append(f"Awan: {cloud}.")
     
     # Temperature and dewpoint
     temp_td = display.get('temp_td', '')
     if temp_td and temp_td != 'NIL':
-        temp_match = re.match(r'(\d{2})/(\d{2})', temp_td)
-        if temp_match:
-            temp = temp_match.group(1)
-            dewpoint = temp_match.group(2)
-            text.append(f"Suhu {temp}°C dengan titik embun {dewpoint}°C.")
+        tt_match = re.match(r'(\d{2})/(\d{2})', str(temp_td))
+        if tt_match:
+            t_val, d_val = tt_match.groups()
+            narrative.append(f"Suhu {t_val}°C dengan titik embun {d_val}°C.")
     
     # Pressure
     qnh = display.get('qnh', '')
     if qnh and qnh != 'NIL':
-        text.append(f"Tekanan udara {qnh} hPa.")
+        narrative.append(f"Tekanan udara {qnh} hPa.")
     
-    # Trend
-    trend: str = str(display.get('trend', ''))
-    if trend and trend != 'NIL':
-        if trend == 'NOSIG':
-            text.append("Tidak ada perubahan signifikan dalam waktu dekat.")
-        elif trend.startswith('TEMPO'):
-            tempo_content = trend.replace('TEMPO ', '', 1).strip()
-            time_match = re.search(r'L(\d{4})', tempo_content)
-            time_str = ""
-            if time_match:
-                time_val = time_match.group(1)
-                time_str = f"pukul {time_val[:2]}:{time_val[2:]}"  # type: ignore
-            vis_match = re.search(r'(\d{4})', tempo_content)
-            vis_str = ""
-            if vis_match:
-                vis_val = int(vis_match.group(1))
-                # Use the detailed visibility logic matching format_visibility
-                if vis_val >= 10000 or vis_val == 9999:
-                    vis_str = "10 km"
-                elif vis_val == 8000:
-                    vis_str = "8 km"
-                elif vis_val == 7000:
-                    vis_str = "7 km"
-                elif vis_val == 6000:
-                    vis_str = "6 km"
-                elif vis_val == 5000:
-                    vis_str = "5 km"
-                elif vis_val == 4000:
-                    vis_str = "4 km"
-                elif vis_val == 3000:
-                    vis_str = "3 km"
-                elif vis_val == 2000:
-                    vis_str = "2 km"
-                elif vis_val == 1500:
-                    vis_str = "1.5 km"
-                elif vis_val == 1000:
-                    vis_str = "1 km"
-                elif vis_val >= 1000:
-                    vis_str = f"{vis_val // 1000} km"
+    # TREND / TEMPO - FORMAT: "hingga pukul 08:30, dengan visibilitas 5 km, disertai hujan"
+    trend_val = str(display.get('trend', ''))
+    if trend_val and trend_val != 'NIL':
+        if trend_val == 'NOSIG':
+            narrative.append("Tidak ada perubahan signifikan dalam waktu dekat.")
+        elif 'TEMPO' in trend_val.upper():
+            tempo_items: list[str] = []
+            # Extract time using groups to avoid variable slicing
+            t_match = re.search(r'TL(\d{2})(\d{2})', trend_val)
+            if t_match:
+                hh, mm = t_match.groups()
+                tempo_items.append(f"hingga pukul {hh}:{mm}")
+            
+            # Extract visibility
+            v_match = re.search(r'(?<![Q\d])(\d{4})(?![\dZ])', trend_val)
+            if v_match:
+                raw_v = int(v_match.group(1))
+                if raw_v >= 10000 or raw_v == 9999:
+                    v_str = "10 km"
+                elif raw_v >= 1000:
+                    v_str = f"{raw_v // 1000} km" if raw_v % 1000 == 0 else f"{raw_v / 1000:.1f} km".replace(".0", "")
                 else:
-                    vis_str = f"{vis_val} m"
-            weather_map = {
-                "HZ": "kabut asap", "RA": "hujan", "+RA": "hujan lebat",
-                "-RA": "hujan ringan","-TSRA": "badai petir ringan disertai hujan",
-                "TSRA": "badai petir disertai hujan", "+TSRA": "badai petir kuat disertai hujan", 
-                "TS": "badai petir", "-TS": "badai petir ringan", "+TS": "badai petir kuat"
+                    v_str = f"{raw_v} m"
+                tempo_items.append(f"dengan visibilitas {v_str}")
+            
+            # Extract weather
+            tempo_weather_map = {
+                "RA": "hujan", "TS": "badai petir", "TSRA": "badai petir disertai hujan",
+                "SN": "salju", "DZ": "gerimis", "FG": "kabut", "HZ": "kabut asap",
+                "SH": "hujan shower", "SHRA": "hujan shower", "BR": "kabut tipis"
             }
-
             weather_found = None
-            for code, desc in weather_map.items():
-                if tempo_content.find(code) != -1:
-                    weather_found = desc
+            for w_code, w_desc in tempo_weather_map.items():
+                if w_code in trend_val:
+                    weather_found = w_desc
                     break
-            tempo_parts: list[str] = []
-            if time_str:
-                tempo_parts.append(time_str)
-            if vis_str:
-                tempo_parts.append(f"visibilitas {vis_str}")
             if weather_found:
-                tempo_parts.append(str(weather_found))
-            if tempo_parts:
-                text.append(f"Dalam waktu dekat, diperkirakan akan terjadi {', '.join(tempo_parts)}.")
+                tempo_items.append(f"disertai {weather_found}")
+            
+            if tempo_items:
+                narrative.append(f"Dalam waktu dekat, diperkirakan akan terjadi {', '.join(tempo_items)}.")
             else:
-                text.append(f"Tren: {trend}.")
+                narrative.append(f"Tren: {trend_val}.")
         else:
-            text.append(f"Tren: {trend}.")
+            narrative.append(f"Tren: {trend_val}.")
     
-    return " ".join(text)
+    return " ".join(narrative)
 
 # =========================
 # HELPER FUNCTIONS FOR CHART DATA
@@ -815,8 +788,8 @@ def api_latest():
     df["metar"] = df["metar"].fillna("").astype(str)
 
     labels = df["time"].tolist()
-    temps: list = []
-    pressures: list = []
+    temps: list[Optional[int]] = []
+    pressures: list[Optional[int]] = []
 
     for metar in df["metar"]:
 
@@ -2014,11 +1987,11 @@ def validate_metar(metar: str) -> list[str]:
             idx += 1  # Valid wind, advance
         elif tokens[idx].endswith('KT'):
             # Looks like wind but malformed
-            errors.append(f"❌ Format angin salah: {tokens[idx]}")
+            errors.append(str(f"❌ Format angin salah: {tokens[idx]}"))
             idx += 1
         else:
             # No wind group found (missing), report error but don't skip the token
-            errors.append("❌ Angin tidak ditemukan")
+            errors.append(str("❌ Angin tidak ditemukan"))
 
     # From here on, groups can be more dynamic. We'll search for them.
     remaining_tokens: list[str] = tokens[idx:] if idx < len(tokens) else []  # pyre-ignore
@@ -2068,7 +2041,7 @@ def validate_metar(metar: str) -> list[str]:
 
     # 8. Pressure Group (Q + 4 digits)
     if not any(re.match(r'^Q\d{4}$', t) for t in remaining_tokens):
-        errors.append("❌ Tekanan (QNH) salah (contoh: Q1010)")
+        errors.append(str("❌ Tekanan (QNH) salah (contoh: Q1010)"))
 
     # 9. Trend Group (Optional check)
     trend_keywords = ["NOSIG", "TEMPO", "BECMG"]
