@@ -1080,7 +1080,7 @@ def get_history_api():
             })
 
         # Format for charts (oldest to newest)
-        labels = [pd.to_datetime(t).strftime("%H:%M") for t in df["time"]]
+        labels = [pd.to_datetime(t).strftime("%d/%m/%y %H:%M") for t in df["time"]]
         temps = [extract_temp(m) for m in df["metar"]]
         pressures = [extract_pressure(m) for m in df["metar"]]
         
@@ -1198,12 +1198,7 @@ def home():
         
         has_history = not history.empty
         if has_history:
-            labels = history['time'].tolist()
-            temps = [extract_temp(m) for m in history['metar'].tolist()]
-            pressures = [extract_pressure(m) for m in history['metar'].tolist()]
-
-            # Reverse data so newest is at the top in table (charts show oldest->newest left to right)
-            labels = history['time'].tolist()
+            labels = [pd.to_datetime(t).strftime("%d/%m/%y %H:%M") for t in history['time'].tolist()]
             temps = [extract_temp(m) for m in history['metar'].tolist()]
             pressures = [extract_pressure(m) for m in history['metar'].tolist()]
         else:
@@ -1377,7 +1372,7 @@ def history_by_date():
                             metar = str(row["metar"]) if pd.notna(row["metar"]) else ""
                             
                             # Format time for label
-                            labels.append(str(row["time"]))
+                            labels.append(pd.to_datetime(row["time"]).strftime("%d/%m/%y %H:%M"))
                             
                             # Extract temperature (format: XX/XX)
                             temp_match = re.search(r'(\d{2})/(\d{2})', metar)
