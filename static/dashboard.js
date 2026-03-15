@@ -716,14 +716,19 @@ function handleMetarUpdate(data) {
     // LOGIKA ANTI-SPAM: Jika data sama persis, hanya update UI tanpa alarm
     // ============================================================
     if (isDuplicate && !isFirstLoad) {
-        console.log('[ALARM] Data duplicate detected, skipping alarm');
+        console.log('[SYNC] Data duplicate detected, skipping alarm but refreshing UI components');
         updateConnectionIndicator(true);
         
         // Tetap update status panel jika ada
         if (data.auto_fetch !== undefined) {
             updateStatusPanel(data);
         }
-        return; // Exit early, tidak alarm lagi
+        
+        // Update last update time tracking anyway
+        if (data.last_update) alarmState.lastProcessedServerTime = data.last_update;
+        saveAlarmState();
+        
+        // Skip alarm logic but proceed to UI updates below
     }
 
     // ============================================================
@@ -1206,53 +1211,56 @@ function createWindChart() {
 // =======================
 // FETCH & UPDATE CHARTS
 // =======================
-function updateCharts() {
-    fetch('/api/latest')
-        .then(r => r.json())
-        .then(data => {
-            if (tempChart) {
-                tempChart.data.labels = data.labels;
-                tempChart.data.datasets[0].data = data.temps;
-                tempChart.update('none');
-            }
-            if (pressureChart) {
-                pressureChart.data.labels = data.labels;
-                pressureChart.data.datasets[0].data = data.pressures;
-                pressureChart.update('none');
-            }
-        })
-        .catch(e => console.error('Chart update error:', e));
-}
-
 async function loadHistory() {
+    console.log('[CHART] Requesting history update...');
     try {
         const res = await fetch('/api/metar/history');
         const result = await res.json();
-        if (!result.data || result.data.length === 0) return;
+        
+        if (!result.data || result.data.length === 0) {
+            console.warn('[CHART] No history data received');
+            return;
+        }
 
-        const labels = result.data.map(r => r.time);
-        const temps = result.data.map(r => r.temp);
-        const pressures = result.data.map(r => r.pressure);
+        console.log(`[CHART] History loaded: ${result.data.length} records`);
+
+        const labels = result.labels || result.data.map(r => r.time);
+        const temps = result.temps || result.data.map(r => r.temp);
+        const pressures = result.pressures || result.data.map(r => r.pressure);
         const winds = result.data.map(r => r.wind);
         const gusts = result.data.map(r => r.gust);
 
-        if (!tempChart || !pressureChart) createCharts();
+        if (!tempChart || !pressureChart) {
+            console.log('[CHART] Initializing charts...');
+            createCharts();
+        }
         if (!windChart) createWindChart();
 
+        // Update datasets
         tempChart.data.labels = labels;
         tempChart.data.datasets[0].data = temps;
+        
         pressureChart.data.labels = labels;
         pressureChart.data.datasets[0].data = pressures;
+        
         windChart.data.labels = labels;
         windChart.data.datasets[0].data = winds;
         windChart.data.datasets[1].data = gusts;
 
-        tempChart.update();
-        pressureChart.update();
-        windChart.update();
+        // Force refresh
+        tempChart.update('active');
+        pressureChart.update('active');
+        windChart.update('active');
+        
+        console.log('[CHART] Charts successfully updated');
     } catch (e) {
-        console.error('History load error:', e);
+        console.error('[CHART] Error updating charts:', e);
     }
+}
+
+// Alias for compatibility
+function updateCharts() {
+    loadHistory();
 }
 
 // =======================

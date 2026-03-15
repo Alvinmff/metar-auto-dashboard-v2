@@ -1,52 +1,61 @@
-# 🌦️ METAR Auto Dashboard
-### Aviation Weather Monitoring – BMKG Style
+# 🌦️ METAR Auto Dashboard v2.0
+### Smart Aviation Weather Monitoring — BMKG Juanda Surabaya (WARR)
 
 [![Python Version](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
 [![Flask Framework](https://img.shields.io/badge/framework-Flask-lightgrey.svg)](https://flask.palletsprojects.com/)
-[![Socket.IO](https://img.shields.io/badge/realtime-Socket.IO-black?logo=socket.io)](https://socket.io/)
+[![Deployment](https://img.shields.io/badge/deploy-Vercel-black?logo=vercel)](https://vercel.com/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-**METAR Auto Dashboard** adalah platform monitoring cuaca penerbangan real-time yang mengambil data langsung dari **NOAA Aviation Weather Server** dan menyajikannya dalam antarmuka operasional standar BMKG.
-
-Sistem ini dirancang khusus untuk membantu pengamatan kondisi cuaca bandara secara otomatis dengan fitur visualisasi data, sistem peringatan dini (alert), analisis komponen angin runway, serta deteksi fenomena cuaca ekstrem secara instan.
+**METAR Auto Dashboard v2.0** adalah sistem monitoring cuaca penerbangan tercanggih yang dirancang untuk operasional BMKG Aviation. Sistem ini melakukan otomasi pengambilan data dari **NOAA Aviation Weather Server**, memprosesnya secara instan, dan menyajikannya dalam antarmuka yang responsif, modern, dan sangat akurat.
 
 ---
 
 ## 📸 Dashboard Preview
-
-![Dashboard Preview](docs/dashboard.png)
-*Antarmuka modern dengan visualisasi parameter cuaca lengkap, grafik tren, dan radar thunderstorm.*
-
----
-
-## ✈️ Features
-
-*   📡 **Real-Time METAR Monitoring**: Pengambilan data METAR otomatis dari server NOAA setiap interval tertentu (80 detik).
-*   📊 **Weather Data Visualization**: Grafik interaktif untuk **Temperature**, **Pressure (QNH)**, dan **Wind Speed** menggunakan **Chart.js**.
-*   🔔 **Advanced Alert System**:
-    *   🔴 **Low Visibility**: Alarm otomatis jika jarak pandang di bawah 3000m.
-    *   🌩️ **Thunderstorm Detected**: Peringatan visual pada modul radar jika terdeteksi fenomena badai guntur.
-    *   ✈️ **Runway Crosswind**: Alert otomatis jika komponen angin melebihi batas operasional pesawat.
-    *   🟢 **New Data Notification**: Notifikasi suara setiap ada pembaruan data dari server.
-*   ✈️ **Runway Crosswind Analysis**: Kalkulator otomatis untuk komponen crosswind, headwind, dan tailwind terhadap arah runway (RWY 10/28).
-*   🌩 **Thunderstorm Detection**: Algoritma cerdas yang memilah kode cuaca ekstrem (`TS`, `TSRA`, `VCTS`) langsung dari raw METAR.
-*   📄 **Automatic QAM Generator**: Mengonversi paket data METAR menjadi format laporan berita cuaca (QAM) yang siap didistribusikan.
-*   📥 **Data Management**:
-    *   Penyimpanan history otomatis ke dalam format **CSV**.
-    *   Ekspor history data berdasarkan rentang tanggal tertentu.
-*   🔄 **Dynamic Refresh (No-Reload)**: Menggunakan **WebSocket (Socket.IO)** memastikan data dan grafik diperbarui secara instan tanpa perlu memuat ulang halaman.
+![Dashboard v2 Preview](docs/dashboard_v2.png)
+*Antarmuka Premium dengan Glassmorphism, Dual-Mode (Light/Dark), dan Sticky Navigation.*
 
 ---
 
-## 🧠 System Architecture
+## ✈️ Key Features v2.0
 
-```mermaid
-graph TD
-    NOAA[NOAA Aviation Weather Server] -->|HTTP Request| Flask[Flask Backend]
-    Flask -->|Parse & Map Data| Data[Data Processing Engine]
-    Data -->|CSV Logging| Storage[(metar_history.csv)]
-    Data -->|WebSocket / Socket.IO| Frontend[Real-Time Dashboard]
-    Frontend -->|Interactions| Flask
+*   📱 **Fully Responsive UI**: Desain adaptif yang sempurna untuk Desktop maupun HP (Mobile). Layout otomatis menyesuaikan diri saat posisi HP berdiri (Portrait).
+*   📌 **Sticky Navigation**: Header dan Sidebar tetap di posisinya saat halaman di-scroll, memudahkan akses kontrol suhu, tema, dan menu navigasi.
+*   📊 **Real-Time Data Visualization**:
+    *   **Interactive Trends**: Grafik tren 24 jam untuk Temperature dan Pressure (QNH) via Chart.js.
+    *   **Wind Intelligence**: Wind Rose 24 jam dan Wind Compass interaktif (Plotly.js) untuk memantau arah dan kecepatan angin secara visual.
+*   💾 **Smart Persistence**:
+    *   Sistem mengingat pilihan Anda! Status **METAR Fetch (Running/Paused)**, **Mode Gelap/Terang**, dan **Pengaturan Suara** tersimpan otomatis di browser (`localStorage`).
+*   🔔 **Critical Alert System**:
+    *   🔴 **Low Visibility**: Alarm audio & visual jika jarak pandang < 3000m.
+    *   🌩️ **Thunderstorm Logic**: Deteksi instan fenomena badai guntur (`TS`, `TSRA`, `VCTS`).
+    *   ✈️ **Runway Dynamics**: Kalkulasi komponen Crosswind & Headwind secara real-time terhadap RWY 10/28.
+*   📄 **Operation Tools**:
+    *   **Manual Parser & Validator**: Alat validasi sintaks METAR (10 grup) dan generator berita cuaca (QAM) otomatis.
+    *   **Google Sheets Sync**: Sinkronisasi data otomatis ke cloud untuk backup dan analisis jangka panjang.
+*   ⚡ **Vercel Optimized**: Arsitektur tanpa database berat, menggunakan perpaduan **CSV Local** dan **Google Sheets API** dengan sistem **Polling** yang ringan dan cepat.
+
+---
+
+## 📂 Project Structure
+
+```text
+metar-auto-dashboard/
+├── api/
+│   ├── index.py           # Core Backend (Vercel Entry Point)
+│   ├── sheets_handler.py  # Google Sheets Integration
+│   └── metar_utils.py     # Decoder & Validator Logic
+├── templates/             # UI Components (Jinja2)
+│   ├── index.html         # Dashboard Utama
+│   ├── history_by_date.html # Pencarian History Data
+│   └── manual_parser.html   # Manual Toolset
+├── static/                # Modern Assets
+│   ├── style.css          # BMKG Design System v2 (Responsive & Sticky)
+│   ├── dashboard.js       # Logika Frontend & State Management
+│   └── sound/             # Audio Assets (Alarm & Notify)
+├── data/                  # Local Cache
+│   └── metar_history.csv  # Backup Data Lokal
+├── vercel.json            # Vercel Deployment Config
+└── requirements.txt       # Dependencies
 ```
 
 ---
@@ -55,110 +64,52 @@ graph TD
 
 | Layer | Technologies |
 | :--- | :--- |
-| **Backend** | Python 3.10+, Flask |
-| **Real-time** | Flask-Socketio (EngineIO) |
-| **Data Processing** | Pandas (CSV Handler), Re (Robust Regex Parser) |
-| **Frontend** | Semantic HTML5, CSS3 Custom UI (Glassmorphism), JavaScript ES6+ |
-| **Visualization** | Chart.js, Plotly.js (Wind Rose/Compass) |
+| **Backend** | Python 3.10+, Flask (Serverless Mode) |
+| **Logic** | Pandas (Data Processing), Regex (METAR Decoding) |
+| **Frontend** | HTML5 Semantic, CSS3 (Variables, Flexbox, Grid), JavaScript ES6+ |
+| **Persistence** | LocalStorage API |
+| **Charts** | Chart.js 4.x, Plotly.js |
+| **Cloud Sync** | Google Sheets API v4 |
 
 ---
 
-## 🚀 Installation Guide
+## 🚀 Installation & Deployment
 
-### 1. Clone Repository
-```bash
-git clone https://github.com/USERNAME/metar-auto-dashboard.git
-cd metar-auto-dashboard
-```
+### Local Development
+1. Install dependencies: `pip install -r requirements.txt`
+2. Run app: `python api/index.py` (Local debugging)
+3. Access: `http://localhost:5000`
 
-### 2. Create & Activate Virtual Environment
-```bash
-python -m venv .venv
-# Windows:
-.venv\Scripts\activate
-# Mac / Linux:
-source .venv/bin/activate
-```
-
-### 3. Install Dependencies
-Pastikan file `requirements.txt` berisi dependensi berikut:
-```text
-flask
-flask-socketio
-pandas
-requests
-eventlet
-```
-Kemudian jalankan instalasi:
-```bash
-pip install -r requirements.txt
-```
-
-### 4. Run Application
-```bash
-python app.py
-```
-> [!IMPORTANT]
-> **Penting**: Jalankan aplikasi menggunakan `python app.py`. Jangan menggunakan `flask run` karena fitur background loop dan WebSocket tidak akan berjalan optimal pada dev-server bawaan Flask.
-
-Akses dashboard melalui browser: [http://127.0.0.1:5000](http://127.0.0.1:5000)
+### Vercel Deployment
+Project ini siap di-deploy langsung ke Vercel:
+1. Hubungkan repository ke dashboard Vercel.
+2. Atur Environment Variables untuk Google Sheets (jika diperlukan).
+3. Klik Deploy.
 
 ---
 
-## 📂 Project Structure
+## 🔔 Alert Matrix
 
-```text
-metar-auto-dashboard/
-├── app.py                 # Inti aplikasi & Background fetcher
-├── metar_history.csv      # Penyimpanan history data lokal
-├── requirements.txt       # Daftar dependensi library
-├── templates/             # UI Components (Jinja2)
-│   ├── index.html         # Dashboard operasional utama
-│   ├── history_by_date.html # Pencarian history data
-│   └── manual_parser.html   # Alat bantu manual parser
-├── static/                # Assets & Style
-│   ├── style.css          # BMKG Aviation Design System v2
-│   ├── dashboard.js       # Logika WebSocket & Visualisasi
-│   ├── alarm.mp3          # Audio alert visibilitas rendah
-│   └── notify.mp3         # Audio update data masuk
-└── README.md
-```
-
----
-
-## 🔔 Alert Conditions
-
-| Condition | Visual State | Action Trigger |
+| Kondisi | Status Visual | Output |
 | :--- | :--- | :--- |
-| **Visibility < 3000m** | 🔴 RED Alert | Alarm Sound + Banner |
-| **Thunderstorm (TS)** | ⛈️ Danger | Alarm Sound + Radar Module Active |
-| **New METAR Received** | 🟢 Normal | Professional Notification Sound |
-| **Crosswind > 15kt** | ⚠️ Warning | Runway Status Indicator |
+| **Visibility < 3000m** | 🔴 RED Alert | Audio Alarm + Banner Bahaya |
+| **Thunderstorm (TS)** | ⛈️ Active | Audio Alarm + Radar Module Active |
+| **Crosswind > 15kt** | ⚠️ Warning | Indikator Runway Berubah Warna |
+| **New Data Sync** | 🟢 Normal | Professional Notification Sound |
 
 ---
 
-## 📡 Data Source & Config
-
-Data METAR ditarik secara global dari:
-**NOAA – National Oceanic and Atmospheric Administration**
-*Station Default: WARR (Bandara Internasional Juanda, Surabaya)*
-
-Interval pembaruan diatur secara default setiap **80 detik** dalam fungsi `background_metar_loop` di `app.py`.
-
----
-
-## 🚀 Future Development
-
-- [ ] Support Multi-station (Toggle stations/ICAO codes)
-- [ ] Integration with Runway Surface Condition (RCC)
-- [ ] Weather Risk AI Prediction using LSTM
-- [ ] WhatsApp/Telegram Bot for instant weather alerts
-- [ ] Wind Rose analysis for monthly period
+## 📝 Roadmap
+- [x] Responsive Mobile Support
+- [x] Sticky Navigation UI
+- [x] System Status Persistence
+- [x] Real-time Chart Refresh Consolidaton
+- [ ] Multi-Station Support (WARR, WADD, WAAA)
+- [ ] Weather AI Forecasting
 
 ---
 
 ## 📄 License
-
 This project is licensed under the **MIT License**.
 
 ---
