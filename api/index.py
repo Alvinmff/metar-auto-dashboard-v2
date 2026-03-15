@@ -1547,7 +1547,9 @@ def history_by_date():
         thunder_flags=thunder_flags,
         wind_dirs=wind_dirs,
         start_date=start_date,
-        end_date=end_date
+        end_date=end_date,
+        auto_fetch=auto_fetch,
+        last_metar_update=last_metar_update
     )
 
 
@@ -2125,9 +2127,12 @@ def manual_parser():
 
     return render_template(
         "manual_parser.html",
+        station=station,
         raw_metar=raw_metar,
         parsed_qam=parsed_qam,
-        validation_results=validation_results
+        validation_results=validation_results,
+        auto_fetch=auto_fetch,
+        last_metar_update=last_metar_update
     )
 
 # ============ VERCEL HANDLER ============
