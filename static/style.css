@@ -817,6 +817,41 @@ a:hover {
   gap: var(--space-lg);
 }
 
+/* System Status Grid */
+.status-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-md);
+}
+
+.status-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: var(--bg-body);
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color-light);
+}
+
+.status-label {
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.status-value {
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.status-online { color: var(--bmkg-success); }
+.status-running { color: var(--bmkg-success); }
+.status-paused { color: var(--bmkg-warning); }
+.status-offline { color: var(--bmkg-danger); }
+
 /* ============================================= */
 /* CHARTS                                        */
 /* ============================================= */
@@ -1552,6 +1587,48 @@ body.low-visibility .chart-card {
       "sidebar";
   }
 
+  .app-header {
+    padding: 0 var(--space-md);
+  }
+
+  .header-left {
+    gap: var(--space-xs);
+  }
+
+  .header-logo {
+    height: 32px;
+  }
+
+  .header-title h1 {
+    display: none; /* Hide large title on mobile */
+  }
+
+  .header-title .station-badge {
+    padding: 2px 8px;
+    font-size: 0.75rem;
+  }
+
+  .header-right {
+    gap: var(--space-sm);
+  }
+
+  .wib-clock {
+    display: none; /* Hide WIB clock to save space */
+  }
+
+  .utc-clock {
+    font-size: 0.85rem;
+    padding: 4px 8px;
+  }
+
+  .utc-clock small {
+    display: none;
+  }
+
+  .sound-toggle {
+    display: none; /* Hide sound toggle on header, move to sidebar or keep as is? Maybe hide for now */
+  }
+
   .app-sidebar {
     position: fixed;
     bottom: 0;
@@ -1560,12 +1637,13 @@ body.low-visibility .chart-card {
     height: auto;
     flex-direction: row;
     justify-content: space-around;
-    padding: var(--space-sm) 0;
+    padding: var(--space-xs) 0;
     border-right: none;
     border-top: 1px solid var(--border-color);
     background: var(--bg-surface);
-    z-index: 100;
+    z-index: 1000;
     gap: 0;
+    box-shadow: 0 -4px 10px rgba(0,0,0,0.1);
   }
 
   .sidebar-nav {
@@ -1579,48 +1657,78 @@ body.low-visibility .chart-card {
   .sidebar-link {
     flex-direction: column;
     gap: 2px;
-    padding: 8px;
+    padding: 6px;
     font-size: 0.7rem;
+    flex: 1;
   }
 
   .sidebar-link .icon {
-    font-size: 1.3rem;
+    font-size: 1.2rem;
   }
 
   .sidebar-link .label {
     opacity: 1 !important;
     width: auto !important;
     overflow: visible !important;
-    font-size: 0.65rem;
+    font-size: 0.6rem;
   }
 
   .sidebar-footer {
     display: none;
   }
 
+  .airplane-decor-container {
+    display: none; /* Hide decor on mobile bottom nav */
+  }
+
   .app-main {
     padding: var(--space-md);
-    padding-bottom: 80px;
-  }
-
-  .header-title h1 {
-    font-size: 0.9rem;
-  }
-
-  .utc-clock {
-    font-size: 0.9rem;
-    padding: 4px 10px;
+    padding-bottom: 90px;
   }
 
   .metar-hero {
     grid-template-columns: 1fr;
+    gap: var(--space-md);
+  }
+
+  .metar-raw-panel {
+    padding: var(--space-md);
+  }
+
+  .metar-raw-code {
+    font-size: 0.9rem;
+    white-space: pre-wrap; /* Wrap text on mobile */
+    overflow-x: visible;
+    padding: var(--space-md);
   }
 
   .metar-decoded-panel {
     grid-template-columns: 1fr 1fr;
+    gap: var(--space-sm);
+  }
+
+  .param-card {
+    padding: var(--space-sm) var(--space-md);
+  }
+
+  .param-card .param-value {
+    font-size: 1.3rem;
+  }
+
+  .card {
+    padding: var(--space-md);
   }
 
   .crosswind-result {
+    grid-template-columns: 1fr;
+  }
+
+  .status-grid {
+    grid-template-columns: 1fr;
+    gap: var(--space-sm);
+  }
+
+  .ts-params {
     grid-template-columns: 1fr;
   }
 
@@ -1630,10 +1738,33 @@ body.low-visibility .chart-card {
     grid-template-columns: 1fr;
   }
 
-  .metar-raw-code {
-    font-size: 0.85rem;
-    overflow-x: auto;
-    white-space: nowrap;
+  .form-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .form-group {
+    max-width: 100% !important;
+  }
+
+  .btn {
+    justify-content: center;
+  }
+
+  .data-table-container {
+    margin-top: var(--space-md);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-color);
+  }
+
+  .chart-container {
+    height: 300px;
+  }
+
+  .data-table thead th, 
+  .data-table tbody td {
+    padding: 10px 8px;
+    font-size: 0.75rem;
   }
 }
 
