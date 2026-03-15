@@ -616,14 +616,15 @@ def generate_metar_narrative(parsed, raw_metar=None):
         # Parse wind format: 160°/13G27KT atau 160°/13KT
         wind_match = re.match(r'(\d{3})°/(\d{2,3})(G(\d{2,3}))?KT', str(wind))
         if wind_match:
-            wind_dir = wind_match.group(1)
+            # Removed leading zeros (060 -> 60)
+            wind_dir = str(int(wind_match.group(1)))
             wind_speed = wind_match.group(2)
             wind_gust = wind_match.group(4)
             
             if wind_gust:
-                wind_text = f"Angin dari arah {wind_dir}° derajat {wind_speed} Gust {wind_gust} Knot."
+                wind_text = f"Angin dari arah {wind_dir}° derajat dengan kecepatan angin {wind_speed} Gust {wind_gust} Knot."
             else:
-                wind_text = f"Angin dari arah {wind_dir}° derajat {wind_speed} Knot."
+                wind_text = f"Angin dari arah {wind_dir}° derajat dengan kecepatan angin {wind_speed} Knot."
             narrative.append(wind_text)
         else:
             narrative.append(f"Angin dari arah {wind}.")
@@ -644,18 +645,20 @@ def generate_metar_narrative(parsed, raw_metar=None):
         else:
             narrative.append(f"Visibilitas {vis}.")
     
+    # Define weather map at function level for use in both Main and TEMPO sections
+    weather_map: Dict[str, str] = {
+        "HZ": "kabut asap", "RA": "hujan", "+RA": "hujan lebat", "-RA": "hujan ringan",
+        "TS": "badai petir", "-TS": "badai petir ringan", "+TS": "badai petir kuat",
+        "TSRA": "badai petir disertai hujan", "-TSRA": "badai petir ringan disertai hujan", 
+        "+TSRA": "badai petir kuat disertai hujan", "VCTS": "badai petir di sekitar",
+        "SH": "hujan shower", "SHRA": "hujan shower", "DS": "debu pasir", "SS": "pasir badai",
+        "FG": "kabut", "BR": "kabut tipis", "DZ": "gerimis", "SN": "salju", "GR": "hujan es",
+        "SQ": "angin kencang", "FC": "puting beliung"
+    }
+
     # Weather information
     weather = display.get('weather', '')
     if weather and weather != 'NIL':
-        weather_map = {
-            "HZ": "kabut asap", "RA": "hujan", "+RA": "hujan lebat", "-RA": "hujan ringan",
-            "TS": "badai petir", "-TS": "badai petir ringan", "+TS": "badai petir kuat",
-            "TSRA": "badai petir disertai hujan", "-TSRA": "badai petir ringan disertai hujan", 
-            "+TSRA": "badai petir kuat disertai hujan", "VCTS": "badai petir di sekitar",
-            "SH": "hujan shower", "SHRA": "hujan shower", "DS": "debu pasir", "SS": "pasir badai",
-            "FG": "kabut", "BR": "kabut tipis", "DZ": "gerimis", "SN": "salju", "GR": "hujan es",
-            "SQ": "angin kencang", "FC": "puting beliung"
-        }
         weather_desc = weather_map.get(str(weather), str(weather))
         narrative.append(f"Terdapat fenomena cuaca berupa {weather_desc}.")
     
@@ -705,8 +708,9 @@ def generate_metar_narrative(parsed, raw_metar=None):
                 hh, mm = t_match.groups()
                 tempo_items.append(f"hingga pukul {hh}:{mm}")
             
-            # Extract visibility
-            v_match = re.search(r'(?<![Q\d])(\d{4})(?![\dZ])', trend_val)
+            # Extract visibility (excluding digits inside time markers like TL0930)
+            # We look for 4 digits NOT preceded by L (from TL), T (from AT), M (from FM) or Q
+            v_match = re.search(r'(?<![LTMAQ\d])(\d{4})(?![\dZ])', trend_val)
             if v_match:
                 raw_v = int(v_match.group(1))
                 if raw_v >= 10000 or raw_v == 9999:
@@ -717,19 +721,29 @@ def generate_metar_narrative(parsed, raw_metar=None):
                     v_str = f"{raw_v} m"
                 tempo_items.append(f"dengan visibilitas {v_str}")
             
-            # Extract weather
-            tempo_weather_map = {
-                "RA": "hujan", "TS": "badai petir", "TSRA": "badai petir disertai hujan",
-                "SN": "salju", "DZ": "gerimis", "FG": "kabut", "HZ": "kabut asap",
-                "SH": "hujan shower", "SHRA": "hujan shower", "BR": "kabut tipis"
-            }
-            weather_found = None
-            for w_code, w_desc in tempo_weather_map.items():
-                if w_code in trend_val:
-                    weather_found = w_desc
-                    break
-            if weather_found:
-                tempo_items.append(f"disertai {weather_found}")
+            # Extract weather (Sync with main weather_map)
+            # Find ALL matching phenomena in TEMPO segment
+            tempo_weathers: list[str] = []
+            codes = sorted(weather_map.keys(), key=len, reverse=True)
+            
+            # Divide trend_val into tokens to avoid partial matches (like 'RA' matching in 'TSRA')
+            tempo_tokens = trend_val.split()
+            for token in tempo_tokens:
+                for w_code in codes:
+                    if w_code == token:
+                        w_desc = weather_map.get(w_code)
+                        if w_desc:
+                            tempo_weathers.append(w_desc)
+                        break # Only one weather code per token
+            
+            if tempo_weathers:
+                # Deduplicate while preserving order without using dict.fromkeys to satisfy linters
+                unique_weathers: list[str] = []
+                for w in tempo_weathers:
+                    if w not in unique_weathers:
+                        unique_weathers.append(w)
+                
+                tempo_items.append(f"disertai {' dan '.join(unique_weathers)}")
             
             if tempo_items:
                 narrative.append(f"Dalam waktu dekat, diperkirakan akan terjadi {', '.join(tempo_items)}.")
