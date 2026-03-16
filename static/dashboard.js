@@ -1513,6 +1513,7 @@ function renderWindRose(containerId, data, options) {
         type: 'barpolar',
         r: data.map(d => d.speed),
         theta: data.map(d => d.dir),
+        customdata: data.map(d => d.utc_time || ''),
         marker: {
             color: data.map(d => d.speed),
             colorscale: options.colorScale,
@@ -1525,7 +1526,7 @@ function renderWindRose(containerId, data, options) {
                 titlefont: { family: 'Inter', size: 12, color: isDark ? '#F1F5F9' : '#475569' }
             }
         },
-        hovertemplate: 'Dir: %{theta}°<br>Speed: %{r} KT<extra></extra>',
+        hovertemplate: '<b>Dir: %{theta}°</b><br>Speed: %{r} KT<br>Time: %{customdata}<extra></extra>',
         opacity: 0.85
     }], {
         polar: {

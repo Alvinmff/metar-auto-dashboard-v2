@@ -938,6 +938,7 @@ def windrose_api(station):
                             wib_time = row["time"] + timedelta(hours=7)
                             filtered_data.append({
                                 "time": wib_time.strftime("%Y-%m-%d %H:%M:%S"),
+                                "utc_time": row["time"].strftime("%H:%M UTC"),
                                 "station": station,
                                 "dir": int(wind_dir),
                                 "speed": float(wind_match.group(2))
@@ -964,6 +965,7 @@ def windrose_api(station):
                         wib_time = row["time"] + timedelta(hours=7)
                         filtered_data.append({
                             "time": wib_time.strftime("%Y-%m-%d %H:%M:%S"),
+                            "utc_time": row["time"].strftime("%H:%M UTC"),
                             "station": station,
                             "dir": int(wind_match.group(1)),
                             "speed": float(wind_match.group(2))
@@ -1041,6 +1043,7 @@ def windrose_monthly_api(station):
                         if wind_dir != "VRB":
                             monthly_data.append({
                                 "time": row["time"].strftime("%Y-%m-%d %H:%M:%S"),
+                                "utc_time": row["time"].strftime("%H:%M UTC"),
                                 "station": station,
                                 "dir": int(wind_dir),
                                 "speed": float(wind_match.group(2))
