@@ -258,21 +258,25 @@
                 <div class="card">
                     <div class="card-header">
                         <h3 class="card-title"><span class="icon">🧭</span> Wind Compass</h3>
-                        <button class="btn btn-sm btn-outline" onclick="downloadChart('windCompassChart')">📥 Download</button>
+                        <button class="btn btn-sm btn-outline" onclick="downloadChart('windCompassChart')">📥
+                            Download</button>
                     </div>
                     <div id="windCompassChart" style="height:400px;"></div>
                 </div>
-                
+
                 <div class="card flex flex-col">
                     <div class="card-header">
                         <h3 class="card-title"><span class="icon">🧭</span> Wind Rose (24 Hours)</h3>
                         <div class="flex items-center gap-sm">
-                            <span id="windrose24h-badge" class="badge" style="background-color: #3b82f6; color: white;">Loading...</span>
-                            <button class="btn btn-sm btn-outline" onclick="downloadChart('windRose24h')">📥 Download</button>
+                            <span id="windrose24h-badge" class="badge"
+                                style="background-color: #3b82f6; color: white;">Loading...</span>
+                            <button class="btn btn-sm btn-outline" onclick="downloadChart('windRose24h')">📥
+                                Download</button>
                         </div>
                     </div>
                     <div id="windRose24h" style="height:400px;"></div>
-                    <div id="windrose24h-info" style="padding: 10px 16px; font-size: 0.85rem; color: var(--text-secondary); border-top: 1px solid var(--border-color);">
+                    <div id="windrose24h-info"
+                        style="padding: 10px 16px; font-size: 0.85rem; color: var(--text-secondary); border-top: 1px solid var(--border-color);">
                         Fetching 24h wind data from Sheets...
                     </div>
                 </div>
@@ -282,12 +286,15 @@
                 <div class="card-header">
                     <h3 class="card-title"><span class="icon">🧭</span> Wind Rose (Previous Month)</h3>
                     <div class="flex items-center gap-sm">
-                        <span id="windroseMonth-badge" class="badge" style="background-color: #059669; color: white;">Loading...</span>
-                        <button class="btn btn-sm btn-outline" onclick="downloadChart('windRoseMonth')">📥 Download</button>
+                        <span id="windroseMonth-badge" class="badge"
+                            style="background-color: #059669; color: white;">Loading...</span>
+                        <button class="btn btn-sm btn-outline" onclick="downloadChart('windRoseMonth')">📥
+                            Download</button>
                     </div>
                 </div>
                 <div id="windRoseMonth" style="height:500px;"></div>
-                <div id="windroseMonth-info" style="padding: 10px 16px; font-size: 0.85rem; color: var(--text-secondary); border-top: 1px solid var(--border-color);">
+                <div id="windroseMonth-info"
+                    style="padding: 10px 16px; font-size: 0.85rem; color: var(--text-secondary); border-top: 1px solid var(--border-color);">
                     Fetching monthly data from Google Sheets...
                 </div>
             </div>
@@ -367,8 +374,10 @@
                 <div class="chart-container">
                     <canvas id="tempChart"></canvas>
                 </div>
-                <div id="tempChart-info" style="padding: 10px 16px; font-size: 0.85rem; color: var(--text-secondary); border-top: 1px solid var(--border-color);">
-                    {% if history_start %}{{ history_start }} to {{ history_end }} • {{ history_count }} records (from {{ history_source }}){% else %}Loading temperature trend data...{% endif %}
+                <div id="tempChart-info"
+                    style="padding: 10px 16px; font-size: 0.85rem; color: var(--text-secondary); border-top: 1px solid var(--border-color);">
+                    {% if history_start %}{{ history_start }} to {{ history_end }} • {{ history_count }} records (from
+                    {{ history_source }}){% else %}Loading temperature trend data...{% endif %}
                 </div>
             </div>
 
@@ -380,8 +389,10 @@
                 <div class="chart-container">
                     <canvas id="pressureChart"></canvas>
                 </div>
-                <div id="pressureChart-info" style="padding: 10px 16px; font-size: 0.85rem; color: var(--text-secondary); border-top: 1px solid var(--border-color);">
-                    {% if history_start %}{{ history_start }} to {{ history_end }} • {{ history_count }} records (from {{ history_source }}){% else %}Loading pressure trend data...{% endif %}
+                <div id="pressureChart-info"
+                    style="padding: 10px 16px; font-size: 0.85rem; color: var(--text-secondary); border-top: 1px solid var(--border-color);">
+                    {% if history_start %}{{ history_start }} to {{ history_end }} • {{ history_count }} records (from
+                    {{ history_source }}){% else %}Loading pressure trend data...{% endif %}
                 </div>
             </div>
 
@@ -393,8 +404,10 @@
                 <div class="chart-container">
                     <canvas id="windChart"></canvas>
                 </div>
-                <div id="windChart-info" style="padding: 10px 16px; font-size: 0.85rem; color: var(--text-secondary); border-top: 1px solid var(--border-color);">
-                    {% if history_start %}{{ history_start }} to {{ history_end }} • {{ history_count }} records (from {{ history_source }}){% else %}Loading wind trend data...{% endif %}
+                <div id="windChart-info"
+                    style="padding: 10px 16px; font-size: 0.85rem; color: var(--text-secondary); border-top: 1px solid var(--border-color);">
+                    {% if history_start %}{{ history_start }} to {{ history_end }} • {{ history_count }} records (from
+                    {{ history_source }}){% else %}Loading wind trend data...{% endif %}
                 </div>
             </div>
 

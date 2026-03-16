@@ -891,10 +891,20 @@ def windrose_api(station):
     """API endpoint untuk Wind Rose 24 jam terakhir - FETCH FROM SHEETS for Real-time Sync"""
     global CSV_FILE
     
-    # Filter untuk 24 jam terakhir
-    cutoff_time = datetime.utcnow() - timedelta(hours=24)
+    # 00.00 WIB Kemarin sampai 00.00 WIB Hari Ini (Yesterday's Full Day)
+    now_utc = datetime.utcnow()
+    # Manual WIB offset (UTC+7)
+    now_wib = now_utc + timedelta(hours=7)
+    # Start of today WIB
+    start_today_wib = now_wib.replace(hour=0, minute=0, second=0, microsecond=0)
+    # Start of yesterday WIB
+    start_yesterday_wib = start_today_wib - timedelta(days=1)
     
-    print(f"[WINDROSE 24H] {station}: Fetching from Google Sheets for last 24h", file=sys.stderr)
+    # Convert ranges back to UTC for filtering
+    cutoff_time = start_yesterday_wib - timedelta(hours=7)
+    end_cutoff_time = start_today_wib - timedelta(hours=7)
+    
+    print(f"[WINDROSE 24H] {station}: Yesterday's range UTC {cutoff_time} to {end_cutoff_time}", file=sys.stderr)
     
     filtered_data = []
     # 🔥 FETCH DIRECTLY FROM GOOGLE SHEETS for consistent sync
@@ -904,10 +914,11 @@ def windrose_api(station):
             df = pd.DataFrame(all_records)
             df["time"] = pd.to_datetime(df["time"], errors='coerce')
             
-            # Filter untuk station dan 24 jam terakhir
+            # Filter untuk station dan rentang hari ini (WIB 00.00 - 00.00)
             station_df = df[
                 (df["station"].str.strip().str.upper() == station.upper()) &
-                (df["time"] >= cutoff_time)
+                (df["time"] >= cutoff_time) &
+                (df["time"] < end_cutoff_time)
             ]
             
             print(f"[WINDROSE 24H] Found {len(station_df)} rows in Sheets", file=sys.stderr)
@@ -940,7 +951,8 @@ def windrose_api(station):
                 df_local["time"] = pd.to_datetime(df_local["time"], errors='coerce')
                 local_filtered = df_local[
                     (df_local["station"].str.strip().str.upper() == station.upper()) &
-                    (df_local["time"] >= cutoff_time)
+                    (df_local["time"] >= cutoff_time) &
+                    (df_local["time"] < end_cutoff_time)
                 ]
                 for _, row in local_filtered.iterrows():
                     metar = str(row["metar"])
@@ -963,8 +975,9 @@ def windrose_api(station):
         start_range = min(times)
         end_range = max(times)
     else:
-        start_range = cutoff_time.strftime("%Y-%m-%d %H:%M")
-        end_range = datetime.utcnow().strftime("%Y-%m-%d %H:%M")
+        # Default labels to show the intended day range (WIB)
+        start_range = start_yesterday_wib.strftime("%Y-%m-%d %H:%M")
+        end_range = start_today_wib.strftime("%Y-%m-%d %H:%M")
 
     return jsonify({
         "period": "24h",
