@@ -934,8 +934,10 @@ def windrose_api(station):
                     try:
                         wind_dir = wind_match.group(1)
                         if wind_dir != "VRB":
+                            # Convert UTC to WIB for display in the data
+                            wib_time = row["time"] + timedelta(hours=7)
                             filtered_data.append({
-                                "time": row["time"].strftime("%Y-%m-%d %H:%M:%S"),
+                                "time": wib_time.strftime("%Y-%m-%d %H:%M:%S"),
                                 "station": station,
                                 "dir": int(wind_dir),
                                 "speed": float(wind_match.group(2))
@@ -958,8 +960,10 @@ def windrose_api(station):
                     metar = str(row["metar"])
                     wind_match = re.search(r'\b(\d{3}|VRB)(\d{2,3})(G\d{2,3})?KT\b', metar)
                     if wind_match and wind_match.group(1) != "VRB":
+                        # Convert UTC to WIB for display
+                        wib_time = row["time"] + timedelta(hours=7)
                         filtered_data.append({
-                            "time": row["time"].strftime("%Y-%m-%d %H:%M:%S"),
+                            "time": wib_time.strftime("%Y-%m-%d %H:%M:%S"),
                             "station": station,
                             "dir": int(wind_match.group(1)),
                             "speed": float(wind_match.group(2))
@@ -969,15 +973,9 @@ def windrose_api(station):
     # Determine source (logic matches implementation above)
     source_info = "Sheets" if IS_VERCEL else "Local CSV"
     
-    # Calculate actual range if data exists
-    if filtered_data:
-        times = [d["time"] for d in filtered_data]
-        start_range = min(times)
-        end_range = max(times)
-    else:
-        # Default labels to show the intended day range (WIB)
-        start_range = start_yesterday_wib.strftime("%Y-%m-%d %H:%M")
-        end_range = start_today_wib.strftime("%Y-%m-%d %H:%M")
+    # Use fixed WIB boundaries for the range labels
+    start_range = start_yesterday_wib.strftime("%Y-%m-%d %H:%M")
+    end_range = start_today_wib.strftime("%Y-%m-%d %H:%M")
 
     return jsonify({
         "period": "24h",
