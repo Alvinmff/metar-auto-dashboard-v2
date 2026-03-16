@@ -1619,19 +1619,20 @@ body.low-visibility .chart-card {
         "header header"
         "main main";         /* Sidebar hidden di mobile */
     grid-template-columns: 1fr;
-    grid-template-rows: var(--header-height) 1fr auto;
+    grid-template-rows: 56px 1fr auto;
   }
 
   .app-header {
-    padding: 0 var(--space-md);
+    padding: 0 var(--space-sm);
+    height: 56px; /* Slightly shorter on mobile */
   }
 
   .header-left {
-    gap: var(--space-xs);
+    gap: 4px;
   }
 
   .header-logo {
-    height: 32px;
+    height: 28px;
   }
 
   .header-title h1 {
@@ -1639,17 +1640,49 @@ body.low-visibility .chart-card {
   }
 
   .header-title .station-badge {
-    padding: 2px 8px;
-    font-size: 0.75rem;
+    padding: 2px 6px;
+    font-size: 0.7rem;
+    gap: 4px;
   }
 
   .header-right {
-    gap: var(--space-sm);
+    gap: 4px; /* Tighter gap */
   }
 
-  .utc-clock {
-    font-size: 0.8rem;
-    padding: 2px 6px;
+  .utc-clock,
+  .wib-clock {
+    font-size: 0.75rem;
+    padding: 2px 5px;
+    gap: 3px;
+    border-radius: 4px;
+  }
+
+  .utc-clock small,
+  .wib-clock small {
+    font-size: 0.6rem;
+  }
+
+  .sidebar-toggle,
+  .theme-toggle {
+    width: 30px;
+    height: 30px;
+    font-size: 0.9rem;
+  }
+
+  .sound-toggle {
+    padding: 4px 8px;
+    font-size: 0.7rem;
+  }
+
+  .connection-status {
+    padding: 4px 8px;
+    font-size: 0.7rem;
+    gap: 4px;
+  }
+
+  .connection-dot {
+    width: 8px;
+    height: 8px;
   }
 
   .airplane-decor-container {
@@ -1659,9 +1692,9 @@ body.low-visibility .chart-card {
   .app-sidebar {
     position: fixed;
     left: -260px;           /* Hidden by default */
-    top: var(--header-height);
+    top: 56px;             /* Match header height */
     width: 260px;
-    height: calc(100vh - var(--header-height));
+    height: calc(100vh - 56px);
     transition: left 0.3s ease;
     z-index: 950;
     box-shadow: 10px 0 30px rgba(0,0,0,0.3);
@@ -1677,7 +1710,7 @@ body.low-visibility .chart-card {
   .sidebar-overlay {
     display: none;
     position: fixed;
-    top: var(--header-height);
+    top: 56px;
     left: 0;
     right: 0;
     bottom: 0;
