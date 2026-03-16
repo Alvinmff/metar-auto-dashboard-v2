@@ -37,9 +37,9 @@
             <div class="header-right">
                 <div class="wib-clock" id="wibClock">--:--:-- <small>WIB</small></div>
                 <div class="utc-clock" id="utcClock">--:--:-- <small>UTC</small></div>
-                <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()"
+                <button class="theme-toggle mobile-hidden" id="themeToggle" onclick="toggleTheme()"
                     title="Toggle Dark/Light Mode">🌙</button>
-                <button class="sound-toggle" id="soundToggle" onclick="enableSound()">🔇 Sound</button>
+                <button class="sound-toggle mobile-hidden" id="soundToggle" onclick="enableSound()">🔇 Sound</button>
                 <div class="connection-status" id="connectionStatus">
                     <span class="connection-dot" id="connectionDot"></span>
                     <span id="connectionText">OFFLINE</span>
@@ -69,6 +69,15 @@
                     <span class="icon">📄</span>
                     <span class="label">Manual Parser</span>
                 </a>
+                <div class="sidebar-divider desktop-hidden"></div>
+                <button class="sidebar-link desktop-hidden" id="themeToggleSidebar" onclick="toggleTheme()">
+                    <span class="icon" id="themeIconSidebar">🌙</span>
+                    <span class="label" id="themeLabelSidebar">Dark Mode</span>
+                </button>
+                <button class="sidebar-link desktop-hidden" id="soundToggleSidebar" onclick="enableSound()">
+                    <span class="icon" id="soundIconSidebar">🔇</span>
+                    <span class="label" id="soundLabelSidebar">Sound OFF</span>
+                </button>
             </nav>
         </aside>
 
