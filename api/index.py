@@ -934,11 +934,10 @@ def windrose_api(station):
                     try:
                         wind_dir = wind_match.group(1)
                         if wind_dir != "VRB":
-                            # Convert UTC to WIB for display in the data
                             wib_time = row["time"] + timedelta(hours=7)
                             filtered_data.append({
                                 "time": wib_time.strftime("%Y-%m-%d %H:%M:%S"),
-                                "utc_time": row["time"].strftime("%Y-%m-%d %H:%M UTC"),
+                                "utc_time": f"{row['time'].strftime('%Y-%m-%d %H:%M UTC')} | {wib_time.strftime('%Y-%m-%d %H:%M WIB')}",
                                 "station": station,
                                 "dir": int(wind_dir),
                                 "speed": float(wind_match.group(2))
@@ -961,11 +960,10 @@ def windrose_api(station):
                     metar = str(row["metar"])
                     wind_match = re.search(r'\b(\d{3}|VRB)(\d{2,3})(G\d{2,3})?KT\b', metar)
                     if wind_match and wind_match.group(1) != "VRB":
-                        # Convert UTC to WIB for display
                         wib_time = row["time"] + timedelta(hours=7)
                         filtered_data.append({
                             "time": wib_time.strftime("%Y-%m-%d %H:%M:%S"),
-                            "utc_time": row["time"].strftime("%Y-%m-%d %H:%M UTC"),
+                            "utc_time": f"{row['time'].strftime('%Y-%m-%d %H:%M UTC')} | {wib_time.strftime('%Y-%m-%d %H:%M WIB')}",
                             "station": station,
                             "dir": int(wind_match.group(1)),
                             "speed": float(wind_match.group(2))
@@ -1041,9 +1039,10 @@ def windrose_monthly_api(station):
                     try:
                         wind_dir = wind_match.group(1)
                         if wind_dir != "VRB":
+                            wib_time = row["time"] + timedelta(hours=7)
                             monthly_data.append({
                                 "time": row["time"].strftime("%Y-%m-%d %H:%M:%S"),
-                                "utc_time": row["time"].strftime("%Y-%m-%d %H:%M UTC"),
+                                "utc_time": f"{row['time'].strftime('%Y-%m-%d %H:%M UTC')} | {wib_time.strftime('%Y-%m-%d %H:%M WIB')}",
                                 "station": station,
                                 "dir": int(wind_dir),
                                 "speed": float(wind_match.group(2))
@@ -1362,6 +1361,7 @@ def history_by_date():
     wind_dirs: list = []
     start_date = ""
     end_date = ""
+    utc_wib_labels: list = []
 
     if request.method == "POST":
         station = request.form.get("icao", "WARR").upper()
@@ -1455,6 +1455,10 @@ def history_by_date():
                             # Detect thunderstorm
                             thunder_codes = ["TS", "TSRA", "VCTS", "+TS", "TSGR", "-TS", "+TSRA", "-TSRA"]
                             thunder_flags.append(any(code in metar for code in thunder_codes))
+                            
+                            # Add full dual time label for Wind Rose
+                            wib_time_row = row["time"] + timedelta(hours=7)
+                            utc_wib_labels.append(f"{row['time'].strftime('%Y-%m-%d %H:%M UTC')} | {wib_time_row.strftime('%Y-%m-%d %H:%M WIB')}")
                         
                         print(f"[HISTORY] Chart data extracted: {len(labels)} points")
                         
@@ -1479,6 +1483,7 @@ def history_by_date():
         wind_dirs=wind_dirs,
         start_date=start_date,
         end_date=end_date,
+        utc_wib_labels=utc_wib_labels,
         auto_fetch=auto_fetch,
         last_metar_update=last_metar_update
     )

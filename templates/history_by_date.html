@@ -268,6 +268,7 @@
         const gusts = JSON.parse('{{ gusts | tojson | safe }}');
         const thunder_flags = JSON.parse('{{ thunder_flags | tojson | safe }}');
         const wind_dirs = JSON.parse('{{ wind_dirs | tojson | safe }}');
+        const utc_wib_labels = JSON.parse('{{ utc_wib_labels | tojson | safe }}');
 
         const gridColor = 'rgba(0,0,0,0.06)';
         const tickColor = '#64748B';
@@ -459,15 +460,23 @@
             });
 
             // Wind Rose (tetap di bawah)
-            const validWind = wind_dirs.map((dir, i) => 
-                dir !== null && winds[i] !== null ? { dir: parseInt(dir), speed: winds[i] } : null
-            ).filter(x => x);
+            const validWind = wind_dirs.map((dir, i) => {
+                if (dir !== null && winds[i] !== null) {
+                    return { 
+                        dir: parseInt(dir), 
+                        speed: winds[i],
+                        timeLabel: utc_wib_labels[i] || labels[i]
+                    };
+                }
+                return null;
+            }).filter(x => x);
 
             if (validWind.length > 0) {
                 Plotly.newPlot('windRoseHistory', [{
                     type: 'barpolar',
                     r: validWind.map(d => d.speed),
                     theta: validWind.map(d => d.dir),
+                    customdata: validWind.map(d => d.timeLabel),
                     marker: {
                         color: validWind.map(d => d.speed),
                         colorscale: [[0, '#2E5C8A'], [0.5, '#E8B339'], [1, '#DC2626']],
@@ -480,7 +489,7 @@
                             titlefont: { family: 'Inter', size: 12 }
                         }
                     },
-                    hovertemplate: 'Dir: %{theta}°<br>Speed: %{r} KT<extra></extra>'
+                    hovertemplate: '<b>Dir: %{theta}°</b><br>Speed: %{r} KT<br>Time: %{customdata}<extra></extra>'
                 }], {
                     polar: {
                         bgcolor: 'rgba(0,0,0,0)',
