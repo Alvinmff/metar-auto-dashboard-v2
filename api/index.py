@@ -375,7 +375,7 @@ def parse_metar(metar: str) -> dict:
         if part.isdigit() and len(part) == 4:
             data["visibility_m"] = int(part)
 
-        if part in ["HZ","RA","+RA","-RA","TSRA","+TSRA","TS","+TS","-TS","SH","DS","SS","-TSRA"]:
+        if part in ["HZ","BR","FG","DZ","SN","SG","IC","PL","GR","GS","UP","RA","+RA","-RA","TSRA","+TSRA","TS","+TS","-TS","SH","DS","SS","-TSRA"]:
             # Only set weather if not already set (get first weather occurrence)
             if data["weather"] is None:
                 data["weather"] = part
