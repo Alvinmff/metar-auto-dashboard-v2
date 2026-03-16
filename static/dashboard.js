@@ -216,13 +216,21 @@ window.closeSidebar = closeSidebar;
 // =======================
 function applyTheme(theme) {
     const html = document.documentElement;
-    const btn = document.getElementById('themeToggle');
+    const btnHeader = document.getElementById('themeToggle');
+    const btnSidebar = document.getElementById('themeToggleSidebar');
+    const iconSidebar = document.getElementById('themeIconSidebar');
+    const labelSidebar = document.getElementById('themeLabelSidebar');
     
     html.setAttribute('data-theme', theme);
     localStorage.setItem('theme', theme);
     
-    if (btn) {
-        btn.textContent = theme === 'light' ? '🌙' : '☀️';
+    if (btnHeader) {
+        btnHeader.textContent = theme === 'light' ? '🌙' : '☀️';
+    }
+
+    if (btnSidebar) {
+        if (iconSidebar) iconSidebar.textContent = theme === 'light' ? '🌙' : '☀️';
+        if (labelSidebar) labelSidebar.textContent = theme === 'light' ? 'Dark Mode' : 'Light Mode';
     }
 
     // Update charts if they exist
@@ -962,16 +970,30 @@ window.copyQam = copyQam;
 // =======================
 function enableSound() {
     soundEnabled = !soundEnabled;
-    const btn = document.getElementById('soundToggle');
+    const btnHeader = document.getElementById('soundToggle');
+    const btnSidebar = document.getElementById('soundToggleSidebar');
+    const iconSidebar = document.getElementById('soundIconSidebar');
+    const labelSidebar = document.getElementById('soundLabelSidebar');
 
     // Save state to localStorage
     localStorage.setItem('soundEnabled', soundEnabled);
 
+    // Update Header
+    if (btnHeader) {
+        btnHeader.textContent = soundEnabled ? '🔊 Sound ON' : '🔇 Sound OFF';
+        if (soundEnabled) btnHeader.classList.add('active');
+        else btnHeader.classList.remove('active');
+    }
+    
+    // Update Sidebar
+    if (btnSidebar) {
+        if (iconSidebar) iconSidebar.textContent = soundEnabled ? '🔊' : '🔇';
+        if (labelSidebar) labelSidebar.textContent = soundEnabled ? 'Sound ON' : 'Sound OFF';
+        if (soundEnabled) btnSidebar.classList.add('active');
+        else btnSidebar.classList.remove('active');
+    }
+
     if (soundEnabled) {
-        if (btn) {
-            btn.textContent = '🔊 Sound ON';
-            btn.classList.add('active');
-        }
         console.log('Sound ENABLED');
 
         // Immediate check: If there's an active critical condition, play alarm now
@@ -980,10 +1002,6 @@ function enableSound() {
             playAlarm();
         }
     } else {
-        if (btn) {
-            btn.textContent = '🔇 Sound OFF';
-            btn.classList.remove('active');
-        }
         console.log('Sound DISABLED');
     }
 }
@@ -1618,14 +1636,30 @@ function downloadChart(chartId) {
 // =======================
 document.addEventListener('DOMContentLoaded', function () {
     // 1. Sync Sound Button UI FIRST (Most critical for UX persistence)
-    const soundToggleBtn = document.getElementById('soundToggle');
-    if (soundToggleBtn) {
-        if (soundEnabled) {
-            soundToggleBtn.textContent = '🔊 Sound ON';
-            soundToggleBtn.classList.add('active');
-        } else {
-            soundToggleBtn.textContent = '🔇 Sound OFF';
-            soundToggleBtn.classList.remove('active');
+    const soundToggleHeader = document.getElementById('soundToggle');
+    const soundToggleSidebar = document.getElementById('soundToggleSidebar');
+    const soundIconSidebar = document.getElementById('soundIconSidebar');
+    const soundLabelSidebar = document.getElementById('soundLabelSidebar');
+
+    if (soundEnabled) {
+        if (soundToggleHeader) {
+            soundToggleHeader.textContent = '🔊 Sound ON';
+            soundToggleHeader.classList.add('active');
+        }
+        if (soundToggleSidebar) {
+            if (soundIconSidebar) soundIconSidebar.textContent = '🔊';
+            if (soundLabelSidebar) soundLabelSidebar.textContent = 'Sound ON';
+            soundToggleSidebar.classList.add('active');
+        }
+    } else {
+        if (soundToggleHeader) {
+            soundToggleHeader.textContent = '🔇 Sound OFF';
+            soundToggleHeader.classList.remove('active');
+        }
+        if (soundToggleSidebar) {
+            if (soundIconSidebar) soundIconSidebar.textContent = '🔇';
+            if (soundLabelSidebar) soundLabelSidebar.textContent = 'Sound OFF';
+            soundToggleSidebar.classList.remove('active');
         }
     }
 

@@ -449,6 +449,22 @@ a:hover {
   padding: 12px;
 }
 
+button.sidebar-link {
+  border: none;
+  background: none;
+  width: 100%;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+}
+
+.sidebar-divider {
+  height: 1px;
+  background: var(--border-color);
+  margin: 12px 16px;
+  opacity: 0.5;
+}
+
 /* Sidebar footer */
 .sidebar-footer {
   margin-top: auto;
@@ -1937,6 +1953,23 @@ body.low-visibility .chart-card {
 
 .hidden {
   display: none !important;
+}
+
+.mobile-hidden {
+  display: flex !important;
+}
+
+.desktop-hidden {
+  display: none !important;
+}
+
+@media (max-width: 768px) {
+  .mobile-hidden {
+    display: none !important;
+  }
+  .desktop-hidden {
+    display: flex !important;
+  }
 }
 
 /* ============================================= */
