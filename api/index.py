@@ -2024,8 +2024,8 @@ def validate_metar(metar: str) -> list[str]:
                      errors.append(f"❌ Format kelompok awan salah: {t} (tinggi harus 3 digit)")
         
         # Catch errors like TL103 mentioned by user
-        elif re.match(r'^[A-Z]{2}\d+', t) and "/" not in t and "KT" not in t and not t.startswith("Q"):
-             errors.append(f"❌ Format kelompok awan salah: {t} (prefix harus FEW/SCT/BKN/OVC)")
+        #elif re.match(r'^[A-Z]{2}\d+', t) and "/" not in t and "KT" not in t and not t.startswith("Q"):
+        #     errors.append(f"❌ Format kelompok awan salah: {t} (prefix harus FEW/SCT/BKN/OVC)")
 
     # 7. Temperature/Dewpoint (M?dd/M?dd)
     temp_pattern = r'^M?\d{2}/M?\d{2}$'
