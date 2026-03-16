@@ -1252,7 +1252,14 @@ async function loadHistory() {
         pressureChart.update('active');
         windChart.update('active');
         
-        console.log('[CHART] Charts successfully updated');
+        // Update data summary indicators (footers)
+        const infoText = `${result.range.start} to ${result.range.end} • ${result.count} records (from ${result.source})`;
+        ['tempChart-info', 'pressureChart-info', 'windChart-info'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = infoText;
+        });
+
+        console.log('[CHART] Charts successfully updated with summary info');
     } catch (e) {
         console.error('[CHART] Error updating charts:', e);
     }
@@ -1458,8 +1465,12 @@ async function loadWindRose(station = STATION) {
         });
         
         const badge24h = document.getElementById('windrose24h-badge');
+        const info24h = document.getElementById('windrose24h-info');
         if (badge24h && data24h.count !== undefined) {
             badge24h.textContent = `${data24h.count} records`;
+        }
+        if (info24h && data24h.range) {
+            info24h.textContent = `${data24h.range.start} to ${data24h.range.end} • ${data24h.count} records (from ${data24h.source || 'Sheets'})`;
         }
 
         // 2. Fetch & Render Monthly Wind Rose

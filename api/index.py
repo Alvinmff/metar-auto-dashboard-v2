@@ -954,10 +954,27 @@ def windrose_api(station):
                         })
              except: pass
 
+    # Determine source (logic matches implementation above)
+    source_info = "Sheets" if IS_VERCEL else "Local CSV"
+    
+    # Calculate actual range if data exists
+    if filtered_data:
+        times = [d["time"] for d in filtered_data]
+        start_range = min(times)
+        end_range = max(times)
+    else:
+        start_range = cutoff_time.strftime("%Y-%m-%d %H:%M")
+        end_range = datetime.utcnow().strftime("%Y-%m-%d %H:%M")
+
     return jsonify({
         "period": "24h",
         "data": filtered_data,
-        "count": len(filtered_data)
+        "count": len(filtered_data),
+        "range": {
+            "start": start_range,
+            "end": end_range
+        },
+        "source": source_info
     })
 
 @app.route("/api/windrose-monthly/<station>")
@@ -1084,11 +1101,24 @@ def get_history_api():
         temps = [extract_temp(m) for m in df["metar"]]
         pressures = [extract_pressure(m) for m in df["metar"]]
         
+        # Calculate range and source
+        start_time = pd.to_datetime(df["time"].iloc[0]).strftime("%Y-%m-%d %H:%M") if not df.empty else ""
+        end_time = pd.to_datetime(df["time"].iloc[-1]).strftime("%Y-%m-%d %H:%M") if not df.empty else ""
+        
+        # In Vercel environment, data is synced from Sheets
+        source_info = "Sheets" if IS_VERCEL else "Local CSV"
+
         return jsonify({
             "data": data_list,
             "labels": labels,
             "temps": temps,
-            "pressures": pressures
+            "pressures": pressures,
+            "range": {
+                "start": start_time,
+                "end": end_time
+            },
+            "count": len(df),
+            "source": source_info
         })
     except Exception as e:
         print(f"[API] History error: {e}", file=sys.stderr)
@@ -1190,6 +1220,11 @@ def home():
         # Fallback will happen as metrics are pre-initialized to None
 
     # Read history and prepare chart data
+    history_start = ""
+    history_end = ""
+    history_count = 0
+    history_source = "Sheets" if IS_VERCEL else "Local CSV"
+
     if os.path.exists(CSV_FILE):
         history = pd.read_csv(CSV_FILE).tail(20)
         
@@ -1201,6 +1236,10 @@ def home():
             labels = [pd.to_datetime(t).strftime("%d/%m/%y %H:%M") for t in history['time'].tolist()]
             temps = [extract_temp(m) for m in history['metar'].tolist()]
             pressures = [extract_pressure(m) for m in history['metar'].tolist()]
+            
+            history_start = pd.to_datetime(history['time'].iloc[0]).strftime("%Y-%m-%d %H:%M")
+            history_end = pd.to_datetime(history['time'].iloc[-1]).strftime("%Y-%m-%d %H:%M")
+            history_count = len(history)
         else:
             labels = []
     else:
@@ -1244,7 +1283,11 @@ def home():
         labels=labels,
         has_history=has_history,
         auto_fetch=auto_fetch,
-        last_metar_update=last_update_display
+        last_metar_update=last_update_display,
+        history_start=history_start,
+        history_end=history_end,
+        history_count=history_count,
+        history_source=history_source
     )
 
 # =========================
