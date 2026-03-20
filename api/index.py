@@ -1081,6 +1081,28 @@ def windrose_monthly_api(station):
 @app.route("/api/metar/history")
 def get_history_api():
     """Returns historical data in JSON format for charts and tables"""
+    global last_metar_update, auto_fetch
+    
+    # 🔥 VERCEL STALE CHECK:
+    # Ensure history is relatively fresh from Sheets if on Vercel
+    if IS_VERCEL and auto_fetch:
+        now = datetime.utcnow()
+        should_sync = False
+        if not last_metar_update:
+            should_sync = True
+        else:
+            try:
+                last_dt = pd.to_datetime(last_metar_update.replace("Z", ""), format='mixed')
+                if (now - last_dt).total_seconds() > 60: # History check can be slightly more relaxed
+                    should_sync = True
+            except:
+                should_sync = True
+        
+        if should_sync:
+            print("[HISTORY] Local cache stale, syncing from Sheets...", file=sys.stderr)
+            sheets_handler.sync_to_local(CSV_FILE)
+            last_metar_update = datetime.utcnow().isoformat() + "Z"
+
     if not os.path.exists(CSV_FILE):
         # Warmup: if no history, try to fetch current METAR to initialize
         station = "WARR"
@@ -1567,8 +1589,8 @@ def latest_data():
         else:
             try:
                 last_dt = pd.to_datetime(last_metar_update.replace("Z", ""), format='mixed')
-                # If more than 45 seconds old, trigger an update
-                if (now - last_dt).total_seconds() > 45: 
+                # If more than 30 seconds old, trigger an update (Faster Sync)
+                if (now - last_dt).total_seconds() > 30: 
                     should_update = True
             except:
                 should_update = True
@@ -1598,6 +1620,8 @@ def latest_data():
                     "narrative": narrative,
                     "wind_dir": parsed.get("wind_dir"),
                     "wind_speed": parsed.get("wind_speed_kt"),
+                    "last_update": last_metar_update, # Include timestamp for change detection
+                    "auto_fetch": auto_fetch,
                     "wind_gust": parsed.get("wind_gust_kt"),
                     "temp": parsed.get("temperature_c"),
                     "dewpoint": parsed.get("dewpoint_c"),

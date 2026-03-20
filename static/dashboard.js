@@ -89,14 +89,18 @@ async function pollLatestData() {
         
         console.log('[POLL] Data received:', data);
         
-        // Cek apakah data benar-benar berbeda dari sebelumnya ATAU UI belum pernah diupdate (lastMetarRaw masih null)
+        // Cek apakah data benar-benar berbeda dari sebelumnya 
+        // 1. Hash METAR berubah (Weather changed)
+        // 2. Server timestamp berubah (New report, even if weather same)
+        // 3. UI belum pernah diupdate
         const currentHash = hashMetar(data.raw);
         const isDataChanged = currentHash !== alarmState.lastMetarHash;
+        const isTimeChanged = data.last_update && data.last_update !== alarmState.lastProcessedServerTime;
         const isUIEmpty = lastMetarRaw === null;
         
         if (data.raw) {
-            if (isDataChanged || isUIEmpty) {
-                console.log(isUIEmpty ? '[POLL] Initial UI population...' : '[POLL] New data detected, processing...');
+            if (isDataChanged || isTimeChanged || isUIEmpty) {
+                console.log(isUIEmpty ? '[POLL] Initial UI population...' : '[POLL] New data/time detected, processing update...');
                 handleMetarUpdate(data);
             } else {
                 console.log('[POLL] Data unchanged and UI already populated, skipping update');
@@ -123,10 +127,9 @@ async function pollLatestData() {
 // =======================
 // KEEP-ALIVE PING
 // =======================
-// Start polling every 15 seconds
+// Start polling every 12 seconds (Faster Real-time Sync)
 if (typeof pollLatestData === 'function') {
-    setInterval(pollLatestData, 15000);
-    // Removed duplicate pollLatestData() here, DOMContentLoaded will trigger it
+    setInterval(pollLatestData, 12000);
 }
 
 // =======================
