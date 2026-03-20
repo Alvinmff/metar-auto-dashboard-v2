@@ -276,7 +276,7 @@ WEATHER_CODES = [
     "DZ", "-RA", "RA","SN","SG","IC","PL","GR","GS",
     "UP","BR","FG","FU","VA","DU","SA","HZ",
     "PO","SQ","FC","SS","DS","TS","SH", "TSRA",
-    "+TSRA", "-TSRA", "-TS", "+TS"
+    "+TSRA", "-TSRA", "-TS", "+TS", "VCTS"
 ]
 
 # =========================
@@ -375,7 +375,7 @@ def parse_metar(metar: str) -> dict:
         if part.isdigit() and len(part) == 4:
             data["visibility_m"] = int(part)
 
-        if part in ["HZ","BR","FG","DZ","SN","SG","IC","PL","GR","GS","UP","RA","+RA","-RA","TSRA","+TSRA","TS","+TS","-TS","SH","DS","SS","-TSRA"]:
+        if part in ["HZ","BR","FG","DZ","SN","SG","IC","PL","GR","GS","UP","RA","+RA","-RA","TSRA","+TSRA","TS","+TS","-TS","VCTS","SH","DS","SS","-TSRA"]:
             # Only set weather if not already set (get first weather occurrence)
             if data["weather"] is None:
                 data["weather"] = part
@@ -653,7 +653,7 @@ def generate_metar_narrative(parsed, raw_metar=None):
         "+TSRA": "badai petir kuat disertai hujan", "VCTS": "badai petir di sekitar",
         "SH": "hujan shower", "SHRA": "hujan shower", "DS": "debu pasir", "SS": "pasir badai",
         "FG": "kabut", "BR": "kabut tipis", "DZ": "gerimis", "SN": "salju", "GR": "hujan es",
-        "SQ": "angin kencang", "FC": "puting beliung"
+        "SQ": "angin kencang", "FC": "puting beliung", "VCTS": "badai petir di sekitar"
     }
 
     # Weather information
