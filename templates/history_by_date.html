@@ -166,32 +166,6 @@
                 </div>
             </div>
 
-            <!-- Wind Rose Section - Dual View -->
-            <div class="grid-2 fade-in">
-                <!-- Wind Rose 1: 24 Hours -->
-                <div class="card chart-card">
-                    <div class="card-header">
-                        <h3 class="card-title"><span class="icon">🧭</span> Wind Rose (24 Hours)</h3>
-                        <span id="windrose24h-badge" class="badge" style="background-color: #3b82f6; color: white; margin-left: 10px;">Loading...</span>
-                    </div>
-                    <div id="windRose24h" style="height:500px;"></div>
-                    <div id="windrose24h-info" style="padding: 10px 16px; font-size: 0.85rem; color: var(--text-secondary); border-top: 1px solid var(--border-color);">
-                        Showing data from last 24 hours
-                    </div>
-                </div>
-
-                <!-- Wind Rose 2: Previous Month (Direct from Sheets) -->
-                <div class="card chart-card">
-                    <div class="card-header">
-                        <h3 class="card-title"><span class="icon">🧭</span> Wind Rose (Previous Month)</h3>
-                        <span id="windroseMonth-badge" class="badge" style="background-color: #059669; color: white; margin-left: 10px;">Loading...</span>
-                    </div>
-                    <div id="windRoseMonth" style="height:500px;"></div>
-                    <div id="windroseMonth-info" style="padding: 10px 16px; font-size: 0.85rem; color: var(--text-secondary); border-top: 1px solid var(--border-color);">
-                        Loading monthly data...
-                    </div>
-                </div>
-            </div>
 
             <div class="card fade-in">
                 <div class="card-header">
@@ -521,105 +495,6 @@
             }
         }
 
-        // =========================
-        // DUAL WIND ROSE LOADER
-        // =========================
-        async function loadDualWindRoses(station) {
-            try {
-                // Load Wind Rose 24h
-                const res24h = await fetch(`/api/windrose/${station}`);
-                const data24h = await res24h.json();
-                
-                renderWindRose('windRose24h', data24h.data, {
-                    title: 'Last 24 Hours',
-                    colorScale: [[0, '#2E5C8A'], [0.5, '#E8B339'], [1, '#DC2626']]
-                });
-                
-                // Update badge dan info
-                const badge24h = document.getElementById('windrose24h-badge');
-                const info24h = document.getElementById('windrose24h-info');
-                if (badge24h) badge24h.textContent = `${data24h.count} records`;
-                if (info24h) info24h.textContent = `Last 24 hours • ${data24h.count} data points`;
-                
-                // Load Wind Rose Monthly
-                const resMonth = await fetch(`/api/windrose-monthly/${station}`);
-                const dataMonth = await resMonth.json();
-                
-                renderWindRose('windRoseMonth', dataMonth.data, {
-                    title: `${dataMonth.month_name} ${dataMonth.year}`,
-                    colorScale: [[0, '#059669'], [0.5, '#E8B339'], [1, '#DC2626']] // Green to Red
-                });
-                
-                // Update badge dan info
-                const badgeMonth = document.getElementById('windroseMonth-badge');
-                const infoMonth = document.getElementById('windroseMonth-info');
-                if (badgeMonth) badgeMonth.textContent = `${dataMonth.month_name} ${dataMonth.year}`;
-                if (infoMonth) {
-                    infoMonth.textContent = `${dataMonth.range.start} to ${dataMonth.range.end} • ${dataMonth.count} records`;
-                }
-                
-            } catch (e) {
-                console.error('Dual Wind Rose error:', e);
-            }
-        }
-
-        function renderWindRose(containerId, data, options) {
-            if (!data || data.length === 0) {
-                document.getElementById(containerId).innerHTML = 
-                    '<div style="display:flex;justify-content:center;align-items:center;height:100%;color:#64748B;font-family:Inter;font-size:0.9rem;">No wind data available</div>';
-                return;
-            }
-
-            const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-            const gridColor = isDark ? 'rgba(255, 255, 255, 0.4)' : '#1E3A5F';
-
-            Plotly.newPlot(containerId, [{
-                type: 'barpolar',
-                r: data.map(d => d.speed),
-                theta: data.map(d => d.dir),
-                marker: {
-                    color: data.map(d => d.speed),
-                    colorscale: options.colorScale || [[0, '#2E5C8A'], [0.5, '#E8B339'], [1, '#DC2626']],
-                    showscale: true,
-                    colorbar: { 
-                        title: 'KT', 
-                        thickness: 12, 
-                        len: 0.6,
-                        tickfont: { family: 'Inter', size: 10, color: isDark ? '#F1F5F9' : '#475569' },
-                        titlefont: { family: 'Inter', size: 12, color: isDark ? '#F1F5F9' : '#475569' }
-                    }
-                },
-                hovertemplate: 'Dir: %{theta}°<br>Speed: %{r} KT<extra></extra>',
-                opacity: 0.85
-            }], {
-                polar: {
-                    bgcolor: 'rgba(0,0,0,0)',
-                    angularaxis: {
-                        direction: 'clockwise',
-                        rotation: 90,
-                        tickmode: 'array',
-                        tickvals: [0, 45, 90, 135, 180, 225, 270, 315],
-                        ticktext: ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'],
-                        tickfont: { size: 12, color: gridColor, family: 'Inter', weight: isDark ? 'bold' : 'normal' }
-                    },
-                    radialaxis: { 
-                        showgrid: true, 
-                        gridcolor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)',
-                        title: 'KT',
-                        tickfont: { color: isDark ? '#94A3B8' : '#64748B' }
-                    }
-                },
-                showlegend: false,
-                margin: { t: 60, b: 40, l: 60, r: 60 },
-                paper_bgcolor: 'rgba(0,0,0,0)', 
-                plot_bgcolor: 'rgba(0,0,0,0)',
-                title: {
-                    text: options.title || '',
-                    font: { family: 'Inter', size: 18, color: isDark ? '#F1F5F9' : '#475569', weight: 'bold' },
-                    y: 0.95
-                }
-            }, { responsive: true });
-        }
 
         function downloadChart(chartId) {
             // ... (keep existing downloadChart logic)
@@ -632,17 +507,6 @@
                 });
                 return;
             }
-            // Add download for new roses
-            if (chartId === 'windRose24h' || chartId === 'windRoseMonth') {
-                const title = chartId === 'windRose24h' ? 'Wind_Rose_24h' : 'Wind_Rose_Monthly';
-                Plotly.downloadImage(chartId, { 
-                    format: 'png', 
-                    width: 800, 
-                    height: 600, 
-                    filename: title 
-                });
-                return;
-            }
             const c = document.getElementById(chartId);
             if (!c) return;
             const link = document.createElement('a');
@@ -651,10 +515,6 @@
             link.click();
         }
 
-        // Initialize Dual Wind Roses
-        document.addEventListener('DOMContentLoaded', () => {
-            loadDualWindRoses('{{ station }}');
-        });
     </script>
     {% endif %}
 
