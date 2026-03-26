@@ -205,7 +205,7 @@ a:hover {
 .station-text {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px; /* Increased for readability without dash */
 }
 
 .station-code {
