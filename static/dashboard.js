@@ -1111,6 +1111,7 @@ function chartDefaults() {
         scales: {
             y: {
                 beginAtZero: false,
+                grace: '10%', // Prevents chart data from touching the top edge
                 grid: { color: getDynamicChartColors().grid, drawBorder: false },
                 ticks: { color: getDynamicChartColors().ticks, font: { family: 'Inter', weight: '600', size: 11 } }
             },
@@ -1222,6 +1223,7 @@ function createWindChart() {
                 y: {
                     ...chartDefaults().scales.y,
                     beginAtZero: true,
+                    grace: '10%', // Provides headroom above top line
                     title: {
                         display: true,
                         text: 'Speed (KT)',
