@@ -34,11 +34,14 @@
                     alt="BMKG Logo" class="header-logo">
                 <div class="header-title">
                     <h1>METAR Auto Dashboard</h1>
-                    <span class="station-badge">
+                    <div class="station-badge">
                         <span id="stationBadgeStatus"
-                            style="width:8px;height:8px;border-radius:50%;background:#059669;"></span>
-                        {{ station }} <span class="mobile-hide-text">— Bandara Juanda</span>
-                    </span>
+                            style="width:8px;height:8px;border-radius:50%;background:#059669;flex-shrink:0;"></span>
+                        <div class="station-text">
+                            <span class="station-code">{{ station }}</span>
+                            <span class="station-name">— Bandara Juanda</span>
+                        </div>
+                    </div>
                 </div>
             </div>
             <div class="header-right">

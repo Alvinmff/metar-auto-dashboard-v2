@@ -193,15 +193,30 @@ a:hover {
 .header-title .station-badge {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   background: rgba(255, 255, 255, 0.15);
   backdrop-filter: blur(8px);
-  padding: 3px 12px;
+  padding: 4px 14px;
   border-radius: var(--radius-full);
-  font-size: 0.8rem;
-  font-weight: 600;
   color: var(--bmkg-accent);
   margin-top: 2px;
+}
+
+.station-text {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.station-code {
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.station-name {
+  font-size: 0.8rem;
+  font-weight: 600;
+  opacity: 0.9;
 }
 
 .header-right {
@@ -1656,24 +1671,26 @@ body.low-visibility .chart-card {
   }
 
   .header-title .station-badge {
-    padding: 2px 4px;
-    font-size: 0.6rem;
-    gap: 2px;
-    letter-spacing: -0.1px;
-    white-space: nowrap;
+    padding: 4px 10px;
+    border-radius: 12px;
+    align-items: center;
+    gap: 8px;
   }
 
-  /* Hide long name on very small screens to save space */
-  @media (max-width: 480px) {
-    .mobile-hide-text {
-      display: none;
-    }
-    .header-left {
-      gap: 2px;
-    }
-    .header-logo {
-      height: 24px;
-    }
+  .station-text {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0;
+    line-height: 1.1;
+  }
+
+  .station-code {
+    font-size: 0.75rem;
+  }
+
+  .station-name {
+    font-size: 0.6rem;
+    white-space: nowrap;
   }
 
   .header-right {
@@ -1701,14 +1718,14 @@ body.low-visibility .chart-card {
   }
 
   .sound-toggle {
-    padding: 4px 8px;
-    font-size: 0.7rem;
+    padding: 3px 6px;
+    font-size: 0.65rem;
   }
 
   .connection-status {
-    padding: 4px 8px;
-    font-size: 0.7rem;
-    gap: 4px;
+    padding: 3px 6px;
+    font-size: 0.65rem;
+    gap: 3px;
   }
 
   .connection-dot {
