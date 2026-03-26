@@ -1090,7 +1090,7 @@ function chartDefaults() {
                     font: { family: 'Inter', weight: '600', size: 12 },
                     color: getDynamicChartColors().legend,
                     usePointStyle: true,
-                    padding: 16
+                    padding: 28 // Increased from 16 for better margin
                 }
             },
             tooltip: {
@@ -1101,6 +1101,11 @@ function chartDefaults() {
                 cornerRadius: 8,
                 borderColor: 'rgba(232,179,57,0.3)',
                 borderWidth: 1
+            }
+        },
+        layout: {
+            padding: {
+                top: 10 // Extra room above the legend
             }
         },
         scales: {
