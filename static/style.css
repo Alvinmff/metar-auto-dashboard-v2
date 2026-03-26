@@ -52,7 +52,7 @@
   --text-on-header: #ffffff; /* Contrast for the gradient */
   
   /* Dimensions */
-  --header-height: 64px;
+  --header-height: 72px;
   --sidebar-width: 260px;
   --sidebar-collapsed: 70px;
 
@@ -164,6 +164,7 @@ a:hover {
   align-items: center;
   justify-content: space-between;
   padding: 0 var(--space-xl);
+  padding-bottom: 2px; /* Extra space to keep items away from yellow line */
 }
 
 .header-left {
@@ -1655,7 +1656,8 @@ body.low-visibility .chart-card {
 
   .app-header {
     padding: 0 var(--space-sm);
-    height: 56px; /* Slightly shorter on mobile */
+    height: 72px; /* Taller on mobile to accommodate two-line badge */
+    padding-bottom: 4px;
   }
 
   .header-left {
