@@ -1685,12 +1685,16 @@ body.low-visibility .chart-card {
   }
 
   .station-code {
-    font-size: 0.75rem;
+    font-size: 0.7rem;
   }
 
   .station-name {
-    font-size: 0.6rem;
+    font-size: 0.55rem;
     white-space: nowrap;
+  }
+
+  .desktop-only {
+    display: none;
   }
 
   .header-right {
