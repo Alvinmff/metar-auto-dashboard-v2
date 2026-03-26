@@ -1122,7 +1122,7 @@ def get_history_api():
         for _, row in df.iloc[::-1].iterrows():
             parsed = parse_metar(str(row["metar"]))
             data_list.append({
-                "time": pd.to_datetime(row["time"]).strftime("%Y-%m-%d %H:%M"),
+                "time": pd.to_datetime(row["time"]).strftime("%Y-%m-%d %H:%M UTC"),
                 "station": row["station"],
                 "metar": row["metar"],
                 "temp": extract_temp(str(row["metar"])),
@@ -1132,13 +1132,13 @@ def get_history_api():
             })
 
         # Format for charts (oldest to newest)
-        labels = [pd.to_datetime(t).strftime("%d/%m/%y %H:%M") for t in df["time"]]
+        labels = [pd.to_datetime(t).strftime("%d/%m/%y %H:%M UTC") for t in df["time"]]
         temps = [extract_temp(m) for m in df["metar"]]
         pressures = [extract_pressure(m) for m in df["metar"]]
         
         # Calculate range and source
-        start_time = pd.to_datetime(df["time"].iloc[0]).strftime("%Y-%m-%d %H:%M") if not df.empty else ""
-        end_time = pd.to_datetime(df["time"].iloc[-1]).strftime("%Y-%m-%d %H:%M") if not df.empty else ""
+        start_time = pd.to_datetime(df["time"].iloc[0]).strftime("%Y-%m-%d %H:%M UTC") if not df.empty else ""
+        end_time = pd.to_datetime(df["time"].iloc[-1]).strftime("%Y-%m-%d %H:%M UTC") if not df.empty else ""
         
         # In Vercel environment, data is synced from Sheets
         source_info = "Sheets" if IS_VERCEL else "Local CSV"
@@ -1451,7 +1451,7 @@ def history_by_date():
                             metar = str(row["metar"]) if pd.notna(row["metar"]) else ""
                             
                             # Format time for label
-                            labels.append(pd.to_datetime(row["time"]).strftime("%d/%m/%y %H:%M"))
+                            labels.append(pd.to_datetime(row["time"]).strftime("%d/%m/%y %H:%M UTC"))
                             
                             # Extract temperature (format: XX/XX)
                             temp_match = re.search(r'(\d{2})/(\d{2})', metar)
