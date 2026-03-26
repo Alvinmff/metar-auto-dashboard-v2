@@ -1740,3 +1740,39 @@ document.addEventListener('DOMContentLoaded', function () {
     // Initial poll will handle first load
     // setInterval(fetchMetar, 60000); // 🗑️ REMOVED REDUNDANT LOOP
 });
+
+// =======================
+// HELP MODAL FUNCTIONS
+// =======================
+function toggleHelpModal() {
+    const modal = document.getElementById('helpModal');
+    const overlay = document.getElementById('helpModalOverlay');
+    
+    if (modal.classList.contains('active')) {
+        closeHelpModal();
+    } else {
+        modal.classList.add('active');
+        overlay.classList.add('active');
+        document.body.style.overflow = 'hidden'; // Prevent background scroll
+    }
+}
+
+function closeHelpModal() {
+    const modal = document.getElementById('helpModal');
+    const overlay = document.getElementById('helpModalOverlay');
+    
+    modal.classList.remove('active');
+    overlay.classList.remove('active');
+    document.body.style.overflow = ''; // Restore scroll
+}
+
+// Close modal dengan tombol Escape
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        closeHelpModal();
+    }
+});
+
+// Global expose
+window.toggleHelpModal = toggleHelpModal;
+window.closeHelpModal = closeHelpModal;

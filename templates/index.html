@@ -468,6 +468,193 @@
 
     <script src="{{ url_for('static', filename='dashboard.js') }}"></script>
 
+    <!-- ============================================
+         FLOATING HELP BUTTON & MODAL
+         ============================================ -->
+    <button class="help-fab" id="helpFab" onclick="toggleHelpModal()" title="Bantuan Penggunaan">
+        <span class="help-fab-icon">❓</span>
+        <span class="help-fab-text">Bantuan</span>
+    </button>
+
+    <!-- Help Modal Overlay -->
+    <div class="help-modal-overlay" id="helpModalOverlay" onclick="closeHelpModal()"></div>
+
+    <!-- Help Modal Content -->
+    <div class="help-modal" id="helpModal">
+        <div class="help-modal-header">
+            <div class="help-modal-title">
+                <span class="help-logo">📡</span>
+                <div>
+                    <h3>PANDUAN METAR DASHBOARD</h3>
+                    <small>Weather Observation & METAR Processing</small>
+                </div>
+            </div>
+            <button class="help-modal-close" onclick="closeHelpModal()">✕</button>
+        </div>
+
+        <div class="help-modal-body">
+            <!-- Section 1: Apa itu METAR Dashboard? -->
+            <div class="help-section">
+                <h4 class="help-section-title">
+                    <span class="help-icon">💡</span>
+                    Apa itu METAR Dashboard?
+                </h4>
+                <p class="help-text">
+                    <strong>METAR Auto Dashboard</strong> merupakan platform pengolahan data cuaca penerbangan (METAR)
+                    yang terintegrasi dengan sistem BMKG. Dashboard ini dirancang untuk menyediakan informasi
+                    cuaca bandara secara <em>real-time</em> bagi operasional penerbangan dan prakira cuaca,
+                    menggabungkan data METAR, analisis visual, dan peringatan dini dalam satu tampilan interaktif.
+                </p>
+            </div>
+
+            <!-- Section 2: Fitur Utama -->
+            <div class="help-grid">
+                <!-- Data METAR -->
+                <div class="help-card">
+                    <h5 class="help-card-title">
+                        <span class="help-icon">📡</span>
+                        Data METAR Real-time
+                    </h5>
+                    <ul class="help-list">
+                        <li>Pengambilan data otomatis dari NOAA setiap 30 menit</li>
+                        <li>Highlight sintaks METAR dengan warna kategori</li>
+                        <li>Validasi format METAR 10 grup standar ICAO</li>
+                        <!-- <li>Deteksi otomatis kode COR, AMD, dan SPECI</li> -->
+                    </ul>
+                </div>
+
+                <!-- Visualisasi -->
+                <div class="help-card">
+                    <h5 class="help-card-title">
+                        <span class="help-icon">📊</span>
+                        Visualisasi Data
+                    </h5>
+                    <ul class="help-list">
+                        <li>Grafik trend suhu, tekanan, dan angin</li>
+                        <li>Wind Compass arah angin real-time</li>
+                        <li>Wind Rose 24 jam & bulanan</li>
+                        <li>Crosswind Calculator untuk runway</li>
+                    </ul>
+                </div>
+
+                <!-- Peringatan -->
+                <div class="help-card">
+                    <h5 class="help-card-title">
+                        <span class="help-icon">🚨</span>
+                        Sistem Peringatan
+                    </h5>
+                    <ul class="help-list">
+                        <li>Alert suara untuk visibility < 3000m</li>
+                        <li>Deteksi thunderstorm (TS, TSRA, CB)</li>
+                        <li>Notifikasi perubahan cuaca signifikan</li>
+                        <li>Status warna: Hijau (aman), Kuning (waspada), Merah (bahaya)</li>
+                    </ul>
+                </div>
+
+                <!-- Tools -->
+                <div class="help-card">
+                    <h5 class="help-card-title">
+                        <span class="help-icon">🛠️</span>
+                        Tools & Utilitas
+                    </h5>
+                    <ul class="help-list">
+                        <li>QAM Generator (MET Report format)</li>
+                        <li>Narasi cuaca otomatis (Bahasa Indonesia)</li>
+                        <li>Manual METAR Parser</li>
+                        <li>Export data ke CSV dan Google Sheets</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Section 3: Cara Penggunaan -->
+            <div class="help-section">
+                <h4 class="help-section-title">
+                    <span class="help-icon">🔧</span>
+                    Cara Penggunaan
+                </h4>
+                <div class="help-usage-grid">
+                    <div class="help-usage-item">
+                        <span class="help-step">1</span>
+                        <div>
+                            <strong>Pilih Stasiun</strong>
+                            <p>Masukkan kode ICAO (default: WARR untuk Juanda) di form atas</p>
+                        </div>
+                    </div>
+                    <div class="help-usage-item">
+                        <span class="help-step">2</span>
+                        <div>
+                            <strong>Aktifkan Sound</strong>
+                            <p>Klik tombol 🔇 Sound untuk enable notifikasi suara</p>
+                        </div>
+                    </div>
+                    <div class="help-usage-item">
+                        <span class="help-step">3</span>
+                        <div>
+                            <strong>Monitor Status</strong>
+                            <p>Perhatikan warna panel: Hijau (aman), Merah (bahaya)</p>
+                        </div>
+                    </div>
+                    <div class="help-usage-item">
+                        <span class="help-step">4</span>
+                        <div>
+                            <strong>Analisis Wind</strong>
+                            <p>Gunakan Wind Rose & Crosswind Calculator untuk operasional</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Section 4: Kontrol -->
+            <div class="help-section">
+                <h4 class="help-section-title">
+                    <span class="help-icon">🎛️</span>
+                    Kontrol & Navigasi
+                </h4>
+                <div class="help-controls">
+                    <div class="help-control-item">
+                        <span class="help-key">☰</span>
+                        <span>Toggle Sidebar (collapse/expand menu)</span>
+                    </div>
+                    <div class="help-control-item">
+                        <span class="help-key">🌙</span>
+                        <span>Dark/Light Mode (ubah tema tampilan)</span>
+                    </div>
+                    <div class="help-control-item">
+                        <span class="help-key">🔊</span>
+                        <span>Sound ON/OFF (aktifkan alarm)</span>
+                    </div>
+                    <div class="help-control-item">
+                        <span class="help-key">⏻</span>
+                        <span>Toggle System (pause/resume auto-fetch)</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Section 5: Keterangan Status -->
+            <div class="help-section">
+                <h4 class="help-section-title">
+                    <span class="help-icon">🚦</span>
+                    Keterangan Status & Badge
+                </h4>
+                <div class="help-badges">
+                    <span class="help-badge badge-metar">🟢 METAR</span>
+                    <span class="help-badge badge-cor">🟡 COR</span>
+                    <span class="help-badge badge-amd">🔵 AMD</span>
+                    <span class="help-badge badge-speci">🔴 SPECI</span>
+                </div>
+                <p class="help-text-small">
+                    <strong>METAR</strong>: Laporan rutin | <strong>COR</strong>: Koreksi |
+                    <strong>AMD</strong>: Amandemen | <strong>SPECI</strong>: Laporan khusus (cuaca berubah signifikan)
+                </p>
+            </div>
+        </div>
+
+        <div class="help-modal-footer">
+            <span>© 2026 Stasiun Meteorologi Kelas I Juanda Sidoarjo</span>
+            <button class="btn btn-sm btn-primary" onclick="closeHelpModal()">Tutup</button>
+        </div>
+    </div>
+
 </body>
 
 </html>

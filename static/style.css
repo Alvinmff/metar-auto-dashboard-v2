@@ -2285,4 +2285,349 @@ body.rain-active::after {
   text-transform: uppercase;
   letter-spacing: 0.02em;
 }
-
+
+
+/* ============================================
+   FLOATING HELP BUTTON (FAB)
+   ============================================ */
+.help-fab {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    z-index: 1100;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 20px;
+    background: linear-gradient(135deg, #1e3a5f 0%, #2e5c8a 100%);
+    color: #ffffff;
+    border: none;
+    border-radius: 50px;
+    box-shadow: 0 4px 15px rgba(30, 58, 95, 0.4);
+    font-family: 'Inter', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.help-fab:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 20px rgba(30, 58, 95, 0.5);
+    background: linear-gradient(135deg, #2e5c8a 0%, #1e3a5f 100%);
+}
+
+.help-fab-icon { font-size: 1.2rem; }
+.help-fab-text { display: inline; }
+
+/* Mobile: hanya icon */
+@media (max-width: 768px) {
+    .help-fab-text { display: none; }
+    .help-fab { padding: 12px; border-radius: 50%; }
+}
+
+/* ============================================
+   HELP MODAL
+   ============================================ */
+.help-modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+    z-index: 1200;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.help-modal-overlay.active {
+    display: block;
+    opacity: 1;
+}
+
+.help-modal {
+    display: none;
+    position: fixed;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%) scale(0.95);
+    width: 90%; max-width: 800px; max-height: 85vh;
+    background: var(--card-bg, #ffffff);
+    border-radius: 16px;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    z-index: 1210;
+    flex-direction: column;
+    overflow: hidden;
+    transition: all 0.3s ease;
+}
+
+.help-modal.active {
+    display: flex;
+    transform: translate(-50%, -50%) scale(1);
+}
+
+[data-theme="dark"] .help-modal {
+    background: #1e293b;
+    color: #f1f5f9;
+}
+
+/* ============================================
+   HELP MODAL HEADER
+   ============================================ */
+.help-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 24px;
+    background: linear-gradient(135deg, #1e3a5f 0%, #2e5c8a 100%);
+    color: white;
+}
+
+.help-modal-title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.help-modal-title h3 {
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+}
+
+.help-modal-title small { opacity: 0.9; font-size: 0.75rem; }
+.help-logo { font-size: 2rem; }
+
+.help-modal-close {
+    background: rgba(255, 255, 255, 0.2);
+    border: none;
+    color: white;
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    font-size: 1.2rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.help-modal-close:hover {
+    background: rgba(255, 255, 255, 0.3);
+    transform: rotate(90deg);
+}
+
+/* ============================================
+   HELP MODAL BODY
+   ============================================ */
+.help-modal-body {
+    padding: 24px;
+    overflow-y: auto;
+    flex: 1;
+}
+
+.help-section { margin-bottom: 24px; }
+
+.help-section-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text-primary, #1e293b);
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid #e8b339;
+}
+
+.help-icon { font-size: 1.2rem; }
+
+.help-text {
+    font-size: 0.9rem;
+    line-height: 1.7;
+    color: var(--text-secondary, #64748b);
+    margin: 0;
+}
+
+.help-text-small {
+    font-size: 0.8rem;
+    color: var(--text-secondary, #64748b);
+    margin-top: 12px;
+}
+
+/* ============================================
+   HELP GRID (2 columns)
+   ============================================ */
+.help-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+@media (max-width: 640px) {
+    .help-grid { grid-template-columns: 1fr; }
+}
+
+.help-card {
+    background: var(--bg-body, #f8fafc);
+    border-radius: 12px;
+    padding: 16px;
+    border: 1px solid var(--border-color, #e2e8f0);
+}
+
+[data-theme="dark"] .help-card {
+    background: #0f172a;
+    border-color: #334155;
+}
+
+.help-card-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-primary, #1e293b);
+    margin: 0 0 12px 0;
+}
+
+.help-list {
+    margin: 0;
+    padding-left: 16px;
+    font-size: 0.8rem;
+    color: var(--text-secondary, #64748b);
+}
+
+.help-list li { margin-bottom: 6px; line-height: 1.5; }
+
+/* ============================================
+   USAGE STEPS
+   ============================================ */
+.help-usage-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+@media (max-width: 640px) {
+    .help-usage-grid { grid-template-columns: 1fr; }
+}
+
+.help-usage-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 12px;
+    background: var(--bg-body, #f8fafc);
+    border-radius: 8px;
+    border: 1px solid var(--border-color, #e2e8f0);
+}
+
+.help-step {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px; height: 28px;
+    background: #1e3a5f;
+    color: white;
+    border-radius: 50%;
+    font-size: 0.8rem;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+
+.help-usage-item strong {
+    display: block;
+    font-size: 0.85rem;
+    color: var(--text-primary, #1e293b);
+    margin-bottom: 4px;
+}
+
+.help-usage-item p {
+    margin: 0;
+    font-size: 0.8rem;
+    color: var(--text-secondary, #64748b);
+}
+
+/* ============================================
+   CONTROLS LIST
+   ============================================ */
+.help-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.help-control-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    background: var(--bg-body, #f8fafc);
+    border-radius: 8px;
+    font-size: 0.85rem;
+}
+
+.help-key {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 32px; height: 32px;
+    background: white;
+    border: 1px solid var(--border-color, #e2e8f0);
+    border-radius: 6px;
+    font-size: 1rem;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+/* ============================================
+   BADGES LEGEND
+   ============================================ */
+.help-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 8px;
+}
+
+.help-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.badge-metar { background: #dcfce7; color: #166534; }
+.badge-cor { background: #fef3c7; color: #92400e; }
+.badge-amd { background: #dbeafe; color: #1e40af; }
+.badge-speci { background: #fee2e2; color: #991b1b; }
+
+[data-theme="dark"] .badge-metar { background: #166534; color: #dcfce7; }
+[data-theme="dark"] .badge-cor { background: #92400e; color: #fef3c7; }
+[data-theme="dark"] .badge-amd { background: #1e40af; color: #dbeafe; }
+[data-theme="dark"] .badge-speci { background: #991b1b; color: #fee2e2; }
+
+/* ============================================
+   MODAL FOOTER
+   ============================================ */
+.help-modal-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 24px;
+    background: var(--bg-body, #f8fafc);
+    border-top: 1px solid var(--border-color, #e2e8f0);
+    font-size: 0.75rem;
+    color: var(--text-secondary, #64748b);
+}
+
+[data-theme="dark"] .help-modal-footer {
+    background: #0f172a;
+    border-color: #334155;
+}
+
+/* Scrollbar styling for modal body */
+.help-modal-body::-webkit-scrollbar { width: 8px; }
+.help-modal-body::-webkit-scrollbar-track { background: transparent; }
+.help-modal-body::-webkit-scrollbar-thumb { background: rgba(0, 0, 0, 0.2); border-radius: 4px; }
+.help-modal-body::-webkit-scrollbar-thumb:hover { background: rgba(0, 0, 0, 0.3); }
