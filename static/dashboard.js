@@ -508,6 +508,18 @@ function updateDecodedPanel(raw) {
     }
     setParam('paramWeather', weatherFound);
 
+    // Styling khusus untuk kabut
+    const weatherEl = document.getElementById('paramWeather');
+    if (weatherEl) {
+        if (/\b(FG|HZ|BR)\b/.test(raw)) {
+            weatherEl.style.color = '#64748b'; // Abu-abu untuk kabut
+            weatherEl.style.fontStyle = 'italic';
+        } else {
+            weatherEl.style.color = '';
+            weatherEl.style.fontStyle = '';
+        }
+    }
+
     // Time
     const timeMatch = raw.match(/(\d{2})(\d{2})(\d{2})Z/);
     if (timeMatch) {
@@ -852,6 +864,11 @@ function handleMetarUpdate(data) {
         }
         
         updateDecodedPanel(data.raw);
+
+        // 🔥 AKTIFKAN EFEK KABUT JIKA ADA FG/HZ/BR
+        if (typeof updateFogEffect === 'function') {
+            updateFogEffect(data);
+        }
     }
 
     // Update QAM dan Narrative
@@ -1805,3 +1822,131 @@ document.addEventListener('keydown', function(e) {
 // Global expose
 window.toggleHelpModal = toggleHelpModal;
 window.closeHelpModal = closeHelpModal;
+
+// =======================
+// FOG / MIST / HAZE EFFECT CONTROLLER
+// =======================
+
+const fogState = {
+    isActive: false,
+    currentType: null, // 'FG', 'HZ', 'BR', atau null
+    lastWeather: null
+};
+
+/**
+ * Cek dan aktifkan efek kabut berdasarkan kode cuaca METAR
+ * @param {string} rawMetar - Raw string METAR
+ */
+function checkAndActivateFog(rawMetar) {
+    if (!rawMetar) return;
+    
+    const metar = rawMetar.toUpperCase();
+    
+    // Cek kode kabut dengan regex (word boundary untuk akurasi)
+    const hasFG = /\bFG\b/.test(metar);  // Fog - kabut tebal
+    const hasHZ = /\bHZ\b/.test(metar);  // Haze - kabut asap
+    const hasBR = /\bBR\b/.test(metar);  // Mist - kabut tipis
+    
+    const fogContainer = document.getElementById('fogContainer');
+    const fogIndicator = document.getElementById('fogIndicator');
+    const fogIndicatorText = document.getElementById('fogIndicatorText');
+    
+    // Skip if elements don't exist
+    if (!fogContainer || !fogIndicator) return;
+    
+    // Tentukan tipe kabut (prioritas: FG > HZ > BR)
+    let fogType = null;
+    let fogClass = '';
+    let indicatorClass = '';
+    let icon = '';
+    let text = '';
+    
+    if (hasFG) {
+        fogType = 'FG';
+        fogClass = 'fog-thick';
+        indicatorClass = 'fog-fg';
+        icon = '🌫️';
+        text = 'FOG - VISIBILITY REDUCED';
+    } else if (hasHZ) {
+        fogType = 'HZ';
+        fogClass = 'fog-haze';
+        indicatorClass = 'fog-hz';
+        icon = '😶‍🌫️';
+        text = 'HAZE - SMOKE/DUST';
+    } else if (hasBR) {
+        fogType = 'BR';
+        fogClass = 'fog-mist';
+        indicatorClass = 'fog-br';
+        icon = '💨';
+        text = 'MIST - LIGHT FOG';
+    }
+    
+    // Jika tidak ada kabut, matikan efek
+    if (!fogType) {
+        deactivateFog();
+        return;
+    }
+    
+    // Jika tipe sama dan sudah aktif, tidak perlu update
+    if (fogState.isActive && fogState.currentType === fogType) {
+        return;
+    }
+    
+    // Update state
+    fogState.isActive = true;
+    fogState.currentType = fogType;
+    fogState.lastWeather = metar;
+    
+    // Reset classes
+    fogContainer.className = 'fog-container active';
+    fogIndicator.className = 'fog-indicator active';
+    
+    // Apply tipe spesifik
+    fogContainer.classList.add(fogClass);
+    fogIndicator.classList.add(indicatorClass);
+    
+    // Update indicator
+    const iconEl = fogIndicator.querySelector('.fog-indicator-icon');
+    if (iconEl) iconEl.textContent = icon;
+    if (fogIndicatorText) fogIndicatorText.textContent = text;
+    
+    console.log(`[FOG] Effect activated: ${fogType} (${text})`);
+}
+
+/**
+ * Matikan efek kabut
+ */
+function deactivateFog() {
+    if (!fogState.isActive) return;
+    
+    const fogContainer = document.getElementById('fogContainer');
+    const fogIndicator = document.getElementById('fogIndicator');
+    
+    if (fogContainer) fogContainer.classList.remove('active');
+    if (fogIndicator) fogIndicator.classList.remove('active');
+    
+    // Reset setelah transisi selesai
+    setTimeout(() => {
+        if (fogContainer) fogContainer.className = 'fog-container';
+        if (fogIndicator) fogIndicator.className = 'fog-indicator';
+    }, 2000);
+    
+    fogState.isActive = false;
+    fogState.currentType = null;
+    
+    console.log('[FOG] Effect deactivated');
+}
+
+/**
+ * Update fog effect saat data METAR berubah
+ * Panggil fungsi ini di handleMetarUpdate()
+ */
+function updateFogEffect(data) {
+    const rawMetar = data.raw || data.metar || '';
+    checkAndActivateFog(rawMetar);
+}
+
+// Global expose
+window.updateFogEffect = updateFogEffect;
+window.checkAndActivateFog = checkAndActivateFog;
+window.deactivateFog = deactivateFog;

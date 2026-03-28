@@ -18,6 +18,21 @@
     <div class="rain front-row"></div>
     <div class="rain back-row"></div>
 
+    <!-- ============================================
+         FOG / MIST / HAZE EFFECT CONTAINER
+         ============================================ -->
+    <div class="fog-container" id="fogContainer">
+        <div class="fog-layer"></div>
+        <div class="fog-layer-2"></div>
+        <div class="fog-layer-3"></div>
+    </div>
+    
+    <!-- Fog Indicator Badge -->
+    <div class="fog-indicator" id="fogIndicator">
+        <span class="fog-indicator-icon">🌫️</span>
+        <span class="fog-indicator-text" id="fogIndicatorText">FOG DETECTED</span>
+    </div>
+
     <audio id="lowVisSound" src="{{ url_for('static', filename='alarm.mp3') }}" preload="auto"></audio>
     <audio id="newDataSound" src="{{ url_for('static', filename='notify.mp3') }}" preload="auto"></audio>
 
