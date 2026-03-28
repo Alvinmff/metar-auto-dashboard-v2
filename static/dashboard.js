@@ -1848,33 +1848,33 @@ if (document.documentElement) {
 function applyVantaFog(fogType) {
     const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
     
-    // Default FOG (FG) - Original thickness
+    // Default FOG (FG) - Thinner and softer
     let vantaConfig = {
         highlightColor: isDark ? 0xcccccc : 0x888888,
         midtoneColor: isDark ? 0x888888 : 0xaaaaaa,
         lowlightColor: isDark ? 0x222222 : 0xdddddd,
         baseColor: isDark ? 0x000000 : 0xffffff,
-        blurFactor: 0.5,
-        speed: 0.6,
-        zoom: 1.2
+        blurFactor: 0.25,    // Diperkecil agar lebih tipis
+        speed: 0.4,         // Gerakan kabut
+        zoom: 1.2           // Pola dan arah kabut (style FG)
     };
     
     if (fogType === 'HZ') {
-        // Haze - Saturated for light mode, luminous for dark mode, thicker mist
+        // Haze - Thinner, Luminous beige
         vantaConfig.highlightColor = isDark ? 0xebe1cb : 0x8c7c61;
         vantaConfig.midtoneColor = isDark ? 0xbdaf91 : 0x9c8e76;
         vantaConfig.lowlightColor = isDark ? 0x333027 : 0xc0b9a3;
-        vantaConfig.blurFactor = 0.45; 
-        vantaConfig.speed = 0.4;
-        vantaConfig.zoom = 1.8;
+        vantaConfig.blurFactor = 0.25;  // Diperkecil agar tipis
+        vantaConfig.speed = 0.3;
+        vantaConfig.zoom = 1.3;
     } else if (fogType === 'BR') {
-        // Mist - Original thickness
+        // Mist - Sangat tipis, arah/pola (zoom & speed) disamakan dengan FG
         vantaConfig.highlightColor = isDark ? 0xaaaaaa : 0x94a3b8;
         vantaConfig.midtoneColor = isDark ? 0x666666 : 0xcbd5e1;
         vantaConfig.lowlightColor = isDark ? 0x222222 : 0xe2e8f0;
-        vantaConfig.blurFactor = 0.3;
-        vantaConfig.speed = 0.5;
-        vantaConfig.zoom = 1.0;
+        vantaConfig.blurFactor = 0.15;  // Paling tipis
+        vantaConfig.speed = 0.4;        // Disamakan dengan FG
+        vantaConfig.zoom = 1.2;         // Disamakan dengan FG
     }
     
     if (vantaFogInstance) {
