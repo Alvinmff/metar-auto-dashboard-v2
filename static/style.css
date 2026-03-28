@@ -2862,31 +2862,43 @@ body.rain-active::after {
    VARIASI EFEK BERDASARKAN TIPE KABUT
    ============================================ */
 
+/* 
+ * Light Mode (Default): 
+ * Kita memberikan efek "brightness" yang lebih gelap agar awan putih/abu
+ * bisa terlihat kontras melawan background aplikasi yang serba putih.
+ */
+
 /* FG - Fog (Kabut tebal) */
 .fog-container.fog-thick {
-    opacity: 0.9 !important; /* Thick fog */
+    opacity: 1 !important; /* Sangat pekat */
+    filter: brightness(0.4) contrast(1.1); /* Abu-abu pekat agar fog putih menutupi layar light mode */
 }
 
 /* HZ - Haze (Kabut asap/panas) */
 .fog-container.fog-haze {
-    opacity: 0.6 !important;
-    filter: sepia(40%);
+    opacity: 0.8 !important;
+    filter: brightness(0.5) sepia(60%) hue-rotate(-10deg); /* Kekuningan/kecoklatan seperti asap/polusi */
 }
 
 /* BR - Mist (Kabut tipis) */
 .fog-container.fog-mist {
-    opacity: 0.3 !important;
+    opacity: 0.65 !important;
+    filter: brightness(0.5); /* Abu-abu tipis tipis */
 }
 
 /* ============================================
    DARK MODE ADJUSTMENTS
    ============================================ */
+/* 
+ * Dark Mode: 
+ * Background sudah gelap, jadi awan cukup diredupkan sedikit agar natural. 
+ */
 [data-theme="dark"] .fog-container {
-    filter: brightness(0.6) contrast(1.2);
+    filter: brightness(0.7) contrast(1.1);
 }
 
 [data-theme="dark"] .fog-container.fog-haze {
-    filter: sepia(40%) brightness(0.6) contrast(1.2);
+    filter: sepia(50%) brightness(0.6) contrast(1.1) hue-rotate(-10deg);
 }
 
 /* ============================================
