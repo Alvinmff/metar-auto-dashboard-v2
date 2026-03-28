@@ -1834,10 +1834,13 @@ const fogState = {
     lastWeather: null
 };
 
-// Watch for dark/light mode toggle
+/**
+ * Watch for dark/light mode toggle to update Vanta colors
+ */
 const toggleObserver = new MutationObserver((mutations) => {
     mutations.forEach((mutation) => {
         if (mutation.attributeName === 'data-theme' && fogState.isActive) {
+            console.log('[FOG] Theme changed, updating Vanta colors...');
             applyVantaFog(fogState.currentType);
         }
     });
@@ -1850,42 +1853,46 @@ function applyVantaFog(fogType) {
     const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
     
     // Default FOG (FG) - White/Grey
-    // Kecepatan sangat lambat (speed: 0.8) sesuai permintaan
+    // Untuk 'multiply' di light mode, warna harus agak gelap agar terlihat.
     let vantaConfig = {
-        highlightColor: isDark ? 0xcccccc : 0x555555,
-        midtoneColor: isDark ? 0x888888 : 0x888888,
-        lowlightColor: isDark ? 0x222222 : 0xbbbbbb,
+        highlightColor: isDark ? 0xcccccc : 0x888888,
+        midtoneColor: isDark ? 0x888888 : 0xaaaaaa,
+        lowlightColor: isDark ? 0x222222 : 0xdddddd,
         baseColor: isDark ? 0x000000 : 0xffffff,
-        blurFactor: 0.4,
-        speed: 0.8,
-        zoom: 1.5
+        blurFactor: 0.5,
+        speed: 0.6,
+        zoom: 1.2
     };
     
     if (fogType === 'HZ') {
-        // Haze - Brownish (0xc0b9a3 variant)
-        vantaConfig.highlightColor = isDark ? 0x8c7c61 : 0x6e6047;
-        vantaConfig.midtoneColor = isDark ? 0x665942 : 0x80735b;
-        vantaConfig.lowlightColor = isDark ? 0x332c21 : 0x9e927c;
-        vantaConfig.blurFactor = 0.3;
-        vantaConfig.speed = 0.5;
+        // Haze - Brownish (User requested c0b9a3)
+        // Light mode (multiply): warnanya harus sedikit lebih gelap/saturated agar mencolok di putih
+        vantaConfig.highlightColor = isDark ? 0x8c7c61 : 0x7a6b52;
+        vantaConfig.midtoneColor = isDark ? 0x665942 : 0x9c8e76;
+        vantaConfig.lowlightColor = isDark ? 0x332c21 : 0xc0b9a3;
+        vantaConfig.blurFactor = 0.4;
+        vantaConfig.speed = 0.4;
         vantaConfig.zoom = 1.8;
     } else if (fogType === 'BR') {
-        // Mist - Thin
-        vantaConfig.highlightColor = isDark ? 0xaaaaaa : 0x777777;
-        vantaConfig.midtoneColor = isDark ? 0x666666 : 0xaaaaaa;
-        vantaConfig.lowlightColor = isDark ? 0x222222 : 0xcccccc;
-        vantaConfig.blurFactor = 0.2;
-        vantaConfig.speed = 0.6;
+        // Mist - Thin Bluish/Grey
+        vantaConfig.highlightColor = isDark ? 0xaaaaaa : 0x94a3b8;
+        vantaConfig.midtoneColor = isDark ? 0x666666 : 0xcbd5e1;
+        vantaConfig.lowlightColor = isDark ? 0x222222 : 0xe2e8f0;
+        vantaConfig.blurFactor = 0.3;
+        vantaConfig.speed = 0.5;
         vantaConfig.zoom = 1.0;
     }
     
     if (vantaFogInstance) {
+        console.log(`[FOG] Updating Vanta instance for ${fogType}...`);
         vantaFogInstance.setOptions(vantaConfig);
     } else {
         if (typeof VANTA === 'undefined') {
-            console.error('[FOG] Vanta.js not loaded!');
+            console.warn('[FOG] Vanta.js not loaded yet, retrying in 500ms...');
+            setTimeout(() => applyVantaFog(fogType), 500);
             return;
         }
+        console.log(`[FOG] Initializing Vanta instance for ${fogType}...`);
         vantaFogInstance = VANTA.FOG(Object.assign({
             el: "#fogContainer",
             mouseControls: true,
@@ -1905,16 +1912,21 @@ function checkAndActivateFog(rawMetar) {
     if (!rawMetar) return;
     
     const metar = rawMetar.toUpperCase();
+    console.log(`[FOG] Checking weather for: ${metar.substring(0, 50)}...`);
     
-    const hasFG = /FG/.test(metar);  
-    const hasHZ = /HZ/.test(metar);  
-    const hasBR = /BR/.test(metar);  
+    // Robust regex: look for FG, HZ, BR as independent codes
+    const hasFG = /FG/i.test(metar);  
+    const hasHZ = /HZ/i.test(metar);  
+    const hasBR = /BR/i.test(metar);  
     
     const fogContainer = document.getElementById('fogContainer');
     const fogIndicator = document.getElementById('fogIndicator');
     const fogIndicatorText = document.getElementById('fogIndicatorText');
     
-    if (!fogContainer || !fogIndicator) return;
+    if (!fogContainer || !fogIndicator) {
+        console.warn('[FOG] Container or indicator element not found.');
+        return;
+    }
     
     let fogType = null;
     let indicatorClass = '';
@@ -1940,36 +1952,39 @@ function checkAndActivateFog(rawMetar) {
     
     // Jika tidak ada kabut, matikan efek
     if (!fogType) {
-        deactivateFog();
+        if (fogState.isActive) {
+            console.log('[FOG] Weather clear, deactivating...');
+            deactivateFog();
+        }
         return;
     }
     
-    // Jika tipe sama dan sudah aktif, tidak perlu update
+    // Jika tipe sama dan sudah aktif, tidak perlu update berat
     if (fogState.isActive && fogState.currentType === fogType) {
         return;
     }
     
+    console.log(`[FOG] Detected ${fogType}. Activating Vanta...`);
     fogState.isActive = true;
     fogState.currentType = fogType;
     fogState.lastWeather = metar;
     
+    // Reset and show elements
     fogContainer.className = 'fog-container active';
     fogIndicator.className = 'fog-indicator active';
     
     // Switch Vanta Fog Config
     applyVantaFog(fogType);
     
+    // Badge update
     fogIndicator.classList.add(indicatorClass);
-    
     const iconEl = fogIndicator.querySelector('.fog-indicator-icon');
     if (iconEl) iconEl.textContent = icon;
     if (fogIndicatorText) fogIndicatorText.textContent = text;
-    
-    console.log(`[FOG] Effect activated (Vanta JS): ${fogType} (${text})`);
 }
 
 /**
- * Matikan efek kabut
+ * Matikan efek kabut dengan transisi halus
  */
 function deactivateFog() {
     if (!fogState.isActive) return;
@@ -1980,21 +1995,21 @@ function deactivateFog() {
     if (fogContainer) fogContainer.classList.remove('active');
     if (fogIndicator) fogIndicator.classList.remove('active');
     
+    // Destroy Vanta instance after fade-out transition (2s)
     setTimeout(() => {
         if (fogContainer) {
             fogContainer.className = 'fog-container';
             if (vantaFogInstance) {
+                console.log('[FOG] Destroying Vanta instance to save resources.');
                 vantaFogInstance.destroy();
                 vantaFogInstance = null;
             }
         }
         if (fogIndicator) fogIndicator.className = 'fog-indicator';
-    }, 2000); // Wait for CSS opacity transition
+    }, 2000); 
     
     fogState.isActive = false;
     fogState.currentType = null;
-    
-    console.log('[FOG] Effect deactivated');
 }
 
 /**
@@ -2007,3 +2022,4 @@ function updateFogEffect(data) {
 
 // Global expose
 window.updateFogEffect = updateFogEffect;
+window.checkAndActivateFog = checkAndActivateFog;
