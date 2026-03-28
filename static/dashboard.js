@@ -1,3 +1,4 @@
+window.isManualSession = false;
 // ============================================
 // METAR Auto Dashboard v2.0 — BMKG Aviation
 // ============================================
@@ -867,7 +868,7 @@ function handleMetarUpdate(data) {
 
         // 🔥 AKTIFKAN EFEK KABUT JIKA ADA FG/HZ/BR
         if (typeof updateFogEffect === 'function') {
-            updateFogEffect(data);
+            if (!window.isManualSession) updateFogEffect(data);
         }
     }
 
@@ -1919,7 +1920,12 @@ function checkAndActivateFog(rawMetar) {
     const hasHZ = /HZ/i.test(metar);  
     const hasBR = /BR/i.test(metar);  
     
+    if (hasFG) console.log("[FOG] Match Found: FG");
+    if (hasHZ) console.log("[FOG] Match Found: HZ");
+    if (hasBR) console.log("[FOG] Match Found: BR");
+    
     const fogContainer = document.getElementById('fogContainer');
+
     const fogIndicator = document.getElementById('fogIndicator');
     const fogIndicatorText = document.getElementById('fogIndicatorText');
     

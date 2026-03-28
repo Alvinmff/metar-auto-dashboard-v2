@@ -203,6 +203,7 @@
     <script src="{{ url_for('static', filename='dashboard.js') }}"></script>
 
     <!-- Trigger effects for Manual Parser -->
+    <script>window.isManualSession = true;</script>
     {% if raw_metar %}
     <script>
         window.addEventListener('load', function() {
