@@ -1855,7 +1855,7 @@ function applyVantaFog(fogType) {
         lowlightColor: isDark ? 0x222222 : 0xdddddd,
         baseColor: isDark ? 0x000000 : 0xffffff,
         blurFactor: 0.25,    // Diperkecil agar lebih tipis
-        speed: 0.4,         // Gerakan kabut
+        speed: 0.6,         // Mengembalikan kecepatan asli FG (0.6)
         zoom: 1.2           // Pola dan arah kabut (style FG)
     };
     
@@ -1868,13 +1868,13 @@ function applyVantaFog(fogType) {
         vantaConfig.speed = 0.3;
         vantaConfig.zoom = 1.3;
     } else if (fogType === 'BR') {
-        // Mist - Sangat tipis, arah/pola (zoom & speed) disamakan dengan FG
+        // Mist - Sangat tipis, arah/pola (zoom & speed) disamakan dengan efek FG aslinya!
         vantaConfig.highlightColor = isDark ? 0xaaaaaa : 0x94a3b8;
         vantaConfig.midtoneColor = isDark ? 0x666666 : 0xcbd5e1;
         vantaConfig.lowlightColor = isDark ? 0x222222 : 0xe2e8f0;
         vantaConfig.blurFactor = 0.15;  // Paling tipis
-        vantaConfig.speed = 0.4;        // Disamakan dengan FG
-        vantaConfig.zoom = 1.2;         // Disamakan dengan FG
+        vantaConfig.speed = 0.6;        // NGAMBIL DARI EFEK FG SEBELUMNYA
+        vantaConfig.zoom = 1.2;         // NGAMBIL DARI EFEK FG SEBELUMNYA
     }
     
     if (vantaFogInstance) {
