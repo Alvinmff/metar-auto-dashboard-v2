@@ -2786,6 +2786,9 @@ body.rain-active::after {
 
 .fog-container.active {
     opacity: 1;
+    background: rgba(100, 116, 139, 0.04); /* Sangat tipis untuk kontras di light mode */
+    backdrop-filter: blur(2.5px); /* Efek hazy tapi teks tetap terbaca */
+    -webkit-backdrop-filter: blur(2.5px);
 }
 
 /* Layer kabut dengan animasi (Image-based) */
@@ -2864,26 +2867,35 @@ body.rain-active::after {
 
 /* 
  * Light Mode (Default): 
- * Kita memberikan efek "brightness" yang lebih gelap agar awan putih/abu
- * bisa terlihat kontras melawan background aplikasi yang serba putih.
+ * Kita memberikan efek tint yang lebih nyata agar awan putih/abu
+ * bisa kontras dengan background aplikasi yang putih.
  */
 
 /* FG - Fog (Kabut tebal) */
 .fog-container.fog-thick {
-    opacity: 1 !important; /* Sangat pekat */
-    filter: brightness(0.4) contrast(1.1); /* Abu-abu pekat agar fog putih menutupi layar light mode */
+    background: rgba(148, 163, 184, 0.08); /* Sedikit lebih gelap */
+    backdrop-filter: blur(4px); /* Kabut tebal butuh blur lebih, tapi tetap terbaca */
+}
+.fog-container.fog-thick .fog {
+    filter: brightness(0.7) contrast(1.2) saturate(0.8);
 }
 
 /* HZ - Haze (Kabut asap/panas) */
 .fog-container.fog-haze {
-    opacity: 0.8 !important;
-    filter: brightness(0.5) sepia(60%) hue-rotate(-10deg); /* Kekuningan/kecoklatan seperti asap/polusi */
+    background: rgba(180, 160, 120, 0.06); /* Tint kecokelatan */
+    backdrop-filter: blur(2px);
+}
+.fog-container.fog-haze .fog {
+    filter: brightness(0.6) sepia(50%) saturate(1.2);
 }
 
 /* BR - Mist (Kabut tipis) */
 .fog-container.fog-mist {
-    opacity: 0.65 !important;
-    filter: brightness(0.5); /* Abu-abu tipis tipis */
+    background: rgba(100, 116, 139, 0.03);
+    backdrop-filter: blur(1.5px);
+}
+.fog-container.fog-mist .fog {
+    filter: brightness(0.8) contrast(1.1);
 }
 
 /* ============================================
@@ -2891,14 +2903,24 @@ body.rain-active::after {
    ============================================ */
 /* 
  * Dark Mode: 
- * Background sudah gelap, jadi awan cukup diredupkan sedikit agar natural. 
+ * Background sudah gelap, jadi backdrop blur kita kurangi 
+ * agar tidak terlalu berat di mata dan teks tetap tajam.
  */
-[data-theme="dark"] .fog-container {
+[data-theme="dark"] .fog-container.active {
+    background: transparent;
+    backdrop-filter: blur(1.5px);
+}
+
+[data-theme="dark"] .fog-container.fog-thick {
+    backdrop-filter: blur(3px);
+}
+
+[data-theme="dark"] .fog-container .fog {
     filter: brightness(0.7) contrast(1.1);
 }
 
-[data-theme="dark"] .fog-container.fog-haze {
-    filter: sepia(50%) brightness(0.6) contrast(1.1) hue-rotate(-10deg);
+[data-theme="dark"] .fog-container.fog-haze .fog {
+    filter: sepia(40%) brightness(0.6) contrast(1.2) hue-rotate(-10deg);
 }
 
 /* ============================================
