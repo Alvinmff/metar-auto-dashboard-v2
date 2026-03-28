@@ -2788,67 +2788,74 @@ body.rain-active::after {
     opacity: 1;
 }
 
-/* Layer kabut dengan animasi */
-.fog-layer {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 200%;
-    height: 100%;
-    background: 
-        radial-gradient(ellipse at 30% 50%, rgba(200, 200, 200, 0.4) 0%, transparent 50%),
-        radial-gradient(ellipse at 70% 30%, rgba(220, 220, 220, 0.3) 0%, transparent 40%),
-        radial-gradient(ellipse at 50% 80%, rgba(210, 210, 210, 0.35) 0%, transparent 45%);
-    filter: blur(20px);
-    animation: fogMove 20s linear infinite;
+/* Layer kabut dengan animasi (Image-based) */
+.fog {
+  width: 200%;
+  height: 100%;
+  position: absolute;
+}
+#foglayer_01 {
+  animation: foglayer_01_opacity 10s linear infinite, foglayer_moveme 15s linear infinite;
+  -webkit-animation: foglayer_01_opacity 10s linear infinite, foglayer_moveme 15s linear infinite;
+}
+#foglayer_01 .image01, #foglayer_01 .image02 {
+  background: url("images/fog1.png") repeat-x top left transparent;
+  background-size: 100% 100%;
+  width: 50%;
+  height: 100%;
+  float: left;
 }
 
-/* Layer kedua untuk kedalaman */
-.fog-layer-2 {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 200%;
-    height: 100%;
-    background: 
-        radial-gradient(ellipse at 60% 20%, rgba(230, 230, 230, 0.25) 0%, transparent 50%),
-        radial-gradient(ellipse at 20% 70%, rgba(215, 215, 215, 0.3) 0%, transparent 40%);
-    filter: blur(25px);
-    animation: fogMove 25s linear infinite reverse;
+#foglayer_02 {
+  animation: foglayer_02_opacity 21s linear infinite, foglayer_moveme 13s linear infinite;
+  -webkit-animation: foglayer_02_opacity 21s linear infinite, foglayer_moveme 13s linear infinite;
+}
+#foglayer_02 .image01, #foglayer_02 .image02 {
+  background: url("images/fog2.png") repeat-x top left transparent;
+  background-size: 100% 100%;
+  width: 50%;
+  height: 100%;
+  float: left;
 }
 
-/* Layer ketiga - foreground mist */
-.fog-layer-3 {
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    width: 100%;
-    height: 40%;
-    background: linear-gradient(to top, rgba(240, 240, 240, 0.5) 0%, transparent 100%);
-    filter: blur(15px);
-    animation: fogRise 15s ease-in-out infinite;
+#foglayer_03 {
+  animation: foglayer_03_opacity 21s linear infinite, foglayer_moveme 13s linear infinite;
+  -webkit-animation: foglayer_03_opacity 21s linear infinite, foglayer_moveme 13s linear infinite;
+}
+#foglayer_03 .image01, #foglayer_03 .image02 {
+  background: url("images/fog2.png") repeat-x top left transparent;
+  background-size: 100% 100%;
+  width: 50%;
+  height: 100%;
+  float: left;
 }
 
-/* Animasi pergerakan kabut */
-@keyframes fogMove {
-    0% {
-        transform: translateX(-50%);
-    }
-    100% {
-        transform: translateX(0%);
-    }
+@keyframes foglayer_01_opacity {
+  0% { opacity: .1; } 22% { opacity: .5; } 40% { opacity: .28; } 58% { opacity: .4; } 80% { opacity: .16; } 100% { opacity: .1; }
+}
+@-webkit-keyframes foglayer_01_opacity {
+  0% { opacity: .1; } 22% { opacity: .5; } 40% { opacity: .28; } 58% { opacity: .4; } 80% { opacity: .16; } 100% { opacity: .1; }
 }
 
-/* Animasi kabut naik dari bawah */
-@keyframes fogRise {
-    0%, 100% {
-        opacity: 0.3;
-        transform: translateY(10px);
-    }
-    50% {
-        opacity: 0.6;
-        transform: translateY(-10px);
-    }
+@keyframes foglayer_02_opacity {
+  0% { opacity: .5; } 25% { opacity: .2; } 50% { opacity: .1; } 80% { opacity: .3; } 100% { opacity: .5; }
+}
+@-webkit-keyframes foglayer_02_opacity {
+  0% { opacity: .5; } 25% { opacity: .2; } 50% { opacity: .1; } 80% { opacity: .3; } 100% { opacity: .5; }
+}
+
+@keyframes foglayer_03_opacity {
+  0% { opacity: .8; } 27% { opacity: .2; } 52% { opacity: .6; } 68% { opacity: .3; } 100% { opacity: .8; }
+}
+@-webkit-keyframes foglayer_03_opacity {
+  0% { opacity: .8; } 27% { opacity: .2; } 52% { opacity: .6; } 68% { opacity: .3; } 100% { opacity: .8; }
+}
+
+@keyframes foglayer_moveme {
+  0% { left: 0; } 100% { left: -100%; }
+}
+@-webkit-keyframes foglayer_moveme {
+  0% { left: 0; } 100% { left: -100%; }
 }
 
 /* ============================================
@@ -2856,75 +2863,30 @@ body.rain-active::after {
    ============================================ */
 
 /* FG - Fog (Kabut tebal) */
-.fog-container.fog-thick .fog-layer {
-    background: 
-        radial-gradient(ellipse at 30% 50%, rgba(220, 220, 220, 0.7) 0%, transparent 50%),
-        radial-gradient(ellipse at 70% 30%, rgba(235, 235, 235, 0.6) 0%, transparent 40%);
-    filter: blur(30px);
-}
-
-.fog-container.fog-thick .fog-layer-2 {
-    background: 
-        radial-gradient(ellipse at 60% 20%, rgba(240, 240, 240, 0.5) 0%, transparent 50%);
-    filter: blur(35px);
-}
-
-.fog-container.fog-thick .fog-layer-3 {
-    background: linear-gradient(to top, rgba(245, 245, 245, 0.8) 0%, transparent 100%);
-    height: 60%;
+.fog-container.fog-thick {
+    opacity: 0.9 !important; /* Thick fog */
 }
 
 /* HZ - Haze (Kabut asap/panas) */
-.fog-container.fog-haze .fog-layer {
-    background: 
-        radial-gradient(ellipse at 40% 40%, rgba(200, 180, 140, 0.4) 0%, transparent 50%),
-        radial-gradient(ellipse at 80% 60%, rgba(190, 170, 130, 0.35) 0%, transparent 45%);
-    filter: blur(15px) sepia(20%);
-}
-
-.fog-container.fog-haze .fog-layer-2 {
-    background: 
-        radial-gradient(ellipse at 20% 80%, rgba(185, 165, 125, 0.3) 0%, transparent 40%);
-    filter: blur(20px) sepia(15%);
+.fog-container.fog-haze {
+    opacity: 0.6 !important;
+    filter: sepia(40%);
 }
 
 /* BR - Mist (Kabut tipis) */
-.fog-container.fog-mist .fog-layer {
-    background: 
-        radial-gradient(ellipse at 50% 50%, rgba(230, 230, 230, 0.25) 0%, transparent 50%);
-    filter: blur(10px);
-}
-
-.fog-container.fog-mist .fog-layer-2 {
-    opacity: 0.5;
-}
-
-.fog-container.fog-mist .fog-layer-3 {
-    height: 25%;
-    opacity: 0.4;
+.fog-container.fog-mist {
+    opacity: 0.3 !important;
 }
 
 /* ============================================
    DARK MODE ADJUSTMENTS
    ============================================ */
-[data-theme="dark"] .fog-layer {
-    background: 
-        radial-gradient(ellipse at 30% 50%, rgba(100, 100, 110, 0.3) 0%, transparent 50%),
-        radial-gradient(ellipse at 70% 30%, rgba(110, 110, 120, 0.25) 0%, transparent 40%);
+[data-theme="dark"] .fog-container {
+    filter: brightness(0.6) contrast(1.2);
 }
 
-[data-theme="dark"] .fog-layer-2 {
-    background: 
-        radial-gradient(ellipse at 60% 20%, rgba(90, 90, 100, 0.2) 0%, transparent 50%);
-}
-
-[data-theme="dark"] .fog-layer-3 {
-    background: linear-gradient(to top, rgba(80, 80, 90, 0.4) 0%, transparent 100%);
-}
-
-[data-theme="dark"] .fog-container.fog-haze .fog-layer {
-    background: 
-        radial-gradient(ellipse at 40% 40%, rgba(120, 100, 70, 0.3) 0%, transparent 50%);
+[data-theme="dark"] .fog-container.fog-haze {
+    filter: sepia(40%) brightness(0.6) contrast(1.2);
 }
 
 /* ============================================
