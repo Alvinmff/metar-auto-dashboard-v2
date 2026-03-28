@@ -2790,6 +2790,10 @@ body.rain-active::after {
     transition: opacity 2s ease;
 }
 
+[data-theme="dark"] .fog-container.active {
+    mix-blend-mode: screen; /* Dark mode: let light colors shine without darkening background */
+}
+
 /* ============================================
    FOG INDICATOR BADGE
    ============================================ */
