@@ -80,6 +80,7 @@ function updateConnectionIndicator(isOnline) {
 
 // Polling replaces Socket Events
 async function pollLatestData() {
+    if (window.isManualSession) return;
     if (isPolling) return;
     isPolling = true;
 
@@ -500,7 +501,11 @@ function updateDecodedPanel(raw) {
     };
 
     for (const code of weatherCodes) {
-        const regex = new RegExp('\\b' + code + '\\b');
+        // Fix: Use a regex that allows space or start-of-line before codes that start with + or -
+        const pattern = code.startsWith('\\+') || code.startsWith('-') 
+            ? '(?:^|\\s)' + code + '\\b' 
+            : '\\b' + code + '\\b';
+        const regex = new RegExp(pattern, 'i');
         const cleanCode = code.replace(/\\/g, '');
         if (regex.test(raw)) {
             weatherFound = weatherMap[cleanCode] || cleanCode;
@@ -538,27 +543,67 @@ function updateDecodedPanel(raw) {
 // RAIN EFFECT
 // =======================
 function checkRainStatus(raw) {
-    // Precise regex with word boundaries to match specific weather codes
-    // Matches RA, DZ, SHRA, TSRA, etc. but NOT WARR or RERA
-    const rainRegex = /\b(\+|-|VC)?(RA|DZ|SHRA|TSRA|SH|SN|SG|GR|GS|PL|IC|UP)\b/;
-    const hasRain = rainRegex.test(raw);
+    if (!raw) return;
+    
+    console.log('[RAIN] Checking rain status for:', raw.substring(0, 60));
+    
+    // Fix: Updated regex to properly handle +/- prefixes by using (?:\s|^) instead of leading \b
+    const rainRegex = /(?:^|\s)([\+\-]|VC)?(RA|DZ|SHRA|TSRA|SH|SN|SG|GR|GS|PL|IC|UP)\b/i;
+    const match = raw.match(rainRegex);
+    const hasRain = !!match;
+    
+    console.log('[RAIN] Regex match result:', hasRain, match ? match[0].trim() : 'no match');
+
+    const rainIndicator = document.getElementById('rainIndicator');
+    const rainIndicatorText = document.getElementById('rainIndicatorText');
 
     if (hasRain) {
+        console.log('[RAIN] Rain detected! Activating effects...');
         document.body.classList.add('rain-active');
         makeItRain();
+        
+        if (rainIndicator) {
+            rainIndicator.classList.add('active');
+            if (rainIndicatorText) {
+                const code = match[0].trim().toUpperCase();
+                let statusText = 'RAIN DETECTED';
+                if (code.includes('TS')) statusText = 'THUNDERSTORM';
+                else if (code.includes('DZ')) statusText = 'DRIZZLE';
+                else if (code.includes('SH')) statusText = 'SHOWERS';
+                rainIndicatorText.textContent = statusText;
+            }
+        }
     } else {
         document.body.classList.remove('rain-active');
         stopRain();
+        if (rainIndicator) rainIndicator.classList.remove('active');
     }
 }
 
 function makeItRain() {
-    const frontRow = document.querySelector('.rain.front-row');
-    const backRow = document.querySelector('.rain.back-row');
+    let frontRow = document.getElementById('rainFront');
+    let backRow = document.getElementById('rainBack');
+
+    // Auto-create containers if not found in DOM
+    if (!frontRow) {
+        console.log('[RAIN] Creating rainFront container dynamically');
+        frontRow = document.createElement('div');
+        frontRow.id = 'rainFront';
+        frontRow.className = 'rain front-row';
+        document.body.insertBefore(frontRow, document.body.firstChild);
+    }
+    if (!backRow) {
+        console.log('[RAIN] Creating rainBack container dynamically');
+        backRow = document.createElement('div');
+        backRow.id = 'rainBack';
+        backRow.className = 'rain back-row';
+        document.body.insertBefore(backRow, document.body.firstChild);
+    }
 
     // If rain is already falling, don't recreate it
     if (frontRow.children.length > 0) return;
 
+    console.log('[RAIN] Generating rain drops...');
     let increment = 0;
     let drops = "";
     let backDrops = "";
@@ -582,11 +627,12 @@ function makeItRain() {
 
     frontRow.innerHTML = drops;
     backRow.innerHTML = backDrops;
+    console.log('[RAIN] Rain effect activated! Drops:', frontRow.children.length);
 }
 
 function stopRain() {
-    const frontRow = document.querySelector('.rain.front-row');
-    const backRow = document.querySelector('.rain.back-row');
+    const frontRow = document.getElementById('rainFront');
+    const backRow = document.getElementById('rainBack');
     if (frontRow) frontRow.innerHTML = '';
     if (backRow) backRow.innerHTML = '';
 }
@@ -1624,8 +1670,10 @@ function renderWindRose(containerId, data, options) {
     }, { responsive: true });
 }
 
-setInterval(loadWindCompass, 5000);
-setInterval(loadWindRose, 10000);
+if (!window.isManualSession) {
+    setInterval(loadWindCompass, 5000);
+    setInterval(loadWindRose, 10000);
+}
 
 /**
  * Global Chart Download Handler
@@ -1760,6 +1808,12 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
+    // Skip background polling and heavy UI initialization if this is a manual session
+    if (window.isManualSession) {
+        console.log('[INIT] Manual session detected. Skipping background polling.');
+        return;
+    }
+
     // 7. Sync System Fetch Status and trigger first poll
     console.log('[INIT] Syncing system fetch status with server...');
     fetch("/api/set_fetch", {
@@ -1772,11 +1826,11 @@ document.addEventListener('DOMContentLoaded', function () {
             updateStatusPanel(data);
             console.log('[INIT] Server fetch status synced:', data.auto_fetch);
             // Start polling now that we are synced
-            pollLatestData();
+            if (typeof pollLatestData === 'function') pollLatestData();
         })
         .catch(err => {
             console.error('[INIT] Failed to sync fetch status:', err);
-            pollLatestData(); // Fallback to poll anyway
+            if (typeof pollLatestData === 'function') pollLatestData(); // Fallback to poll anyway
         });
 
     // Initial poll will handle first load
@@ -1850,32 +1904,32 @@ function applyVantaFog(fogType) {
 
     // Default FOG (FG) - Thinner and softer
     let vantaConfig = {
-        highlightColor: isDark ? 0xcccccc : 0x888888,
+        highlightColor: isDark ? 0xbbbbbb : 0x888888,
         midtoneColor: isDark ? 0x888888 : 0xaaaaaa,
         lowlightColor: isDark ? 0x222222 : 0xdddddd,
         baseColor: isDark ? 0x000000 : 0xffffff,
-        blurFactor: 0.30,    // Diperkecil agar lebih tipis
-        speed: 0.70,         // Mengembalikan kecepatan asli FG (0.6)
-        zoom: 1.70           // Pola dan arah kabut (style FG)
+        blurFactor: 0.5,    // Diperkecil agar lebih tipis
+        speed: 0.2,         // Mengembalikan kecepatan asli FG (0.6)
+        zoom: 1.2           // Pola dan arah kabut (style FG)
     };
 
     if (fogType === 'HZ') {
-        // Haze - Thinner, Luminous beige
-        vantaConfig.highlightColor = isDark ? 0xebe1cb : 0x8c7c61;
-        vantaConfig.midtoneColor = isDark ? 0xbdaf91 : 0x9c8e76;
-        vantaConfig.lowlightColor = isDark ? 0x333027 : 0xc0b9a3;
-        vantaConfig.blurFactor = 0.25;  // Diperkecil agar tipis
-        vantaConfig.speed = 0.70;        // NGAMBIL DARI EFEK FG SEBELUMNYA
-        vantaConfig.zoom = 1.70;
+        // Haze - Thinner in light mode (colors closer to white), brighter in dark mode
+        vantaConfig.highlightColor = 0xd1c7b5;
+        vantaConfig.midtoneColor = 0xece5d8;
+        vantaConfig.lowlightColor = 0xf5f0e6;
+        vantaConfig.blurFactor = 0.5; // Thinner look
+        vantaConfig.speed = 0.2;
+        vantaConfig.zoom = 0.3;
 
     } else if (fogType === 'BR') {
         // Mist - Sangat tipis, arah/pola (zoom & speed) disamakan dengan efek FG aslinya!
         vantaConfig.highlightColor = isDark ? 0xaaaaaa : 0x94a3b8;
         vantaConfig.midtoneColor = isDark ? 0x666666 : 0xcbd5e1;
         vantaConfig.lowlightColor = isDark ? 0x222222 : 0xe2e8f0;
-        vantaConfig.blurFactor = 0.20;  // Paling tipis
-        vantaConfig.speed = 0.70;        // NGAMBIL DARI EFEK FG SEBELUMNYA
-        vantaConfig.zoom = 1.70;         // NGAMBIL DARI EFEK FG SEBELUMNYA
+        vantaConfig.blurFactor = 0.5;  // Paling tipis
+        vantaConfig.speed = 0.2;        // NGAMBIL DARI EFEK FG SEBELUMNYA
+        vantaConfig.zoom = 1.2;         // NGAMBIL DARI EFEK FG SEBELUMNYA
     }
 
     if (vantaFogInstance) {
@@ -1911,11 +1965,15 @@ function checkAndActivateFog(rawMetar) {
     if (hasHZ) console.log("[FOG] Match Found: HZ (Haze)");
     if (hasBR) console.log("[FOG] Match Found: BR (Mist)");
 
+    const fogContainer = document.getElementById('fogContainer');
     const fogIndicator = document.getElementById('fogIndicator');
     const fogIndicatorText = document.getElementById('fogIndicatorText');
 
     if (!fogContainer || !fogIndicator) {
-        console.warn('[FOG] Container or indicator element not found.');
+        // Only warn if we're on a real dashboard page, not a manual parser or history page without these elements
+        if (!window.isManualSession) {
+            console.warn('[FOG] Container or indicator element not found.');
+        }
         return;
     }
 
@@ -1963,6 +2021,7 @@ function checkAndActivateFog(rawMetar) {
     // Reset and show elements
     fogContainer.className = 'fog-container active';
     fogIndicator.className = 'fog-indicator active';
+    document.body.classList.add('fog-active');
 
     // Switch Vanta Fog Config
     applyVantaFog(fogType);
@@ -2001,6 +2060,7 @@ function deactivateFog() {
 
     fogState.isActive = false;
     fogState.currentType = null;
+    document.body.classList.remove('fog-active');
 }
 
 /**
@@ -2014,3 +2074,6 @@ function updateFogEffect(data) {
 // Global expose
 window.updateFogEffect = updateFogEffect;
 window.checkAndActivateFog = checkAndActivateFog;
+window.checkRainStatus = checkRainStatus;
+window.makeItRain = makeItRain;
+window.stopRain = stopRain;

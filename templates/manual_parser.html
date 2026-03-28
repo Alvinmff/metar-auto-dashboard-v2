@@ -15,6 +15,11 @@
 
 <body>
 
+    <div class="rain front-row" id="rainFront"></div>
+    <div class="rain back-row" id="rainBack"></div>
+
+
+
     <audio id="lowVisSound" src="{{ url_for('static', filename='alarm.mp3') }}" preload="auto"></audio>
     <audio id="newDataSound" src="{{ url_for('static', filename='notify.mp3') }}" preload="auto"></audio>
 
@@ -27,6 +32,12 @@
     <div class="fog-indicator" id="fogIndicator">
         <span class="fog-indicator-icon">🌫️</span>
         <span class="fog-indicator-text" id="fogIndicatorText">FOG DETECTED</span>
+    </div>
+
+    <!-- Rain Indicator Badge -->
+    <div class="rain-indicator" id="rainIndicator">
+        <span class="rain-indicator-icon">🌧️</span>
+        <span class="rain-indicator-text" id="rainIndicatorText">RAIN DETECTED</span>
     </div>
 
     <!-- Overlay untuk mobile sidebar -->
@@ -199,28 +210,33 @@
     </script>
     <script>
         const STATION = "{{ station }}";
+        window.isManualSession = true;
     </script>
     <script src="{{ url_for('static', filename='dashboard.js') }}"></script>
 
-    <!-- Trigger effects for Manual Parser -->
-    <script>window.isManualSession = true;</script>
+
     {% if raw_metar %}
     <script>
         window.addEventListener('load', function() {
-            // Beri sedikit delay agar script utama siap
-            setTimeout(() => {
-                const metarText = "{{ raw_metar|replace('\"', '\\\"')|replace('\n', ' ')|safe }}";
+            // Delay 500ms to ensure all JS is fully loaded and DOM is ready
+            setTimeout(function() {
+                var metarText = "{{ raw_metar|replace('\"', '\\\"')|replace('\n', ' ')|safe }}";
+                console.log('[MANUAL] Triggering weather effects for:', metarText);
                 
                 // Trigger Fog Effect
                 if (typeof checkAndActivateFog === 'function') {
                     checkAndActivateFog(metarText);
+                } else {
+                    console.warn('[MANUAL] checkAndActivateFog not available');
                 }
                 
-                // Trigger Rain Effect (jika ada script-nya)
+                // Trigger Rain Effect
                 if (typeof checkRainStatus === 'function') {
                     checkRainStatus(metarText);
+                } else {
+                    console.warn('[MANUAL] checkRainStatus not available');
                 }
-            }, 100);
+            }, 500);
         });
     </script>
     {% endif %}

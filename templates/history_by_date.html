@@ -17,6 +17,10 @@
 
 <body>
 
+    <div class="rain front-row" id="rainFront"></div>
+    <div class="rain back-row" id="rainBack"></div>
+
+
     <audio id="lowVisSound" src="{{ url_for('static', filename='alarm.mp3') }}" preload="auto"></audio>
     <audio id="newDataSound" src="{{ url_for('static', filename='notify.mp3') }}" preload="auto"></audio>
 
@@ -29,6 +33,12 @@
     <div class="fog-indicator" id="fogIndicator">
         <span class="fog-indicator-icon">🌫️</span>
         <span class="fog-indicator-text" id="fogIndicatorText">FOG DETECTED</span>
+    </div>
+
+    <!-- Rain Indicator Badge -->
+    <div class="rain-indicator" id="rainIndicator">
+        <span class="rain-indicator-icon">🌧️</span>
+        <span class="rain-indicator-text" id="rainIndicatorText">RAIN DETECTED</span>
     </div>
 
     <!-- Overlay untuk mobile sidebar -->
