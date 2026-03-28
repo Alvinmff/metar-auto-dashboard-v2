@@ -1848,17 +1848,57 @@ if (document.documentElement) {
 function applyVantaFog(fogType) {
     const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
     
-    // Default FOG (FG) - White/Grey
-    // Untuk 'multiply' di light mode, warna harus agak gelap agar terlihat.
+    // Default FOG (FG) - Soft whitish/grey for both modes
     let vantaConfig = {
-        highlightColor: isDark ? 0xcccccc : 0x888888,
-        midtoneColor: isDark ? 0x888888 : 0xaaaaaa,
-        lowlightColor: isDark ? 0x222222 : 0xdddddd,
+        highlightColor: isDark ? 0xdddddd : 0xaaaaaa,
+        midtoneColor: isDark ? 0x999999 : 0xcccccc,
+        lowlightColor: isDark ? 0x444444 : 0xeeeeee,
         baseColor: isDark ? 0x000000 : 0xffffff,
-        blurFactor: 0.5,
-        speed: 0.6,
+        blurFactor: 0.4,
+        speed: 0.5,
         zoom: 1.2
     };
+    
+    if (fogType === 'HZ') {
+        // Haze - Very Soft Sandy/Light Beige
+        // Light mode (multiply): Whiter colors = more transparent
+        // Dark mode (screen): Light colors = glowing fog
+        vantaConfig.highlightColor = isDark ? 0xcccccc : 0xd1c7b5;
+        vantaConfig.midtoneColor = isDark ? 0x888888 : 0xece5d8;
+        vantaConfig.lowlightColor = isDark ? 0x333333 : 0xf5f0e6;
+        vantaConfig.blurFactor = 0.25; 
+        vantaConfig.speed = 0.3;
+        vantaConfig.zoom = 1.3;
+    } else if (fogType === 'BR') {
+        // Mist - Very Thin Whitish
+        vantaConfig.highlightColor = isDark ? 0xeeeeee : 0xcbd5e1;
+        vantaConfig.midtoneColor = isDark ? 0xaaaaaa : 0xe2e8f0;
+        vantaConfig.lowlightColor = isDark ? 0x666666 : 0xf1f5f9;
+        vantaConfig.blurFactor = 0.2;
+        vantaConfig.speed = 0.4;
+        vantaConfig.zoom = 1.0;
+    }
+    
+    if (vantaFogInstance) {
+        console.log(`[FOG] Updating Vanta instance for ${fogType} (Softened)...`);
+        vantaFogInstance.setOptions(vantaConfig);
+    } else {
+        if (typeof VANTA === 'undefined') {
+            console.warn('[FOG] Vanta.js not loaded yet, retrying in 500ms...');
+            setTimeout(() => applyVantaFog(fogType), 500);
+            return;
+        }
+        console.log(`[FOG] Initializing Vanta instance for ${fogType} (Softened)...`);
+        vantaFogInstance = VANTA.FOG(Object.assign({
+            el: "#fogContainer",
+            mouseControls: true,
+            touchControls: true,
+            gyroControls: false,
+            minHeight: 200.00,
+            minWidth: 200.00
+        }, vantaConfig));
+    }
+};
     
     if (fogType === 'HZ') {
         // Haze - Brownish (User requested c0b9a3)
