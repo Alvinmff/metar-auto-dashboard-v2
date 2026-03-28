@@ -1861,8 +1861,6 @@ function applyVantaFog(fogType) {
     
     if (fogType === 'HZ') {
         // Haze - Very Soft Sandy/Light Beige
-        // Light mode (multiply): Whiter colors = more transparent
-        // Dark mode (screen): Light colors = glowing fog
         vantaConfig.highlightColor = isDark ? 0xcccccc : 0xd1c7b5;
         vantaConfig.midtoneColor = isDark ? 0x888888 : 0xece5d8;
         vantaConfig.lowlightColor = isDark ? 0x333333 : 0xf5f0e6;
@@ -1898,52 +1896,8 @@ function applyVantaFog(fogType) {
             minWidth: 200.00
         }, vantaConfig));
     }
-};
-    
-    if (fogType === 'HZ') {
-        // Haze - Brownish (User requested c0b9a3)
-        // Light mode (multiply): warnanya harus sedikit lebih gelap/saturated agar mencolok di putih
-        vantaConfig.highlightColor = isDark ? 0x8c7c61 : 0x7a6b52;
-        vantaConfig.midtoneColor = isDark ? 0x665942 : 0x9c8e76;
-        vantaConfig.lowlightColor = isDark ? 0x332c21 : 0xc0b9a3;
-        vantaConfig.blurFactor = 0.4;
-        vantaConfig.speed = 0.4;
-        vantaConfig.zoom = 1.8;
-    } else if (fogType === 'BR') {
-        // Mist - Thin Bluish/Grey
-        vantaConfig.highlightColor = isDark ? 0xaaaaaa : 0x94a3b8;
-        vantaConfig.midtoneColor = isDark ? 0x666666 : 0xcbd5e1;
-        vantaConfig.lowlightColor = isDark ? 0x222222 : 0xe2e8f0;
-        vantaConfig.blurFactor = 0.3;
-        vantaConfig.speed = 0.5;
-        vantaConfig.zoom = 1.0;
-    }
-    
-    if (vantaFogInstance) {
-        console.log(`[FOG] Updating Vanta instance for ${fogType}...`);
-        vantaFogInstance.setOptions(vantaConfig);
-    } else {
-        if (typeof VANTA === 'undefined') {
-            console.warn('[FOG] Vanta.js not loaded yet, retrying in 500ms...');
-            setTimeout(() => applyVantaFog(fogType), 500);
-            return;
-        }
-        console.log(`[FOG] Initializing Vanta instance for ${fogType}...`);
-        vantaFogInstance = VANTA.FOG(Object.assign({
-            el: "#fogContainer",
-            mouseControls: true,
-            touchControls: true,
-            gyroControls: false,
-            minHeight: 200.00,
-            minWidth: 200.00
-        }, vantaConfig));
-    }
 }
 
-/**
- * Cek dan aktifkan efek kabut berdasarkan kode cuaca METAR
- * @param {string} rawMetar - Raw string METAR
- */
 function checkAndActivateFog(rawMetar) {
     if (!rawMetar) return;
     const metar = rawMetar.toUpperCase();
