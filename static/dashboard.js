@@ -1358,8 +1358,19 @@ async function loadHistory() {
             tempChart.data.datasets[0].data = temps;
             tempChart.update('active');
         }
-        pressureChart.update('active');
-        windChart.update('active');
+        if (pressureChart && pressureChart.data) {
+            pressureChart.data.labels = labels;
+            pressureChart.data.datasets[0].data = pressures;
+            pressureChart.update('active');
+        }
+        if (windChart && windChart.data) {
+            windChart.data.labels = labels;
+            windChart.data.datasets[0].data = winds;
+            if (windChart.data.datasets[1]) {
+                windChart.data.datasets[1].data = gusts;
+            }
+            windChart.update('active');
+        }
 
         // Update data summary indicators (footers)
         const infoText = `${result.range.start} to ${result.range.end} • ${result.count} records (from ${result.source})`;
