@@ -758,11 +758,19 @@ function handleMetarUpdate(data) {
     const isNewLowVis = isLowVis && !alarmState.lowVisTriggered;
     const isNewThunderstorm = hasTS && !alarmState.thunderstormTriggered;
 
+    // Variable to prevent overlapping sounds
+    let alarmPlayedThisCycle = false;
+
     // 1. Alarm untuk Low Visibility yang BARU terdeteksi
     if (isNewLowVis) {
         console.log('[ALARM] New low visibility detected!');
         document.body.classList.add('low-visibility');
-        playAlarm();
+        
+        if (!alarmPlayedThisCycle) {
+            playAlarm();
+            alarmPlayedThisCycle = true;
+        }
+        
         showToast('⚠️ LOW VISIBILITY', `Visibility reduced to ${vis}m`, 'danger', 10000);
         alarmState.lowVisTriggered = true;
         saveAlarmState(); // 🔥 PERSIST
@@ -778,7 +786,12 @@ function handleMetarUpdate(data) {
     if (isNewThunderstorm) {
         console.log('[ALARM] New thunderstorm detected!');
         showToast('⚡ THUNDERSTORM', 'Thunderstorm detected in METAR', 'danger', 10000);
-        playAlarm();
+        
+        if (!alarmPlayedThisCycle) {
+            playAlarm();
+            alarmPlayedThisCycle = true;
+        }
+        
         alarmState.thunderstormTriggered = true;
         saveAlarmState(); // 🔥 PERSIST
     }
@@ -790,7 +803,16 @@ function handleMetarUpdate(data) {
 
     // 3. Notifikasi suara untuk data baru (bukan alarm, hanya notify)
     if (!isFirstLoad && soundEnabled && data.status === 'new') {
-        playNotify();
+        if (hasTS) {
+            if (!alarmPlayedThisCycle) {
+                playAlarm();
+                alarmPlayedThisCycle = true;
+            }
+        } else {
+            if (!alarmPlayedThisCycle) {
+                playNotify();
+            }
+        }
     }
 
     // ============================================================
