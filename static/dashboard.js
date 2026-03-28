@@ -1,4 +1,4 @@
-window.isManualSession = false;
+if (typeof window.isManualSession === "undefined") window.isManualSession = false;
 // ============================================
 // METAR Auto Dashboard v2.0 — BMKG Aviation
 // ============================================
@@ -1915,14 +1915,17 @@ function checkAndActivateFog(rawMetar) {
     const metar = rawMetar.toUpperCase();
     console.log(`[FOG] Checking weather for: ${metar.substring(0, 50)}...`);
     
-    // Robust regex: look for FG, HZ, BR as independent codes
-    const hasFG = /FG/i.test(metar);  
-    const hasHZ = /HZ/i.test(metar);  
-    const hasBR = /BR/i.test(metar);  
+    // Robust regex using word boundaries
+        const hasFG = /FG/i.test(metar);
+    const hasHZ = /HZ/i.test(metar);
+    const hasBR = /BR/i.test(metar);
     
-    if (hasFG) console.log("[FOG] Match Found: FG");
-    if (hasHZ) console.log("[FOG] Match Found: HZ");
-    if (hasBR) console.log("[FOG] Match Found: BR");
+    console.log(`[FOG] Regex results -> FG: ${hasFG}, HZ: ${hasHZ}, BR: ${hasBR}`);
+    
+    if (hasFG) console.log("[FOG] Match Found: FG (Fog)");
+    if (hasHZ) console.log("[FOG] Match Found: HZ (Haze)");
+    if (hasBR) console.log("[FOG] Match Found: BR (Mist)");
+
     
     const fogContainer = document.getElementById('fogContainer');
 
