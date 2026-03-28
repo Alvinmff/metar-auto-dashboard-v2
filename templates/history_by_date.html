@@ -11,6 +11,8 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.plot.ly/plotly-2.30.0.min.js"></script>
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vanta@latest/dist/vanta.fog.min.js"></script>
 </head>
 
 <body>
@@ -21,20 +23,7 @@
     <!-- ============================================
          FOG / MIST / HAZE EFFECT CONTAINER
          ============================================ -->
-    <div class="fog-container" id="fogContainer">
-        <div id="foglayer_01" class="fog">
-            <div class="image01"></div>
-            <div class="image02"></div>
-        </div>
-        <div id="foglayer_02" class="fog">
-            <div class="image01"></div>
-            <div class="image02"></div>
-        </div>  
-        <div id="foglayer_03" class="fog">
-            <div class="image01"></div>
-            <div class="image02"></div>
-        </div>
-    </div>
+    <div class="fog-container" id="fogContainer"></div>
     
     <!-- Fog Indicator Badge -->
     <div class="fog-indicator" id="fogIndicator">

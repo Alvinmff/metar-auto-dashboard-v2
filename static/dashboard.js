@@ -1824,14 +1824,78 @@ window.toggleHelpModal = toggleHelpModal;
 window.closeHelpModal = closeHelpModal;
 
 // =======================
-// FOG / MIST / HAZE EFFECT CONTROLLER
+// FOG / MIST / HAZE EFFECT CONTROLLER (VANTA.JS)
 // =======================
 
+let vantaFogInstance = null;
 const fogState = {
     isActive: false,
     currentType: null, // 'FG', 'HZ', 'BR', atau null
     lastWeather: null
 };
+
+// Watch for dark/light mode toggle
+const toggleObserver = new MutationObserver((mutations) => {
+    mutations.forEach((mutation) => {
+        if (mutation.attributeName === 'data-theme' && fogState.isActive) {
+            applyVantaFog(fogState.currentType);
+        }
+    });
+});
+if (document.documentElement) {
+    toggleObserver.observe(document.documentElement, { attributes: true });
+}
+
+function applyVantaFog(fogType) {
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    
+    // Default FOG (FG) - White/Grey
+    // Kecepatan sangat lambat (speed: 0.8) sesuai permintaan
+    let vantaConfig = {
+        highlightColor: isDark ? 0xcccccc : 0x555555,
+        midtoneColor: isDark ? 0x888888 : 0x888888,
+        lowlightColor: isDark ? 0x222222 : 0xbbbbbb,
+        baseColor: isDark ? 0x000000 : 0xffffff,
+        blurFactor: 0.4,
+        speed: 0.8,
+        zoom: 1.5
+    };
+    
+    if (fogType === 'HZ') {
+        // Haze - Brownish (0xc0b9a3 variant)
+        vantaConfig.highlightColor = isDark ? 0x8c7c61 : 0x6e6047;
+        vantaConfig.midtoneColor = isDark ? 0x665942 : 0x80735b;
+        vantaConfig.lowlightColor = isDark ? 0x332c21 : 0x9e927c;
+        vantaConfig.blurFactor = 0.3;
+        vantaConfig.speed = 0.5;
+        vantaConfig.zoom = 1.8;
+    } else if (fogType === 'BR') {
+        // Mist - Thin
+        vantaConfig.highlightColor = isDark ? 0xaaaaaa : 0x777777;
+        vantaConfig.midtoneColor = isDark ? 0x666666 : 0xaaaaaa;
+        vantaConfig.lowlightColor = isDark ? 0x222222 : 0xcccccc;
+        vantaConfig.blurFactor = 0.2;
+        vantaConfig.speed = 0.6;
+        vantaConfig.zoom = 1.0;
+    }
+    
+    if (vantaFogInstance) {
+        vantaFogInstance.setOptions(vantaConfig);
+    } else {
+        if (typeof VANTA === 'undefined') {
+            console.error('[FOG] Vanta.js not loaded!');
+            return;
+        }
+        vantaFogInstance = VANTA.FOG(Object.assign({
+            el: "#fogContainer",
+            mouseControls: true,
+            touchControls: true,
+            gyroControls: false,
+            minHeight: 200.00,
+            minWidth: 200.00
+        }, vantaConfig));
+    }
+}
 
 /**
  * Cek dan aktifkan efek kabut berdasarkan kode cuaca METAR
@@ -1842,40 +1906,33 @@ function checkAndActivateFog(rawMetar) {
     
     const metar = rawMetar.toUpperCase();
     
-    // Cek kode kabut dengan regex (word boundary untuk akurasi)
-    const hasFG = /\bFG\b/.test(metar);  // Fog - kabut tebal
-    const hasHZ = /\bHZ\b/.test(metar);  // Haze - kabut asap
-    const hasBR = /\bBR\b/.test(metar);  // Mist - kabut tipis
+    const hasFG = /FG/.test(metar);  
+    const hasHZ = /HZ/.test(metar);  
+    const hasBR = /BR/.test(metar);  
     
     const fogContainer = document.getElementById('fogContainer');
     const fogIndicator = document.getElementById('fogIndicator');
     const fogIndicatorText = document.getElementById('fogIndicatorText');
     
-    // Skip if elements don't exist
     if (!fogContainer || !fogIndicator) return;
     
-    // Tentukan tipe kabut (prioritas: FG > HZ > BR)
     let fogType = null;
-    let fogClass = '';
     let indicatorClass = '';
     let icon = '';
     let text = '';
     
     if (hasFG) {
         fogType = 'FG';
-        fogClass = 'fog-thick';
         indicatorClass = 'fog-fg';
         icon = '🌫️';
         text = 'FOG - VISIBILITY REDUCED';
     } else if (hasHZ) {
         fogType = 'HZ';
-        fogClass = 'fog-haze';
         indicatorClass = 'fog-hz';
         icon = '😶‍🌫️';
         text = 'HAZE - SMOKE/DUST';
     } else if (hasBR) {
         fogType = 'BR';
-        fogClass = 'fog-mist';
         indicatorClass = 'fog-br';
         icon = '💨';
         text = 'MIST - LIGHT FOG';
@@ -1892,25 +1949,23 @@ function checkAndActivateFog(rawMetar) {
         return;
     }
     
-    // Update state
     fogState.isActive = true;
     fogState.currentType = fogType;
     fogState.lastWeather = metar;
     
-    // Reset classes
     fogContainer.className = 'fog-container active';
     fogIndicator.className = 'fog-indicator active';
     
-    // Apply tipe spesifik
-    fogContainer.classList.add(fogClass);
+    // Switch Vanta Fog Config
+    applyVantaFog(fogType);
+    
     fogIndicator.classList.add(indicatorClass);
     
-    // Update indicator
     const iconEl = fogIndicator.querySelector('.fog-indicator-icon');
     if (iconEl) iconEl.textContent = icon;
     if (fogIndicatorText) fogIndicatorText.textContent = text;
     
-    console.log(`[FOG] Effect activated: ${fogType} (${text})`);
+    console.log(`[FOG] Effect activated (Vanta JS): ${fogType} (${text})`);
 }
 
 /**
@@ -1925,11 +1980,16 @@ function deactivateFog() {
     if (fogContainer) fogContainer.classList.remove('active');
     if (fogIndicator) fogIndicator.classList.remove('active');
     
-    // Reset setelah transisi selesai
     setTimeout(() => {
-        if (fogContainer) fogContainer.className = 'fog-container';
+        if (fogContainer) {
+            fogContainer.className = 'fog-container';
+            if (vantaFogInstance) {
+                vantaFogInstance.destroy();
+                vantaFogInstance = null;
+            }
+        }
         if (fogIndicator) fogIndicator.className = 'fog-indicator';
-    }, 2000);
+    }, 2000); // Wait for CSS opacity transition
     
     fogState.isActive = false;
     fogState.currentType = null;
@@ -1939,7 +1999,6 @@ function deactivateFog() {
 
 /**
  * Update fog effect saat data METAR berubah
- * Panggil fungsi ini di handleMetarUpdate()
  */
 function updateFogEffect(data) {
     const rawMetar = data.raw || data.metar || '';
@@ -1948,5 +2007,3 @@ function updateFogEffect(data) {
 
 // Global expose
 window.updateFogEffect = updateFogEffect;
-window.checkAndActivateFog = checkAndActivateFog;
-window.deactivateFog = deactivateFog;
