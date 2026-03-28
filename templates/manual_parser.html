@@ -204,6 +204,28 @@
     </script>
     <script src="{{ url_for('static', filename='dashboard.js') }}"></script>
 
+    <!-- Trigger effects for Manual Parser -->
+    {% if raw_metar %}
+    <script>
+        window.addEventListener('load', function() {
+            // Beri sedikit delay agar script utama siap
+            setTimeout(() => {
+                const metarText = "{{ raw_metar|replace('\"', '\\\"')|replace('\n', ' ')|safe }}";
+                
+                // Trigger Fog Effect
+                if (typeof checkAndActivateFog === 'function') {
+                    checkAndActivateFog(metarText);
+                }
+                
+                // Trigger Rain Effect (jika ada script-nya)
+                if (typeof checkRainStatus === 'function') {
+                    checkRainStatus(metarText);
+                }
+            }, 100);
+        });
+    </script>
+    {% endif %}
+
 </body>
 
 </html>
