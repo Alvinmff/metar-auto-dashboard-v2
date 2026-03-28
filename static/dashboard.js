@@ -610,6 +610,7 @@ function selectRunway(btn, heading) {
 }
 
 function updateCrosswind() {
+    if (!document.getElementById('xwHead')) return;
     if (currentWindDir === null || currentWindDir === 'VRB' || currentWindSpeed === null) {
         return;
     }
@@ -1280,6 +1281,7 @@ function createWindChart() {
 // FETCH & UPDATE CHARTS
 // =======================
 async function loadHistory() {
+    if (!document.getElementById('tempChart')) return;
     console.log('[CHART] Requesting history update...');
     try {
         const res = await fetch('/api/metar/history');
@@ -1305,18 +1307,11 @@ async function loadHistory() {
         if (!windChart) createWindChart();
 
         // Update datasets
-        tempChart.data.labels = labels;
-        tempChart.data.datasets[0].data = temps;
-        
-        pressureChart.data.labels = labels;
-        pressureChart.data.datasets[0].data = pressures;
-        
-        windChart.data.labels = labels;
-        windChart.data.datasets[0].data = winds;
-        windChart.data.datasets[1].data = gusts;
-
-        // Force refresh
-        tempChart.update('active');
+        if (tempChart && tempChart.data) {
+            tempChart.data.labels = labels;
+            tempChart.data.datasets[0].data = temps;
+            tempChart.update('active');
+        }
         pressureChart.update('active');
         windChart.update('active');
         
@@ -1911,23 +1906,15 @@ function applyVantaFog(fogType) {
  */
 function checkAndActivateFog(rawMetar) {
     if (!rawMetar) return;
-    
     const metar = rawMetar.toUpperCase();
     console.log(`[FOG] Checking weather for: ${metar.substring(0, 50)}...`);
-    
-    // Robust regex using word boundaries
-        const hasFG = /FG/i.test(metar);
-    const hasHZ = /HZ/i.test(metar);
-    const hasBR = /BR/i.test(metar);
-    
+    const hasFG = /\bFG\b/i.test(metar);
+    const hasHZ = /\bHZ\b/i.test(metar);
+    const hasBR = /\bBR\b/i.test(metar);
     console.log(`[FOG] Regex results -> FG: ${hasFG}, HZ: ${hasHZ}, BR: ${hasBR}`);
-    
     if (hasFG) console.log("[FOG] Match Found: FG (Fog)");
     if (hasHZ) console.log("[FOG] Match Found: HZ (Haze)");
     if (hasBR) console.log("[FOG] Match Found: BR (Mist)");
-
-    
-    const fogContainer = document.getElementById('fogContainer');
 
     const fogIndicator = document.getElementById('fogIndicator');
     const fogIndicatorText = document.getElementById('fogIndicatorText');
