@@ -64,7 +64,7 @@ let isPolling = false;
 function updateConnectionIndicator(isOnline) {
     const dot = document.getElementById('connectionDot');
     const text = document.getElementById('connectionText');
-    
+
     if (dot) {
         if (isOnline) {
             dot.classList.add('online');
@@ -72,7 +72,7 @@ function updateConnectionIndicator(isOnline) {
             dot.classList.remove('online');
         }
     }
-    
+
     if (text) {
         text.textContent = isOnline ? 'LIVE' : 'OFFLINE';
     }
@@ -82,14 +82,14 @@ function updateConnectionIndicator(isOnline) {
 async function pollLatestData() {
     if (isPolling) return;
     isPolling = true;
-    
+
     try {
         const response = await fetch('/api/latest-data');
         if (!response.ok) throw new Error('Polling failed');
         const data = await response.json();
-        
+
         console.log('[POLL] Data received:', data);
-        
+
         // Cek apakah data benar-benar berbeda dari sebelumnya 
         // 1. Hash METAR berubah (Weather changed)
         // 2. Server timestamp berubah (New report, even if weather same)
@@ -98,7 +98,7 @@ async function pollLatestData() {
         const isDataChanged = currentHash !== alarmState.lastMetarHash;
         const isTimeChanged = data.last_update && data.last_update !== alarmState.lastProcessedServerTime;
         const isUIEmpty = lastMetarRaw === null;
-        
+
         if (data.raw) {
             if (isDataChanged || isTimeChanged || isUIEmpty) {
                 console.log(isUIEmpty ? '[POLL] Initial UI population...' : '[POLL] New data/time detected, processing update...');
@@ -169,7 +169,7 @@ function initSidebar() {
     const sidebar = document.getElementById('appSidebar');
     const overlay = document.getElementById('sidebarOverlay');
     const layout = document.getElementById('appLayout');
-    
+
     if (!toggle || !sidebar) return;
 
     // Check saved state
@@ -224,10 +224,10 @@ function applyTheme(theme) {
     const btnSidebar = document.getElementById('themeToggleSidebar');
     const iconSidebar = document.getElementById('themeIconSidebar');
     const labelSidebar = document.getElementById('themeLabelSidebar');
-    
+
     html.setAttribute('data-theme', theme);
     localStorage.setItem('theme', theme);
-    
+
     if (btnHeader) {
         btnHeader.textContent = theme === 'light' ? '🌙' : '☀️';
     }
@@ -255,33 +255,33 @@ function updateChartColors() {
     if (typeof Chart !== 'undefined') {
         [tempChart, pressureChart, windChart].forEach(chart => {
             if (chart) {
-            if (chart.options && chart.options.scales) {
-                if (chart.options.scales.x) {
-                    chart.options.scales.x.grid.color = gridColor;
-                    chart.options.scales.x.ticks.color = tickColor;
+                if (chart.options && chart.options.scales) {
+                    if (chart.options.scales.x) {
+                        chart.options.scales.x.grid.color = gridColor;
+                        chart.options.scales.x.ticks.color = tickColor;
+                    }
+                    if (chart.options.scales.y) {
+                        chart.options.scales.y.grid.color = gridColor;
+                        chart.options.scales.y.ticks.color = tickColor;
+                    }
                 }
-                if (chart.options.scales.y) {
-                    chart.options.scales.y.grid.color = gridColor;
-                    chart.options.scales.y.ticks.color = tickColor;
+
+                // Adjust legend color
+                if (chart.options.plugins && chart.options.plugins.legend && chart.options.plugins.legend.labels) {
+                    chart.options.plugins.legend.labels.color = isDark ? '#F1F5F9' : '#475569';
                 }
+
+                chart.update();
             }
-            
-            // Adjust legend color
-            if (chart.options.plugins && chart.options.plugins.legend && chart.options.plugins.legend.labels) {
-                chart.options.plugins.legend.labels.color = isDark ? '#F1F5F9' : '#475569';
-            }
-            
-            chart.update();
-        }
-    });
+        });
     }
 
     // Update Wind widgets if Plotly is used
     if (typeof loadWindCompass === 'function') {
-         loadWindCompass();
+        loadWindCompass();
     }
     if (typeof loadWindRose === 'function') {
-         loadWindRose();
+        loadWindRose();
     }
 }
 window.toggleTheme = toggleTheme;
@@ -542,7 +542,7 @@ function checkRainStatus(raw) {
     // Matches RA, DZ, SHRA, TSRA, etc. but NOT WARR or RERA
     const rainRegex = /\b(\+|-|VC)?(RA|DZ|SHRA|TSRA|SH|SN|SG|GR|GS|PL|IC|UP)\b/;
     const hasRain = rainRegex.test(raw);
-    
+
     if (hasRain) {
         document.body.classList.add('rain-active');
         makeItRain();
@@ -555,7 +555,7 @@ function checkRainStatus(raw) {
 function makeItRain() {
     const frontRow = document.querySelector('.rain.front-row');
     const backRow = document.querySelector('.rain.back-row');
-    
+
     // If rain is already falling, don't recreate it
     if (frontRow.children.length > 0) return;
 
@@ -696,7 +696,7 @@ function updateThunderstormModule(raw) {
     if (tsLastUpdate) {
         const now = new Date();
         const utcStr = now.getUTCHours().toString().padStart(2, '0') + ':' +
-                       now.getUTCMinutes().toString().padStart(2, '0') + ' UTC';
+            now.getUTCMinutes().toString().padStart(2, '0') + ' UTC';
         tsLastUpdate.textContent = `Last Update: ${utcStr}`;
     }
 }
@@ -706,34 +706,34 @@ function updateThunderstormModule(raw) {
 // =======================
 function handleMetarUpdate(data) {
     console.log('Processing data update:', data);
-    
+
     // Buat hash dari METAR untuk cek duplikat
     const currentHash = hashMetar(data.raw);
     const isDuplicate = currentHash && currentHash === alarmState.lastMetarHash;
     const isFirstLoad = alarmState.lastMetarHash === null;
-    
+
     // 🔥 DATA FLIP-FLOP GUARD: 
     // Jika data yang datang lebih lama (older) dari yang sudah kita display, abaikan.
     if (data.last_update && alarmState.lastProcessedServerTime) {
         const incomingTime = new Date(data.last_update).getTime();
         const existingTime = new Date(alarmState.lastProcessedServerTime).getTime();
-        
+
         if (incomingTime < existingTime) {
             console.warn('[SYNC] 🛑 Stale data detected (incoming time earlier than existing). Ignoring update.');
             return;
         }
     }
-    
+
     // Update global state
     lastMetarRaw = data.raw;
     if (data.metar_status) lastMetarStatus = data.metar_status;
     if (data.visibility_m !== undefined) lastVisibility = data.visibility_m;
-    
+
     // Cek kondisi berbahaya
     const tsCodes = ['TS', 'TSRA', 'VCTS', '+TS', 'TSGR'];
     const hasTS = data.raw ? tsCodes.some(c => data.raw.includes(c)) : false;
     lastHasTS = hasTS;
-    
+
     const vis = data.visibility_m !== undefined ? data.visibility_m : null;
     const isLowVis = vis !== null && vis < 3000;
 
@@ -743,23 +743,23 @@ function handleMetarUpdate(data) {
     if (isDuplicate && !isFirstLoad) {
         console.log('[SYNC] Data duplicate detected, skipping alarm but refreshing UI components');
         updateConnectionIndicator(true);
-        
+
         // Tetap update status panel jika ada
         if (data.auto_fetch !== undefined) {
             updateStatusPanel(data);
         }
-        
+
         // Update last update time tracking anyway
         if (data.last_update) alarmState.lastProcessedServerTime = data.last_update;
         saveAlarmState();
-        
+
         // Skip alarm logic but proceed to UI updates below
     }
 
     // ============================================================
     // DATA BARU ATAU BERUBAH - Proses alarm dengan logika yang benar
     // ============================================================
-    
+
     // Update hash untuk tracking berikutnya
     alarmState.lastMetarHash = currentHash;
     alarmState.lastUpdateTime = Date.now();
@@ -779,16 +779,16 @@ function handleMetarUpdate(data) {
     if (isNewLowVis) {
         console.log('[ALARM] New low visibility detected!');
         document.body.classList.add('low-visibility');
-        
+
         if (!alarmPlayedThisCycle) {
             playAlarm();
             alarmPlayedThisCycle = true;
         }
-        
+
         showToast('⚠️ LOW VISIBILITY', `Visibility reduced to ${vis}m`, 'danger', 10000);
         alarmState.lowVisTriggered = true;
         saveAlarmState(); // 🔥 PERSIST
-    } 
+    }
     // Jika visibility sudah normal, reset flag
     else if (!isLowVis && alarmState.lowVisTriggered) {
         alarmState.lowVisTriggered = false;
@@ -800,12 +800,12 @@ function handleMetarUpdate(data) {
     if (isNewThunderstorm) {
         console.log('[ALARM] New thunderstorm detected!');
         showToast('⚡ THUNDERSTORM', 'Thunderstorm detected in METAR', 'danger', 10000);
-        
+
         if (!alarmPlayedThisCycle) {
             playAlarm();
             alarmPlayedThisCycle = true;
         }
-        
+
         alarmState.thunderstormTriggered = true;
         saveAlarmState(); // 🔥 PERSIST
     }
@@ -832,7 +832,7 @@ function handleMetarUpdate(data) {
     // ============================================================
     // UI UPDATES (hanya jika data berbeda atau first load)
     // ============================================================
-    
+
     // Show toast untuk data baru (non-critical)
     if (!isFirstLoad && data.raw && data.status === 'new') {
         showToast('New METAR Received', `${STATION} — ${new Date().toUTCString().slice(17, 25)} UTC`);
@@ -864,7 +864,7 @@ function handleMetarUpdate(data) {
                 panel.classList.add('status-warning');
             }
         }
-        
+
         updateDecodedPanel(data.raw);
 
         // 🔥 AKTIFKAN EFEK KABUT JIKA ADA FG/HZ/BR
@@ -899,16 +899,16 @@ function handleMetarUpdate(data) {
     if (typeof updateHistoryTable === 'function') updateHistoryTable(); // Updates Table
     if (typeof loadWindCompass === 'function') loadWindCompass();
     if (typeof loadWindRose === 'function') loadWindRose();
-    
+
     // updateMiniTimeline(); // 🔥 DISABLED
-    
+
     runMetarValidation(data.raw);
-    
+
     // Update status panel
     if (data.auto_fetch !== undefined) {
         updateStatusPanel(data);
     }
-    
+
     // Update connection indicator
     updateConnectionIndicator(true);
 }
@@ -920,18 +920,18 @@ function updateStatusPanel(data) {
     const serverEl = document.getElementById('server-status');
     const metarEl = document.getElementById('metar-status');
     const lastEl = document.getElementById('last-update-status');
-    
+
     if (serverEl) serverEl.textContent = "ONLINE 🟢";
     if (metarEl) {
         metarEl.textContent = data.auto_fetch ? "RUNNING 🟢" : "PAUSED 🟡";
         metarEl.className = 'status-value ' + (data.auto_fetch ? 'status-running' : 'status-paused');
     }
-    
+
     if (lastEl) {
         if (data.last_update) {
             const date = new Date(data.last_update);
-            const timeStr = date.getHours().toString().padStart(2, '0') + ':' + 
-                            date.getMinutes().toString().padStart(2, '0') + ' WIB';
+            const timeStr = date.getHours().toString().padStart(2, '0') + ':' +
+                date.getMinutes().toString().padStart(2, '0') + ' WIB';
             lastEl.textContent = timeStr;
         } else {
             lastEl.textContent = "WAITING...";
@@ -943,11 +943,11 @@ async function toggleSystem() {
     try {
         const res = await fetch("/api/toggle_fetch", { method: "POST" });
         const data = await res.json();
-        
+
         // Update local state and persistence
         autoFetchEnabled = data.auto_fetch;
         localStorage.setItem('autoFetchEnabled', autoFetchEnabled);
-        
+
         updateStatusPanel(data);
         showToast(
             'System Control',
@@ -1028,7 +1028,7 @@ function enableSound() {
         if (soundEnabled) btnHeader.classList.add('active');
         else btnHeader.classList.remove('active');
     }
-    
+
     // Update Sidebar
     if (btnSidebar) {
         if (iconSidebar) iconSidebar.textContent = soundEnabled ? '🔊' : '🔇';
@@ -1286,7 +1286,7 @@ async function loadHistory() {
     try {
         const res = await fetch('/api/metar/history');
         const result = await res.json();
-        
+
         if (!result.data || result.data.length === 0) {
             console.warn('[CHART] No history data received');
             return;
@@ -1314,7 +1314,7 @@ async function loadHistory() {
         }
         pressureChart.update('active');
         windChart.update('active');
-        
+
         // Update data summary indicators (footers)
         const infoText = `${result.range.start} to ${result.range.end} • ${result.count} records (from ${result.source})`;
         ['tempChart-info', 'pressureChart-info', 'windChart-info'].forEach(id => {
@@ -1363,7 +1363,7 @@ async function updateHistoryTable() {
                 } else {
                     badgeHtml = '<span class="badge badge-metar" style="background-color: #059669; color: #ffffff; margin-left: 6px; font-size: 0.70rem; padding: 2px 6px; vertical-align: middle;">🟢 METAR</span>';
                 }
-                
+
                 row.innerHTML = `
                     <td>${item.time}</td>
                     <td>${item.station}</td>
@@ -1387,26 +1387,26 @@ async function updateMiniTimeline() {
         const res = await fetch('/api/history');
         const result = await res.json();
         const tlContainer = document.getElementById('metarTimeline');
-        
+
         // This element only exists on index.html
         if (!tlContainer) return;
 
         tlContainer.innerHTML = '';
-        
+
         if (result.data && result.data.length > 0) {
             // We want chronological order for timeline (oldest to newest left to right)
             // The API returns newest first (descending), so we reverse it or just slice
             // Let's show the last 5 reports for the timeline
             const timelineData = result.data.slice(0, 5).reverse();
-            
+
             timelineData.forEach((item) => {
                 // Extract just the HH:MM
                 const timeMatch = item.time.match(/\d{4}-\d{2}-\d{2}\s(\d{2}:\d{2})/);
                 const shortTime = timeMatch ? timeMatch[1] : item.time;
-                
+
                 let badgeText = 'METAR';
                 let badgeColor = '#059669'; // Emerald
-                
+
                 if (item.metar.includes(' COR ') || item.metar.startsWith('METAR COR') || item.metar.includes('CCA') || item.metar.includes(' CCA ')) {
                     badgeText = 'COR';
                     badgeColor = '#f59e0b'; // Amber
@@ -1426,9 +1426,9 @@ async function updateMiniTimeline() {
                         ${badgeText}
                     </span>
                 `;
-                
+
                 tlContainer.appendChild(node);
-                
+
                 // Add a connector line if it's not the last element (handled implicitly via gap in CSS)
             });
         } else {
@@ -1466,7 +1466,7 @@ function loadWindCompass() {
 
 function updateWindCompassDisplay(windDir, windSpeed) {
     if (!windDir && windDir !== 0) return;
-    
+
     const dir = windDir === 'VRB' ? 0 : windDir;
     const speed = windSpeed || 0;
     const isDark = currentTheme === 'dark';
@@ -1519,14 +1519,14 @@ async function loadWindRose(station = STATION) {
         // 1. Fetch & Render 24h Wind Rose
         const res24h = await fetch(`/api/windrose/${station}`);
         const data24h = await res24h.json();
-        
+
         renderWindRose('windRose24h', data24h.data, {
             title: 'Last 24 Hours',
-            colorScale: currentTheme === 'dark' 
-                ? [[0, '#4ade80'], [0.5, '#facc15'], [1, '#f87171']] 
+            colorScale: currentTheme === 'dark'
+                ? [[0, '#4ade80'], [0.5, '#facc15'], [1, '#f87171']]
                 : [[0, '#2E5C8A'], [0.5, '#E8B339'], [1, '#DC2626']]
         });
-        
+
         const badge24h = document.getElementById('windrose24h-badge');
         const info24h = document.getElementById('windrose24h-info');
         if (badge24h && data24h.count !== undefined) {
@@ -1539,14 +1539,14 @@ async function loadWindRose(station = STATION) {
         // 2. Fetch & Render Monthly Wind Rose
         const resMonth = await fetch(`/api/windrose-monthly/${station}`);
         const dataMonth = await resMonth.json();
-        
+
         renderWindRose('windRoseMonth', dataMonth.data, {
             title: `${dataMonth.month_name} ${dataMonth.year}`,
-            colorScale: currentTheme === 'dark' 
-                ? [[0, '#10b981'], [0.5, '#facc15'], [1, '#f87171']] 
+            colorScale: currentTheme === 'dark'
+                ? [[0, '#10b981'], [0.5, '#facc15'], [1, '#f87171']]
                 : [[0, '#059669'], [0.5, '#E8B339'], [1, '#DC2626']]
         });
-        
+
         const badgeMonth = document.getElementById('windroseMonth-badge');
         const infoMonth = document.getElementById('windroseMonth-info');
         if (badgeMonth) badgeMonth.textContent = `${dataMonth.month_name} ${dataMonth.year}`;
@@ -1564,7 +1564,7 @@ function renderWindRose(containerId, data, options) {
     if (!container) return;
 
     if (!data || data.length === 0) {
-        container.innerHTML = 
+        container.innerHTML =
             '<div style="display:flex;justify-content:center;align-items:center;height:100%;color:#64748B;font-family:Inter;font-size:0.9rem;">No wind data available</div>';
         return;
     }
@@ -1581,9 +1581,9 @@ function renderWindRose(containerId, data, options) {
             color: data.map(d => d.speed),
             colorscale: options.colorScale,
             showscale: true,
-            colorbar: { 
-                title: 'kt', 
-                thickness: 12, 
+            colorbar: {
+                title: 'kt',
+                thickness: 12,
                 len: 0.6,
                 tickfont: { family: 'Inter', size: 10, color: isDark ? '#F1F5F9' : '#475569' },
                 titlefont: { family: 'Inter', size: 12, color: isDark ? '#F1F5F9' : '#475569' }
@@ -1602,8 +1602,8 @@ function renderWindRose(containerId, data, options) {
                 ticktext: ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'],
                 tickfont: { size: 12, color: gridColor, family: 'Inter', weight: isDark ? 'bold' : 'normal' }
             },
-            radialaxis: { 
-                showgrid: true, 
+            radialaxis: {
+                showgrid: true,
                 gridcolor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)',
                 title: 'KT',
                 tickfont: { color: isDark ? '#94A3B8' : '#64748B' }
@@ -1611,7 +1611,7 @@ function renderWindRose(containerId, data, options) {
         },
         showlegend: false,
         margin: { t: 60, b: 40, l: 60, r: 60 },
-        paper_bgcolor: 'rgba(0,0,0,0)', 
+        paper_bgcolor: 'rgba(0,0,0,0)',
         plot_bgcolor: 'rgba(0,0,0,0)',
         title: {
             text: options.title || '',
@@ -1633,7 +1633,7 @@ setInterval(loadWindRose, 10000);
  */
 function downloadChart(chartId) {
     console.log(`[DOWNLOAD] Initiating export for: ${chartId}`);
-    
+
     // 1. Handle Plotly.js Charts (Compass & Roses)
     const plotlyCharts = ['windCompassChart', 'windRose24h', 'windRoseMonth'];
     if (plotlyCharts.includes(chartId)) {
@@ -1737,12 +1737,12 @@ document.addEventListener('DOMContentLoaded', function () {
         // Clean text content (remove any existing badge text that might be inside)
         // We clone it to get clean text without the badge span contents if they were rendered
         const cleanText = initialRaw.innerText.split('⚠️')[0].trim().split('🟢')[0].trim();
-        
+
         if (cleanText && cleanText !== '{{ latest.metar }}' && cleanText !== '--') {
             console.log('[INIT] Pre-populating UI from clean text:', cleanText);
-            
+
             initialRaw.innerHTML = highlightMetar(cleanText);
-            
+
             // Re-append badges based on text content
             if (cleanText.includes(' COR ') || cleanText.includes('CCA')) {
                 initialRaw.innerHTML += ' <span class="badge" style="background-color: #f59e0b; color: #1e293b; margin-left: 10px; font-size: 0.75rem; padding: 4px 8px; vertical-align: middle;">⚠️ COR</span>';
@@ -1767,17 +1767,17 @@ document.addEventListener('DOMContentLoaded', function () {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ enabled: autoFetchEnabled })
     })
-    .then(r => r.json())
-    .then(data => {
-        updateStatusPanel(data);
-        console.log('[INIT] Server fetch status synced:', data.auto_fetch);
-        // Start polling now that we are synced
-        pollLatestData();
-    })
-    .catch(err => {
-        console.error('[INIT] Failed to sync fetch status:', err);
-        pollLatestData(); // Fallback to poll anyway
-    });
+        .then(r => r.json())
+        .then(data => {
+            updateStatusPanel(data);
+            console.log('[INIT] Server fetch status synced:', data.auto_fetch);
+            // Start polling now that we are synced
+            pollLatestData();
+        })
+        .catch(err => {
+            console.error('[INIT] Failed to sync fetch status:', err);
+            pollLatestData(); // Fallback to poll anyway
+        });
 
     // Initial poll will handle first load
     // setInterval(fetchMetar, 60000); // 🗑️ REMOVED REDUNDANT LOOP
@@ -1789,7 +1789,7 @@ document.addEventListener('DOMContentLoaded', function () {
 function toggleHelpModal() {
     const modal = document.getElementById('helpModal');
     const overlay = document.getElementById('helpModalOverlay');
-    
+
     if (modal.classList.contains('active')) {
         closeHelpModal();
     } else {
@@ -1802,14 +1802,14 @@ function toggleHelpModal() {
 function closeHelpModal() {
     const modal = document.getElementById('helpModal');
     const overlay = document.getElementById('helpModalOverlay');
-    
+
     modal.classList.remove('active');
     overlay.classList.remove('active');
     document.body.style.overflow = ''; // Restore scroll
 }
 
 // Close modal dengan tombol Escape
-document.addEventListener('keydown', function(e) {
+document.addEventListener('keydown', function (e) {
     if (e.key === 'Escape') {
         closeHelpModal();
     }
@@ -1847,7 +1847,7 @@ if (document.documentElement) {
 
 function applyVantaFog(fogType) {
     const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-    
+
     // Default FOG (FG) - Thinner and softer
     let vantaConfig = {
         highlightColor: isDark ? 0xcccccc : 0x888888,
@@ -1855,10 +1855,10 @@ function applyVantaFog(fogType) {
         lowlightColor: isDark ? 0x222222 : 0xdddddd,
         baseColor: isDark ? 0x000000 : 0xffffff,
         blurFactor: 0.25,    // Diperkecil agar lebih tipis
-        speed: 0.6,         // Mengembalikan kecepatan asli FG (0.6)
-        zoom: 1.2           // Pola dan arah kabut (style FG)
+        speed: 0.3,         // Mengembalikan kecepatan asli FG (0.6)
+        zoom: 0.2           // Pola dan arah kabut (style FG)
     };
-    
+
     if (fogType === 'HZ') {
         // Haze - Thinner, Luminous beige
         vantaConfig.highlightColor = isDark ? 0xebe1cb : 0x8c7c61;
@@ -1866,17 +1866,18 @@ function applyVantaFog(fogType) {
         vantaConfig.lowlightColor = isDark ? 0x333027 : 0xc0b9a3;
         vantaConfig.blurFactor = 0.25;  // Diperkecil agar tipis
         vantaConfig.speed = 0.3;
-        vantaConfig.zoom = 1.3;
+        vantaConfig.zoom = 0.2;
+
     } else if (fogType === 'BR') {
         // Mist - Sangat tipis, arah/pola (zoom & speed) disamakan dengan efek FG aslinya!
         vantaConfig.highlightColor = isDark ? 0xaaaaaa : 0x94a3b8;
         vantaConfig.midtoneColor = isDark ? 0x666666 : 0xcbd5e1;
         vantaConfig.lowlightColor = isDark ? 0x222222 : 0xe2e8f0;
         vantaConfig.blurFactor = 0.15;  // Paling tipis
-        vantaConfig.speed = 0.6;        // NGAMBIL DARI EFEK FG SEBELUMNYA
-        vantaConfig.zoom = 1.2;         // NGAMBIL DARI EFEK FG SEBELUMNYA
+        vantaConfig.speed = 0.3;        // NGAMBIL DARI EFEK FG SEBELUMNYA
+        vantaConfig.zoom = 0.2;         // NGAMBIL DARI EFEK FG SEBELUMNYA
     }
-    
+
     if (vantaFogInstance) {
         console.log(`[FOG] Updating Vanta instance for ${fogType} (Softened)...`);
         vantaFogInstance.setOptions(vantaConfig);
@@ -1912,17 +1913,17 @@ function checkAndActivateFog(rawMetar) {
 
     const fogIndicator = document.getElementById('fogIndicator');
     const fogIndicatorText = document.getElementById('fogIndicatorText');
-    
+
     if (!fogContainer || !fogIndicator) {
         console.warn('[FOG] Container or indicator element not found.');
         return;
     }
-    
+
     let fogType = null;
     let indicatorClass = '';
     let icon = '';
     let text = '';
-    
+
     if (hasFG) {
         fogType = 'FG';
         indicatorClass = 'fog-fg';
@@ -1939,7 +1940,7 @@ function checkAndActivateFog(rawMetar) {
         icon = '💨';
         text = 'MIST - LIGHT FOG';
     }
-    
+
     // Jika tidak ada kabut, matikan efek
     if (!fogType) {
         if (fogState.isActive) {
@@ -1948,24 +1949,24 @@ function checkAndActivateFog(rawMetar) {
         }
         return;
     }
-    
+
     // Jika tipe sama dan sudah aktif, tidak perlu update berat
     if (fogState.isActive && fogState.currentType === fogType) {
         return;
     }
-    
+
     console.log(`[FOG] Detected ${fogType}. Activating Vanta...`);
     fogState.isActive = true;
     fogState.currentType = fogType;
     fogState.lastWeather = metar;
-    
+
     // Reset and show elements
     fogContainer.className = 'fog-container active';
     fogIndicator.className = 'fog-indicator active';
-    
+
     // Switch Vanta Fog Config
     applyVantaFog(fogType);
-    
+
     // Badge update
     fogIndicator.classList.add(indicatorClass);
     const iconEl = fogIndicator.querySelector('.fog-indicator-icon');
@@ -1978,13 +1979,13 @@ function checkAndActivateFog(rawMetar) {
  */
 function deactivateFog() {
     if (!fogState.isActive) return;
-    
+
     const fogContainer = document.getElementById('fogContainer');
     const fogIndicator = document.getElementById('fogIndicator');
-    
+
     if (fogContainer) fogContainer.classList.remove('active');
     if (fogIndicator) fogIndicator.classList.remove('active');
-    
+
     // Destroy Vanta instance after fade-out transition (2s)
     setTimeout(() => {
         if (fogContainer) {
@@ -1996,8 +1997,8 @@ function deactivateFog() {
             }
         }
         if (fogIndicator) fogIndicator.className = 'fog-indicator';
-    }, 2000); 
-    
+    }, 2000);
+
     fogState.isActive = false;
     fogState.currentType = null;
 }
