@@ -290,7 +290,7 @@ window.toggleTheme = toggleTheme;
 // =======================
 // TOAST NOTIFICATIONS
 // =======================
-function showToast(title, body, type = 'success', duration = 5000) {
+function showToast(title, body, type = 'success', duration = 5000, playSound = true) {
     const container = document.getElementById('toastContainer');
     if (!container) return;
 
@@ -311,7 +311,7 @@ function showToast(title, body, type = 'success', duration = 5000) {
     container.appendChild(toast);
 
     // Play notify sound
-    if (type !== 'danger') playNotify();
+    if (type !== 'danger' && playSound) playNotify();
 
     // Auto dismiss
     setTimeout(() => {
@@ -864,18 +864,21 @@ function handleMetarUpdate(data) {
         saveAlarmState(); // 🔥 PERSIST
     }
 
-    // 3. Notifikasi suara untuk data baru (bukan alarm, hanya notify)
+    // 3. Notifikasi suara untuk data baru (mencegah tabrakan alarm & notify)
+    let allowToastSound = true; // Secara default izinkan toast berbunyi notify
     if (!isFirstLoad && soundEnabled && data.status === 'new') {
         if (hasTS) {
+            // Jika ada TS, jalankan alarm (jika belum dimainkan di block atas)
             if (!alarmPlayedThisCycle) {
                 playAlarm();
                 alarmPlayedThisCycle = true;
             }
-        } else {
-            if (!alarmPlayedThisCycle) {
-                playNotify();
-            }
+            allowToastSound = false; // Matikan suara notify biasa agar khusus alarm saja
+        } else if (alarmPlayedThisCycle) {
+            // Jika sudah ada alarm lain (seperti Low Vis), matikan notify juga
+            allowToastSound = false; 
         }
+        // Jika tidak ada berbahaya, allowToastSound tetap true sehingga toast akan berbunyi
     }
 
     // ============================================================
@@ -884,7 +887,7 @@ function handleMetarUpdate(data) {
 
     // Show toast untuk data baru (non-critical)
     if (!isFirstLoad && data.raw && data.status === 'new') {
-        showToast('New METAR Received', `${STATION} — ${new Date().toUTCString().slice(17, 25)} UTC`);
+        showToast('New METAR Received', `${STATION} — ${new Date().toUTCString().slice(17, 25)} UTC`, 'success', 5000, allowToastSound);
     }
 
     // Update METAR raw display

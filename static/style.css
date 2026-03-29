@@ -116,7 +116,7 @@ body.rain-active::before {
   left: 0;
   width: 100%;
   height: 100%;
-  background: rgba(0, 0, 0, 0.4);
+  background: rgba(0, 0, 0, 0.2);
   /* Overlay gelap transparan di depan konten */
   z-index: 998;
   /* Di bawah animasi drop hujan, menutupi seluruh website */
@@ -3014,7 +3014,7 @@ body.rain-active::after {
   position: fixed;
   top: 80px;
   /* Di bawah header */
-  right: 20px;
+  left: 50%;
   z-index: 1200;
   /* Di atas fog-container (1100) agar tetap terbaca */
 
@@ -3034,13 +3034,13 @@ body.rain-active::after {
   color: #64748b;
 
   opacity: 0;
-  transform: translateY(-20px);
+  transform: translate(-50%, -20px);
   transition: all 0.5s ease;
 }
 
 .fog-indicator.active {
   opacity: 1;
-  transform: translateY(0);
+  transform: translate(-50%, 0);
 }
 
 .fog-indicator-icon {
@@ -3054,7 +3054,7 @@ body.rain-active::after {
   position: fixed;
   top: 80px;
   /* Same position as fog-indicator */
-  right: 20px;
+  left: 50%;
   z-index: 1200;
 
   display: flex;
@@ -3073,14 +3073,14 @@ body.rain-active::after {
   color: #64748b;
 
   opacity: 0;
-  transform: translateY(-20px);
+  transform: translate(-50%, -20px);
   transition: all 0.5s ease;
   pointer-events: none;
 }
 
 .rain-indicator.active {
   opacity: 1;
-  transform: translateY(0);
+  transform: translate(-50%, 0);
 }
 
 /* When BOTH fog and rain are active, push rain badge below fog */
@@ -3201,10 +3201,12 @@ body.fog-active .rain-indicator.active {
 }
 
 .splat {
-  width: 15px;
-  height: 10px;
-  border-top: 2px dotted rgba(135, 206, 250, 0.7);
-  /* Biru untuk cipratan */
+  width: 25px;
+  /* Dibuat lebih lebar */
+  height: 15px;
+  border-top: 4px dotted rgba(227, 238, 245, 0.6);
+  /*rgba(135, 206, 250, 0.8); 
+  /* Dibuat lebih tebal dan lebih solid birunya */
   border-radius: 50%;
   opacity: 1;
   transform: scale(0);
@@ -3254,5 +3256,37 @@ body.fog-active .rain-indicator.active {
   100% {
     transform: scale(1);
     opacity: 1;
+  }
+}
+
+/* ============================================
+   MOBILE OVERRIDES (Indicators at Bottom Center)
+   ============================================ */
+@media (max-width: 768px) {
+  .fog-indicator,
+  .rain-indicator {
+    top: auto !important;
+    bottom: 20px;
+    left: 50%;
+    transform: translate(-50%, 20px);
+    padding: 6px 12px;
+    font-size: 0.75rem;
+    gap: 6px;
+  }
+
+  .fog-indicator-icon,
+  .rain-indicator-icon {
+    font-size: 1rem;
+  }
+
+  .fog-indicator.active,
+  .rain-indicator.active {
+    transform: translate(-50%, 0);
+  }
+
+  /* When BOTH fog and rain are active on mobile, 
+     stack rain badge ABOVE fog (offset upward) */
+  body.fog-active .rain-indicator.active {
+    bottom: 60px; /* Adjusted slightly for smaller indicator height */
   }
 }
