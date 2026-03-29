@@ -603,22 +603,25 @@ function makeItRain() {
     // If rain is already falling, don't recreate it
     if (frontRow.children.length > 0) return;
 
-    console.log('[RAIN] Generating rain drops...');
+    console.log('[RAIN] Generating realistic rain drops...');
     let increment = 0;
     let drops = "";
     let backDrops = "";
 
-    // Higher density: increment is smaller on average
+    // Realistic density loop as requested
     while (increment < 100) {
+        // Menghasilkan angka acak untuk variasi
         const randoHundo = Math.floor(Math.random() * 98) + 1;
-        const randoFiver = Math.floor(Math.random() * 3) + 1; // Faster increment for more drops
+        const randoFiver = Math.floor(Math.random() * 4) + 2; // angka acak antara 2 dan 5
         increment += randoFiver;
 
+        // Membuat tetesan untuk lapisan depan
         drops += `<div class="drop" style="left: ${increment}%; bottom: ${randoFiver + randoFiver - 1 + 100}%; animation-delay: 0.${randoHundo}s; animation-duration: 0.5${randoHundo}s;">
                     <div class="stem" style="animation-delay: 0.${randoHundo}s; animation-duration: 0.5${randoHundo}s;"></div>
                     <div class="splat" style="animation-delay: 0.${randoHundo}s; animation-duration: 0.5${randoHundo}s;"></div>
                   </div>`;
 
+        // Membuat tetesan yang sesuai untuk lapisan belakang
         backDrops += `<div class="drop" style="right: ${increment}%; bottom: ${randoFiver + randoFiver - 1 + 100}%; animation-delay: 0.${randoHundo}s; animation-duration: 0.5${randoHundo}s;">
                         <div class="stem" style="animation-delay: 0.${randoHundo}s; animation-duration: 0.5${randoHundo}s;"></div>
                         <div class="splat" style="animation-delay: 0.${randoHundo}s; animation-duration: 0.5${randoHundo}s;"></div>
@@ -627,7 +630,7 @@ function makeItRain() {
 
     frontRow.innerHTML = drops;
     backRow.innerHTML = backDrops;
-    console.log('[RAIN] Rain effect activated! Drops:', frontRow.children.length);
+    console.log('[RAIN] Realistic rain effect activated! Drops:', frontRow.children.length);
 }
 
 function stopRain() {
