@@ -899,7 +899,8 @@ function handleMetarUpdate(data) {
     if (data.raw) {
         const rawEl = document.getElementById('metarRawCode');
         if (rawEl) {
-            let htmlStr = highlightMetar(data.raw);
+            const displayRaw = data.raw.trim().endsWith('=') ? data.raw : data.raw + '=';
+            let htmlStr = highlightMetar(displayRaw);
             // Badge untuk COR/AMD/SPECI
             if (data.raw.includes(' COR ') || data.raw.includes('METAR COR') || data.raw.includes('CCA')) {
                 htmlStr += ' <span class="badge" style="background-color: #f59e0b; color: #1e293b; margin-left: 10px; font-size: 0.75rem; padding: 4px 8px; vertical-align: middle;">⚠️ CORRECTION</span>';
@@ -1586,10 +1587,11 @@ async function updateHistoryTable() {
                     row.classList.add('metar-row-speci');
                 }
 
+                const metarWithEqual = item.metar.trim().endsWith('=') ? item.metar : item.metar + '=';
                 row.innerHTML = `
                     <td class="col-time">${item.full_time}</td>
                     <td class="col-station">${item.station}</td>
-                    <td class="metar-cell col-metar">${item.metar}</td>
+                    <td class="metar-cell col-metar">${metarWithEqual}</td>
                     <td class="col-status">${statusHtml}</td>
                 `;
                 tbody.appendChild(row);

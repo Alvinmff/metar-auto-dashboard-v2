@@ -62,7 +62,7 @@
         id="metarRawPanel">
         <div class="panel-title">📡 RAW METAR DATA</div>
         <div class="metar-raw-code" id="metarRawCode">
-            {{ latest.metar }}
+            {{ latest.metar if latest.metar.endswith('=') else latest.metar + '=' }}
             {% if latest.report_type == 'COR' or 'COR' in latest.metar or 'CCA' in latest.metar %}
             <span class="badge"
                 style="background-color: #f59e0b; color: #1e293b; margin-left: 10px; font-size: 0.75rem; padding: 4px 8px; vertical-align: middle;">⚠️
@@ -333,7 +333,7 @@
                         <td class="col-time">{{ row['time'] }}</td>
                         <td class="col-station">{{ row['station'] }}</td>
                         <td class="metar-cell col-metar">
-                            {{ row['metar'] }}
+                            {{ row['metar'] if row['metar'].endswith('=') else row['metar'] + '=' }}
                         </td>
                         <td class="col-status">
                             {% if ',' in row['metar'] %}
