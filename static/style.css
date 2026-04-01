@@ -3550,7 +3550,7 @@ body.fog-active .rain-indicator.active {
 .stale-alert-box {
   background: linear-gradient(145deg, #ffffff 0%, #f8fafc 100%);
   border-radius: 20px;
-  max-width: 500px;
+  max-width: 420px;
   width: 100%;
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5),
               0 0 0 4px rgba(220, 38, 38, 0.3);
@@ -3567,12 +3567,12 @@ body.fog-active .rain-indicator.active {
 .stale-alert-header {
   background: linear-gradient(135deg, #DC2626 0%, #991B1B 100%);
   color: white;
-  padding: 20px;
+  padding: 15px;
   text-align: center;
 }
 
 .stale-alert-bell {
-  font-size: 3rem;
+  font-size: 2.2rem;
   display: block;
   margin-bottom: 10px;
   animation: staleBellRing 1s ease-in-out infinite;
@@ -3593,7 +3593,7 @@ body.fog-active .rain-indicator.active {
 }
 
 .stale-alert-body {
-  padding: 24px;
+  padding: 18px;
 }
 
 .stale-expected-obs {

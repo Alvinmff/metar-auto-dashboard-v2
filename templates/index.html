@@ -62,7 +62,7 @@
         id="metarRawPanel">
         <div class="panel-title">📡 RAW METAR DATA</div>
         <div class="metar-raw-code" id="metarRawCode">
-            {{ latest.metar if latest.metar.endswith('=') else latest.metar + '=' }}
+            {{ latest.metar.strip() if latest.metar.strip().endswith('=') else latest.metar.strip() + '=' }}
             {% if latest.report_type == 'COR' or 'COR' in latest.metar or 'CCA' in latest.metar %}
             <span class="badge"
                 style="background-color: #f59e0b; color: #1e293b; margin-left: 10px; font-size: 0.75rem; padding: 4px 8px; vertical-align: middle;">⚠️

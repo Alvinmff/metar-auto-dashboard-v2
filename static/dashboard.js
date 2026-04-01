@@ -326,39 +326,44 @@ function showToast(title, body, type = 'success', duration = 5000, playSound = t
 function highlightMetar(raw) {
     if (!raw) return '';
 
-    const parts = raw.replace('=', '').split(/\s+/);
+    const parts = raw.split(/\s+/);
     const highlighted = parts.map(part => {
+        // Strip trailing '=' for matching, re-append after
+        const hasEquals = part.endsWith('=');
+        const cleanPart = hasEquals ? part.slice(0, -1) : part;
+        const suffix = hasEquals ? '=' : '';
+
         // Station code (4 letter ICAO)
-        if (/^[A-Z]{4}$/.test(part) && parts.indexOf(part) === 0) {
-            return `<span class="metar-station">${part}</span>`;
+        if (/^[A-Z]{4}$/.test(cleanPart) && parts.indexOf(part) === 0) {
+            return `<span class="metar-station">${cleanPart}</span>${suffix}`;
         }
         // Time (ddhhmmZ)
-        if (/^\d{6}Z$/.test(part)) {
-            return `<span class="metar-time">${part}</span>`;
+        if (/^\d{6}Z$/.test(cleanPart)) {
+            return `<span class="metar-time">${cleanPart}</span>${suffix}`;
         }
         // Wind
-        if (/KT$/.test(part)) {
-            return `<span class="metar-wind">${part}</span>`;
+        if (/KT$/.test(cleanPart)) {
+            return `<span class="metar-wind">${cleanPart}</span>${suffix}`;
         }
         // Weather phenomena
-        if (/^(\+|-|VC)?(TS|RA|SN|SH|FG|BR|HZ|DZ|GR|GS|SQ|FC|SA|DU|VA|FU|PO|SS|DS)/.test(part)) {
-            return `<span class="metar-weather">${part}</span>`;
+        if (/^(\+|-|VC)?(TS|RA|SN|SH|FG|BR|HZ|DZ|GR|GS|SQ|FC|SA|DU|VA|FU|PO|SS|DS)/.test(cleanPart)) {
+            return `<span class="metar-weather">${cleanPart}</span>${suffix}`;
         }
         // Clouds
-        if (/^(FEW|SCT|BKN|OVC|NSC|NCD|CLR|SKC)/.test(part)) {
-            return `<span class="metar-cloud">${part}</span>`;
+        if (/^(FEW|SCT|BKN|OVC|NSC|NCD|CLR|SKC)/.test(cleanPart)) {
+            return `<span class="metar-cloud">${cleanPart}</span>${suffix}`;
         }
         // Temperature / Dewpoint
-        if (/^M?\d{2}\/M?\d{2}$/.test(part)) {
-            return `<span class="metar-temp">${part}</span>`;
+        if (/^M?\d{2}\/M?\d{2}$/.test(cleanPart)) {
+            return `<span class="metar-temp">${cleanPart}</span>${suffix}`;
         }
         // Pressure QNH
-        if (/^Q\d{4}$/.test(part)) {
-            return `<span class="metar-pressure">${part}</span>`;
+        if (/^Q\d{4}$/.test(cleanPart)) {
+            return `<span class="metar-pressure">${cleanPart}</span>${suffix}`;
         }
         // Trend
-        if (/^(NOSIG|TEMPO|BECMG)$/.test(part)) {
-            return `<span class="metar-trend">${part}</span>`;
+        if (/^(NOSIG|TEMPO|BECMG)$/.test(cleanPart)) {
+            return `<span class="metar-trend">${cleanPart}</span>${suffix}`;
         }
         return part;
     });
@@ -899,7 +904,9 @@ function handleMetarUpdate(data) {
     if (data.raw) {
         const rawEl = document.getElementById('metarRawCode');
         if (rawEl) {
-            const displayRaw = data.raw.trim().endsWith('=') ? data.raw : data.raw + '=';
+            // Trim the data.raw before checking/appending to prevent trailing spaces before '='
+            const trimmedRaw = data.raw.trim();
+            const displayRaw = trimmedRaw.endsWith('=') ? trimmedRaw : trimmedRaw + '=';
             let htmlStr = highlightMetar(displayRaw);
             // Badge untuk COR/AMD/SPECI
             if (data.raw.includes(' COR ') || data.raw.includes('METAR COR') || data.raw.includes('CCA')) {
@@ -2310,12 +2317,12 @@ window.updateDOM = updateDOM;
 window.updateWindCompass = updateWindCompassDisplay;
 
 // ============================================
-// STALE DATA DETECTOR - 5 MINUTE THRESHOLD
+// STALE DATA DETECTOR - 10 MINUTE THRESHOLD
 // ============================================
 
 class MetarStaleMonitor {
     constructor(options = {}) {
-        this.graceMinutes = options.graceMinutes || 5; // Minutes past observation time before alerting
+        this.graceMinutes = options.graceMinutes || 10; // Minutes past observation time before alerting
         this.checkInterval = options.checkInterval || 30 * 1000; // Check every 30s
         this.lastMetarTimestamp = null; // UTC timestamp from METAR observation
         this.lastMetarRaw = null; // Raw METAR string for tracking changes
@@ -2524,7 +2531,7 @@ class MetarStaleMonitor {
                     </div>
                     <div class="stale-warning-box">
                         <strong>⚠️ PERINGATAN</strong>
-                        <p>Data METAR seharusnya sudah update pada <strong>${expectedTime} UTC</strong>, namun masih menampilkan data <strong>${metarTime} UTC</strong> setelah lebih dari ${this.graceMinutes} menit.</p>
+                        <p>Data METAR seharusnya sudah update pada <strong>${expectedTime} UTC</strong> namun masih menampilkan data <strong>${metarTime} UTC</strong> setelah lebih dari ${this.graceMinutes} menit.</p>
                         <p class="stale-cause">Kemungkinan: Alat pengirim data BMKG bermasalah atau koneksi terputus.</p>
                     </div>
                 </div>
@@ -2579,7 +2586,7 @@ class MetarStaleMonitor {
 
 // Initialize and expose globally
 const metarStaleMonitor = new MetarStaleMonitor({
-    graceMinutes: 5,          // Alert if data not updated 5 min past observation time
+    graceMinutes: 10,          // Alert if data not updated 10 min past observation time
     checkInterval: 30 * 1000  // Check every 30 seconds
 });
 metarStaleMonitor.start();
