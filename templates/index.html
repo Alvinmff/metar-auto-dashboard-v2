@@ -332,7 +332,9 @@
                     <tr>
                         <td class="col-time">{{ row['time'] }}</td>
                         <td class="col-station">{{ row['station'] }}</td>
-                        <td class="metar-cell col-metar">{{ row['metar'] }}</td>
+                        <td class="metar-cell col-metar {% if 'SPECI' in row['metar'] or (row['status_minute']|default(-1)|int != 0 and row['status_minute']|default(-1)|int != 30 and row['status_minute']|default(-1)|int >= 0) %}metar-text-speci{% endif %}">
+                            {{ row['metar'] }}
+                        </td>
                         <td class="col-status">
                             {% if ',' in row['metar'] %}
                             <div class="metar-status-indicator metar-status-invalid">

@@ -1365,11 +1365,26 @@ def home():
         if not history.empty:
             history['day_name'] = pd.to_datetime(history['time']).dt.strftime('%A')
             history['time_short'] = pd.to_datetime(history['time']).dt.strftime('%H:%M')
+            
+            # Convert metar to string and fillna first to avoid errors
+            history["metar"] = history["metar"].fillna("").astype(str)
+            
             # Extract minute for METAR/SPECI status detection (0 or 30 = normal, else = SPECI)
-            history['status_minute'] = pd.to_datetime(history['time']).dt.minute
-        
-        # Convert metar column to string and handle NaN values
-        history["metar"] = history["metar"].fillna("").astype(str)
+            # Use regex to extract from METAR time group (DDHHMMZ) if available, fallback to system time
+            def get_metar_minute(row):
+                metar = str(row['metar'])
+                match = re.search(r'\b\d{6}Z\b', metar)
+                if match:
+                    try:
+                        return int(match.group(0)[4:6])
+                    except: pass
+                # Fallback to system timestamp
+                try:
+                    return pd.to_datetime(row['time']).minute
+                except:
+                    return -1
+            
+            history['status_minute'] = history.apply(get_metar_minute, axis=1)
         
         has_history = not history.empty
         if has_history:

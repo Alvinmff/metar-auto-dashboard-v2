@@ -1585,7 +1585,7 @@ async function updateHistoryTable() {
                 row.innerHTML = `
                     <td class="col-time">${item.full_time}</td>
                     <td class="col-station">${item.station}</td>
-                    <td class="metar-cell col-metar">${item.metar}</td>
+                    <td class="metar-cell col-metar ${status.type === 'speci' ? 'metar-text-speci' : ''}">${item.metar}</td>
                     <td class="col-status">${statusHtml}</td>
                 `;
                 tbody.appendChild(row);
