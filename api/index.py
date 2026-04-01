@@ -527,11 +527,49 @@ def format_parsed_for_display(parsed):
     return display
 
 # =========================
+# EXTRACT SUPPLEMENTARY INFORMATION
+# =========================
+def extract_supplementary_info(metar: str) -> str:
+    """
+    Extract supplementary information indicators (Recent Weather) from METAR.
+    Returns: Joined string of codes (e.g., "RERA, RETS") or "NIL"
+    """
+    if not metar:
+        return "NIL"
+        
+    # List of common supplementary "RE" indicators
+    supp_codes = [
+        "RERA", "RETS", "RETSRA", "RESN", "REGR", "REDZ", "RESH", "REVC", 
+        "REPL", "REGS", "REUP", "REBR", "REFG", "RESA", "REDU", "REHZ", "REPY"
+    ]
+    
+    found_indicators = []
+    metar_upper = metar.upper()
+    
+    # Check for each indicator in the METAR string
+    for code in supp_codes:
+        # Match exact word to avoid partial matches
+        pattern = r'(?:^|\s)' + re.escape(code) + r'(?:\s|$|=)'
+        if re.search(pattern, metar_upper):
+            found_indicators.append(code)
+    
+    # Return formatted string or NIL
+    if found_indicators:
+        return ", ".join(found_indicators)
+    return "NIL"
+
+# =========================
 # GENERATE QAM FORMAT
 # =========================
 def generate_qam(station, parsed, raw_metar):
     # Convert parsed data to display format
     display = format_parsed_for_display(parsed)
+    
+    # Extract supplementary info
+    supp_info = extract_supplementary_info(raw_metar)
+    # Add trailing dot if not NIL to match example "RA."
+    if supp_info != "NIL":
+        supp_info += "."
     
     # Get time from raw METAR if not in parsed
     match = re.search(r'(\d{2})(\d{2})(\d{2})Z', raw_metar)
@@ -560,6 +598,7 @@ TT/TD   : {display['temp_td']}
 QNH     : {display['qnh']} MB
 QFE     : {display['qfe']} MB
 TREND   : {display['trend']}
+SUPPLEMENTARY   : {supp_info}
 """
     return qam
 
@@ -609,7 +648,7 @@ def generate_metar_narrative(parsed, raw_metar=None):
     month_indonesian = month_map.get(current_month_name, current_month_name)
     
     # Opening sentence
-    narrative.append(f"Observasi cuaca di Stasiun Meteorologi Kelas I Juanda ({station}) pada tanggal {day} {month_indonesian} {year} pukul {hour}:{minute} UTC menunjukkan kondisi berikut:")
+    narrative.append(f"Observasi cuaca di Bandara Juanda ({station}) pada tanggal {day} {month_indonesian} {year} pukul {hour}:{minute} UTC menunjukkan kondisi berikut:")
     
     # Wind information - FORMAT: "160° derajat 13 Gust 27 Knot"
     wind = display.get('wind', '')
