@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>
+        {% block title %}METAR Auto Dashboard — BMKG Aviation{% endblock %}
+    </title>
+    <meta name="description"
+        content="METAR Data Processing & Visualization Platform for BMKG Aviation Weather Monitoring">
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/favicon.png') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+
+    <!-- Dependencies -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.plot.ly/plotly-2.30.0.min.js"></script>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vanta@latest/dist/vanta.fog.min.js"></script>
+
+    {% block head %}{% endblock %}
+</head>
+
+<body>
+
+    <div class="rain front-row" id="rainFront"></div>
+    <div class="rain back-row" id="rainBack"></div>
+
+    <!-- ============================================
+         FOG / MIST / HAZE EFFECT CONTAINER
+         ============================================ -->
+    <div class="fog-container" id="fogContainer"></div>
+
+    <!-- Fog Indicator Badge -->
+    <div class="fog-indicator" id="fogIndicator">
+        <span class="fog-indicator-icon">🌫️</span>
+        <span class="fog-indicator-text" id="fogIndicatorText">FOG DETECTED</span>
+    </div>
+
+    <!-- Rain Indicator Badge -->
+    <div class="rain-indicator" id="rainIndicator">
+        <span class="rain-indicator-icon">🌧️</span>
+        <span class="rain-indicator-text" id="rainIndicatorText">RAIN DETECTED</span>
+    </div>
+
+    <audio id="lowVisSound" src="{{ url_for('static', filename='alarm.mp3') }}" preload="auto"></audio>
+    <audio id="newDataSound" src="{{ url_for('static', filename='notify.mp3') }}" preload="auto"></audio>
+
+    <!-- Overlay untuk mobile sidebar -->
+    <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+
+    <div class="app-layout" id="appLayout">
+
+        <!-- ========== HEADER ========== -->
+        <header class="app-header">
+            <div class="header-left">
+                <button class="sidebar-toggle" id="sidebarToggle" title="Toggle Sidebar">☰</button>
+                <img src="{{ url_for('static', filename='images/BMKG LOGO.jpg') }}" alt="BMKG Logo" class="header-logo">
+                <div class="header-title">
+                    <h1>METAR Auto Dashboard</h1>
+                    <div class="station-badge">
+                        {% block header_badge_status %}
+                        <span id="stationBadgeStatus"
+                            style="width:8px;height:8px;border-radius:50%;background:#059669;flex-shrink:0;"></span>
+                        {% endblock %}
+                        <div class="station-text">
+                            <!-- Show station code specifically for history/parser or default name -->
+                            {% block header_station_text %}
+                            <span class="station-name">Stasiun Meteorologi Kelas I Juanda</span>
+                            {% endblock %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="header-right">
+                <div class="wib-clock" id="wibClock">--:--:-- <small>WIB</small></div>
+                <div class="utc-clock" id="utcClock">--:--:-- <small>UTC</small></div>
+                <button class="theme-toggle mobile-hidden" id="themeToggle" onclick="toggleTheme()"
+                    title="Toggle Dark/Light Mode">🌙</button>
+                <button class="sound-toggle mobile-hidden" id="soundToggle" onclick="enableSound()">🔇 Sound</button>
+                <div class="connection-status" id="connectionStatus">
+                    <span class="connection-dot" id="connectionDot"></span>
+                    <span id="connectionText">OFFLINE</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- ========== SIDEBAR ========== -->
+        <aside class="app-sidebar" id="appSidebar">
+            <!-- Airplane & Tower Decoration -->
+            <div class="airplane-decor-container fade-in" style="animation-delay:0.08s">
+                <img src="{{ url_for('static', filename='images/pesawat2.png') }}" alt="Airplane Decor"
+                    class="dashboard-airplane-img">
+                <img src="{{ url_for('static', filename='images/tower.png') }}" alt="Tower Decor"
+                    class="dashboard-tower-img">
+            </div>
+
+            <nav class="sidebar-nav">
+                <div
+                    style="padding: 12px 16px 4px; font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">
+                    Main</div>
+
+                <a href="/" class="sidebar-link {% block nav_active_dashboard %}{% endblock %}" id="nav-dashboard">
+                    <span class="icon">🏠</span>
+                    <span class="label">Dashboard</span>
+                </a>
+
+                <div
+                    style="padding: 16px 16px 4px; font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">
+                    Analysis & Tools</div>
+
+                <a href="/charts" class="sidebar-link {% block nav_active_charts %}{% endblock %}" id="nav-charts">
+                    <span class="icon">📈</span>
+                    <span class="label">Charts & Trends</span>
+                </a>
+
+                <a href="/wind_analysis" class="sidebar-link {% block nav_active_wind %}{% endblock %}" id="nav-wind">
+                    <span class="icon">🧭</span>
+                    <span class="label">Wind Analysis</span>
+                </a>
+
+                <a href="/operational_tools" class="sidebar-link {% block nav_active_tools %}{% endblock %}"
+                    id="nav-tools">
+                    <span class="icon">✈️</span>
+                    <span class="label">Operational Tools</span>
+                </a>
+
+                <!--<a href="/weather_analysis" class="sidebar-link {% block nav_active_weather %}{% endblock %}" id="nav-weather">
+                    <span class="icon">🌩️</span>
+                    <span class="label">Weather Analysis</span>
+                </a> -->
+
+                <div
+                    style="padding: 16px 16px 4px; font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">
+                    Data</div>
+
+                <a href="/history_by_date" class="sidebar-link {% block nav_active_history %}{% endblock %}"
+                    id="nav-history">
+                    <span class="icon">📅</span>
+                    <span class="label">History Search</span>
+                </a>
+
+                <a href="/manual_parser" class="sidebar-link {% block nav_active_parser %}{% endblock %}" id="nav-qam">
+                    <span class="icon">📄</span>
+                    <span class="label">Manual Parser</span>
+                </a>
+
+                <div class="sidebar-divider desktop-hidden"></div>
+
+                <button class="sidebar-link desktop-hidden" id="themeToggleSidebar" onclick="toggleTheme()">
+                    <span class="icon" id="themeIconSidebar">🌙</span>
+                    <span class="label" id="themeLabelSidebar">Dark Mode</span>
+                </button>
+                <button class="sidebar-link desktop-hidden" id="soundToggleSidebar" onclick="enableSound()">
+                    <span class="icon" id="soundIconSidebar">🔇</span>
+                    <span class="label" id="soundLabelSidebar">Sound OFF</span>
+                </button>
+            </nav>
+        </aside>
+
+        <!-- ========== MAIN CONTENT ========== -->
+        <main class="app-main">
+            {% block content %}{% endblock %}
+        </main>
+
+    </div>
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <script>
+        const STATION = "{{ station }}";
+    </script>
+
+    {% block extra_scripts_top %}{% endblock %}
+
+    <script src="{{ url_for('static', filename='dashboard.js') }}"></script>
+
+    <!-- ============================================
+         FLOATING HELP BUTTON & MODAL
+         ============================================ -->
+    {% block help_modal %}
+    <button class="help-fab" id="helpFab" onclick="toggleHelpModal()" title="Bantuan Penggunaan">
+        <span class="help-fab-icon">❓</span>
+        <span class="help-fab-text">Bantuan</span>
+    </button>
+
+    <!-- Help Modal Overlay -->
+    <div class="help-modal-overlay" id="helpModalOverlay" onclick="closeHelpModal()"></div>
+
+    <!-- Help Modal Content -->
+    <div class="help-modal" id="helpModal">
+        <div class="help-modal-header">
+            <div class="help-modal-title">
+                <span class="help-logo">📡</span>
+                <div>
+                    <h3>PANDUAN METAR DASHBOARD</h3>
+                    <small>Weather Observation & METAR Processing</small>
+                </div>
+            </div>
+            <button class="help-modal-close" onclick="closeHelpModal()">✕</button>
+        </div>
+
+        <div class="help-modal-body">
+            <!-- Section 1: Apa itu METAR Dashboard? -->
+            <div class="help-section">
+                <h4 class="help-section-title">
+                    <span class="help-icon">💡</span>
+                    Apa itu METAR Dashboard?
+                </h4>
+                <p class="help-text">
+                    <strong>METAR Auto Dashboard</strong> merupakan platform pengolahan data cuaca penerbangan (METAR)
+                    yang terintegrasi dengan sistem BMKG. Dashboard ini dirancang untuk menyediakan informasi
+                    cuaca bandara secara <em>real-time</em> bagi operasional penerbangan dan prakira cuaca,
+                    menggabungkan data METAR, analisis visual, dan peringatan dini dalam satu tampilan interaktif.
+                </p>
+            </div>
+
+            <!-- Section 2: Fitur Utama -->
+            <div class="help-grid">
+                <!-- Data METAR -->
+                <div class="help-card">
+                    <h5 class="help-card-title">
+                        <span class="help-icon">📡</span>
+                        Data METAR Real-time
+                    </h5>
+                    <ul class="help-list">
+                        <li>Pengambilan data otomatis dari NOAA setiap 30 menit</li>
+                        <li>Highlight sintaks METAR dengan warna kategori</li>
+                        <li>Validasi format METAR 10 grup standar ICAO</li>
+                    </ul>
+                </div>
+
+                <!-- Visualisasi -->
+                <div class="help-card">
+                    <h5 class="help-card-title">
+                        <span class="help-icon">📊</span>
+                        Visualisasi Data
+                    </h5>
+                    <ul class="help-list">
+                        <li>Grafik trend suhu, tekanan, dan angin</li>
+                        <li>Wind Compass arah angin real-time</li>
+                        <li>Wind Rose 24 jam & bulanan</li>
+                        <li>Crosswind Calculator untuk runway</li>
+                    </ul>
+                </div>
+
+                <!-- Peringatan -->
+                <div class="help-card">
+                    <h5 class="help-card-title">
+                        <span class="help-icon">🚨</span>
+                        Sistem Peringatan
+                    </h5>
+                    <ul class="help-list">
+                        <li>Alert suara untuk visibility &lt; 3000m</li>
+                        <li>Deteksi thunderstorm (TS, TSRA, CB)</li>
+                        <li>Notifikasi perubahan cuaca signifikan</li>
+                        <li>Status warna: Hijau (aman), Kuning (waspada), Merah (bahaya)</li>
+                    </ul>
+                </div>
+
+                <!-- Tools -->
+                <div class="help-card">
+                    <h5 class="help-card-title">
+                        <span class="help-icon">🛠️</span>
+                        Tools & Utilitas
+                    </h5>
+                    <ul class="help-list">
+                        <li>QAM Generator (MET Report format)</li>
+                        <li>Narasi cuaca otomatis (Bahasa Indonesia)</li>
+                        <li>Manual METAR Parser</li>
+                        <li>Export data ke CSV dan Google Sheets</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Section 3: Cara Penggunaan -->
+            <div class="help-section">
+                <h4 class="help-section-title">
+                    <span class="help-icon">🔧</span>
+                    Cara Penggunaan
+                </h4>
+                <div class="help-usage-grid">
+                    <div class="help-usage-item">
+                        <span class="help-step">1</span>
+                        <div>
+                            <strong>Pilih Navigasi</strong>
+                            <p>Gunakan menu sidebar di sebelah kiri untuk berpindah fitur dengan cepat.</p>
+                        </div>
+                    </div>
+                    <div class="help-usage-item">
+                        <span class="help-step">2</span>
+                        <div>
+                            <strong>Aktifkan Sound</strong>
+                            <p>Klik tombol 🔇 Sound untuk enable notifikasi suara peringatan dini.</p>
+                        </div>
+                    </div>
+                    <div class="help-usage-item">
+                        <span class="help-step">3</span>
+                        <div>
+                            <strong>Monitor Status</strong>
+                            <p>Perhatikan warna panel: Hijau (aman), Kuning (waspada), Merah (bahaya).</p>
+                        </div>
+                    </div>
+                    <div class="help-usage-item">
+                        <span class="help-step">4</span>
+                        <div>
+                            <strong>Analisis Wind</strong>
+                            <p>Gunakan menu Wind Analysis untuk memantai profil angin secara grafis.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Section 4: Kontrol -->
+            <div class="help-section">
+                <h4 class="help-section-title">
+                    <span class="help-icon">🎛️</span>
+                    Kontrol Utama
+                </h4>
+                <div class="help-controls">
+                    <div class="help-control-item">
+                        <span class="help-key">☰</span>
+                        <span>Toggle Sidebar (collapse/expand menu)</span>
+                    </div>
+                    <div class="help-control-item">
+                        <span class="help-key">🌙</span>
+                        <span>Dark/Light Mode (ubah tema tampilan)</span>
+                    </div>
+                    <div class="help-control-item">
+                        <span class="help-key">🔊</span>
+                        <span>Sound ON/OFF (aktifkan alarm)</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Section 5: Keterangan Status -->
+            <div class="help-section">
+                <h4 class="help-section-title">
+                    <span class="help-icon">🚦</span>
+                    Keterangan Status & Badge
+                </h4>
+                <div class="help-badges">
+                    <span class="help-badge badge-metar">🟢 METAR</span>
+                    <span class="help-badge badge-cor">🟡 COR</span>
+                    <span class="help-badge badge-amd">🔵 AMD</span>
+                    <span class="help-badge badge-speci">🔴 SPECI</span>
+                </div>
+                <p class="help-text-small">
+                    <strong>METAR</strong>: Laporan rutin | <strong>COR</strong>: Koreksi |
+                    <strong>AMD</strong>: Amandemen | <strong>SPECI</strong>: Laporan khusus (cuaca berubah signifikan)
+                </p>
+            </div>
+        </div>
+
+        <div class="help-modal-footer">
+            <span>© 2026 Stasiun Meteorologi Kelas I Juanda Sidoarjo</span>
+            <button class="btn btn-sm btn-primary" onclick="closeHelpModal()">Tutup</button>
+        </div>
+    </div>
+    {% endblock %}
+
+    {% block extra_scripts_bottom %}{% endblock %}
+</body>
+
+</html>

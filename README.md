@@ -1,5 +1,5 @@
 # 🌦️ METAR Auto Dashboard v2.0
-### Smart Aviation Weather Monitoring — BMKG Juanda Surabaya (WARR)
+### Smart Aviation Weather Monitoring — Stasiun Meteorologi Kelas I Juanda (WARR)
 
 [![Python Version](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
 [![Flask Framework](https://img.shields.io/badge/framework-Flask-lightgrey.svg)](https://flask.palletsprojects.com/)

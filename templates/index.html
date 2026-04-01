@@ -1,683 +1,485 @@
-<!DOCTYPE html>
-<html lang="en">
+{% extends "layout.html" %}
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>METAR Auto Dashboard — BMKG Aviation</title>
-    <meta name="description"
-        content="METAR Data Processing & Visualization Platform for BMKG Aviation Weather Monitoring">
-    <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/favicon.png') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.plot.ly/plotly-2.30.0.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/vanta@latest/dist/vanta.fog.min.js"></script>
-</head>
+{% block title %}Dashboard Overview — METAR Auto Dashboard{% endblock %}
 
-<body>
+{% block nav_active_dashboard %}active{% endblock %}
 
-    <div class="rain front-row" id="rainFront"></div>
-    <div class="rain back-row" id="rainBack"></div>
+{% block content %}
+<!-- Alert Banner -->
+<div class="alert-banner" id="alertBanner">
+    <span class="pulse-icon">🔴</span>
+    <strong id="alertTitle">CRITICAL WEATHER ALERT</strong>
+    <span id="alertMessage"></span>
+    <button class="alert-dismiss" onclick="dismissAlert()">Acknowledge</button>
+</div>
 
-    <!-- ============================================
-         FOG / MIST / HAZE EFFECT CONTAINER
-         ============================================ -->
-    <div class="fog-container" id="fogContainer"></div>
-    
-    <!-- Fog Indicator Badge -->
-    <div class="fog-indicator" id="fogIndicator">
-        <span class="fog-indicator-icon">🌫️</span>
-        <span class="fog-indicator-text" id="fogIndicatorText">FOG DETECTED</span>
+<!-- System Status Panel -->
+<div class="card system-status-card fade-in" style="animation-delay:0.03s">
+    <div class="card-header">
+        <h3 class="card-title" style="font-size: 1.1rem;"><span class="icon">🖥️</span> System Status</h3>
+        <button class="btn btn-sm btn-outline" onclick="toggleSystem()" id="toggleSystemBtn">⏻ Toggle
+            System</button>
+    </div>
+    <div class="status-grid">
+        <div class="status-item">
+            <span class="status-label">SERVER</span>
+            <span class="status-value status-online" id="server-status">ONLINE 🟢</span>
+        </div>
+        <div class="status-item">
+            <span class="status-label">METAR FETCH</span>
+            <span class="status-value {% if auto_fetch %}status-running{% else %}status-paused{% endif %}"
+                id="metar-status">
+                {% if auto_fetch %}RUNNING 🟢{% else %}PAUSED 🟡{% endif %}
+            </span>
+        </div>
+        <div class="status-item">
+            <span class="status-label">LAST UPDATE</span>
+            <span class="status-value" id="last-update-status">
+                {{ last_metar_update if last_metar_update else "--:-- WIB" }}
+            </span>
+        </div>
+    </div>
+</div>
+
+<!-- Station Input Form -->
+<div class="card fade-in" style="animation-delay:0.05s">
+    <form method="POST" class="form-row">
+        <div class="form-group" style="max-width:200px">
+            <label for="icaoInput">ICAO Station</label>
+            <input type="text" name="icao" id="icaoInput" value="{{ station }}" class="form-input" placeholder="WARR">
+        </div>
+        <button type="submit" class="btn btn-primary" style="height:42px">⚡ Load METAR</button>
+        <a href="/download_csv" class="btn btn-outline" style="height:42px">📥 Download CSV</a>
+    </form>
+</div>
+
+<!-- ========== METAR HERO SECTION ========== -->
+{% if latest %}
+<div class="metar-hero fade-in" style="animation-delay:0.1s">
+
+    <!-- Raw METAR Panel -->
+    <div class="metar-raw-panel {% if latest.status == 'danger' %}status-danger{% elif latest.status == 'warning' %}status-warning{% endif %}"
+        id="metarRawPanel">
+        <div class="panel-title">📡 RAW METAR DATA</div>
+        <div class="metar-raw-code" id="metarRawCode">
+            {{ latest.metar }}
+            {% if latest.report_type == 'COR' or 'COR' in latest.metar or 'CCA' in latest.metar %}
+            <span class="badge"
+                style="background-color: #f59e0b; color: #1e293b; margin-left: 10px; font-size: 0.75rem; padding: 4px 8px; vertical-align: middle;">⚠️
+                COR</span>
+            {% elif latest.report_type == 'AMD' or 'AMD' in latest.metar %}
+            <span class="badge"
+                style="background-color: #3b82f6; color: #ffffff; margin-left: 10px; font-size: 0.75rem; padding: 4px 8px; vertical-align: middle;">⚠️
+                AMD</span>
+            {% elif latest.report_type == 'SPECI' or 'SPECI' in latest.metar %}
+            <span class="badge"
+                style="background-color: #ef4444; color: #ffffff; margin-left: 10px; font-size: 0.75rem; padding: 4px 8px; vertical-align: middle;">⚠️
+                SPECI</span>
+            {% endif %}
+        </div>
+        <div class="metar-actions">
+            <button class="btn btn-sm btn-outline" onclick="copyMetar()">📋 Copy</button>
+            <button class="btn btn-sm btn-outline" onclick="location.reload()">🔄 Refresh</button>
+            <span class="copy-feedback" id="metarCopyFeedback">Copied!</span>
+        </div>
+        <!-- Validation Display -->
+        <div id="metarValidation" style="margin-top: 12px; font-size: 0.85rem; font-family: 'Inter', sans-serif;">
+            <!-- Populated by dashboard.js -->
+        </div>
     </div>
 
-    <!-- Rain Indicator Badge -->
-    <div class="rain-indicator" id="rainIndicator">
-        <span class="rain-indicator-icon">🌧️</span>
-        <span class="rain-indicator-text" id="rainIndicatorText">RAIN DETECTED</span>
+    <!-- Decoded Parameters Panel -->
+    <div class="metar-decoded-panel" id="decodedPanel">
+        <div class="param-card">
+            <span class="param-label">🌡️ Temperature</span>
+            <span class="param-value" id="paramTemp">--</span>
+            <span class="param-unit">°C</span>
+        </div>
+        <div class="param-card">
+            <span class="param-label">💧 Dew Point</span>
+            <span class="param-value" id="paramDewpoint">--</span>
+            <span class="param-unit">°C</span>
+        </div>
+        <div class="param-card">
+            <span class="param-label">🌬️ Wind</span>
+            <span class="param-value" id="paramWind">--</span>
+            <span class="param-unit" id="paramWindDetail"></span>
+        </div>
+        <div class="param-card">
+            <span class="param-label">👁️ Visibility</span>
+            <span class="param-value" id="paramVis">--</span>
+            <span class="param-unit" id="paramVisUnit">m</span>
+            <div class="vis-bar">
+                <div class="vis-bar-fill" id="visBar" style="width:100%"></div>
+            </div>
+        </div>
+        <div class="param-card">
+            <span class="param-label">📊 QNH</span>
+            <span class="param-value" id="paramQNH">--</span>
+            <span class="param-unit">hPa</span>
+        </div>
+        <div class="param-card">
+            <span class="param-label">☁️ Cloud</span>
+            <span class="param-value" id="paramCloud" style="font-size:1.1rem">--</span>
+            <span class="param-unit" id="paramCloudExtra"></span>
+        </div>
+        <div class="param-card">
+            <span class="param-label">🌩️ Weather</span>
+            <span class="param-value" id="paramWeather" style="font-size:1.1rem">--</span>
+        </div>
+        <div class="param-card">
+            <span class="param-label">🕐 Obs Time</span>
+            <span class="param-value" id="paramTime" style="font-size:1.2rem">--:-- UTC</span>
+        </div>
     </div>
 
-    <audio id="lowVisSound" src="{{ url_for('static', filename='alarm.mp3') }}" preload="auto"></audio>
-    <audio id="newDataSound" src="{{ url_for('static', filename='notify.mp3') }}" preload="auto"></audio>
+</div>
+{% endif %}
 
-    <!-- Overlay untuk mobile sidebar -->
-    <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+<!-- ========== OPERATIONAL TOOLS ========== -->
+<div class="card crosswind-card fade-in" style="animation-delay:0.12s">
+    <div class="card-header">
+        <h3 class="card-title"><span class="icon">✈️</span> Crosswind Monitoring</h3>
+    </div>
+    <div class="runway-selector" id="runwaySelector">
+        <button class="runway-btn active" data-heading="100" onclick="selectRunway(this, 100)">RWY 10</button>
+        <button class="runway-btn" data-heading="280" onclick="selectRunway(this, 280)">RWY 28</button>
+    </div>
+    <div class="crosswind-result" id="crosswindResult">
+        <div class="xwind-item xw-safe">
+            <div class="xw-label">Headwind</div>
+            <div class="xw-value" id="xwHead">-- kt</div>
+            <span class="xw-status" id="xwHeadStatus">--</span>
+        </div>
+        <div class="xwind-item xw-safe">
+            <div class="xw-label">Crosswind</div>
+            <div class="xw-value" id="xwCross">-- kt</div>
+            <span class="xw-status" id="xwCrossStatus">--</span>
+        </div>
+        <div class="xwind-item xw-safe">
+            <div class="xw-label">Tailwind</div>
+            <div class="xw-value" id="xwTail">-- kt</div>
+            <span class="xw-status" id="xwTailStatus">--</span>
+        </div>
+    </div>
+</div>
 
-    <div class="app-layout" id="appLayout">
-
-        <!-- ========== HEADER ========== -->
-        <header class="app-header">
-            <div class="header-left">
-                <button class="sidebar-toggle" id="sidebarToggle" title="Toggle Sidebar">☰</button>
-                <img src="https://yt3.googleusercontent.com/irzhWXcNV6M94Ow6P2ytjC2HFi7gVbLbkq2wcgwOyie63VkKHBiWUw1XJjc1NJUeWwgFwsWjYw=s900-c-k-c0x00ffffff-no-rj"
-                    alt="BMKG Logo" class="header-logo">
-                <div class="header-title">
-                    <h1>METAR Auto Dashboard</h1>
-                    <div class="station-badge">
-                        <span id="stationBadgeStatus"
-                            style="width:8px;height:8px;border-radius:50%;background:#059669;flex-shrink:0;"></span>
-                        <div class="station-text">
-                            <span class="station-code">{{ station }}</span>
-                            <span class="desktop-only">—</span>
-                            <span class="station-name">Bandara Juanda</span>
-                        </div>
-                    </div>
-                </div>
+<div class="grid-2 fade-in" style="animation-delay:0.14s">
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title"><span class="icon">📄</span> QAM / MET Report</h3>
+            <div class="flex gap-sm">
+                <button class="btn btn-sm btn-outline" onclick="copyQam()">📋 Copy</button>
+                <a href="/download_qam?station={{ station }}&qam={{ qam | urlencode }}"
+                    class="btn btn-sm btn-outline">📥 Download</a>
             </div>
-            <div class="header-right">
-                <div class="wib-clock" id="wibClock">--:--:-- <small>WIB</small></div>
-                <div class="utc-clock" id="utcClock">--:--:-- <small>UTC</small></div>
-                <button class="theme-toggle mobile-hidden" id="themeToggle" onclick="toggleTheme()"
-                    title="Toggle Dark/Light Mode">🌙</button>
-                <button class="sound-toggle mobile-hidden" id="soundToggle" onclick="enableSound()">🔇 Sound</button>
-                <div class="connection-status" id="connectionStatus">
-                    <span class="connection-dot" id="connectionDot"></span>
-                    <span id="connectionText">OFFLINE</span>
-                </div>
+        </div>
+        <pre class="qam-display"
+            id="qamDisplay">{% if qam %}{{ qam }}{% else %}Wait for the latest METAR data...{% endif %}</pre>
+        <span class="copy-feedback" id="qamCopyFeedback">Copied!</span>
+    </div>
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title"><span class="icon">📝</span> Narasi Cuaca</h3>
+        </div>
+        <div class="narrative-display" id="narrativeDisplay">{% if narrative %}{{ narrative }}{% else %}Waiting for data
+            update...{% endif %}</div>
+    </div>
+</div>
+
+<!-- ========== HISTORICAL TRENDS ==========
+<div class="card fade-in" style="animation-delay:0.16s">
+    <div class="card-header">
+        <h3 class="card-title"><span class="icon">📈</span> Historical Charts & Trends</h3>
+        <span class="text-muted" style="font-size:0.8rem">Station: {{ station }}</span>
+    </div>
+    <div style="margin-bottom: var(--space-md); color: var(--text-secondary); font-size: 0.9rem;">
+        These charts display the historical trend of weather parameters based on the last 20 METAR records. 
+        It updates automatically as new data is fetched.
+    </div>
+</div> -->
+
+<div class="card chart-card fade-in" style="animation-delay:0.17s">
+    <div class="card-header">
+        <h3 class="card-title"><span class="icon">🌡️</span> Temperature Trend</h3>
+        <button class="btn btn-sm btn-outline" onclick="downloadChart('tempChart')">📥 Download</button>
+    </div>
+    <div class="chart-container">
+        <canvas id="tempChart"></canvas>
+    </div>
+    <div id="tempChart-info"
+        style="padding: 10px 16px; font-size: 0.85rem; color: var(--text-secondary); border-top: 1px solid var(--border-color);">
+        {% if history_start %}{{ history_start }} to {{ history_end }} • {{ history_count }} records (from
+        {{ history_source }}){% else %}Loading temperature trend data...{% endif %}
+    </div>
+</div>
+
+<div class="card chart-card fade-in" style="animation-delay:0.18s">
+    <div class="card-header">
+        <h3 class="card-title"><span class="icon">📊</span> Pressure (QNH) Trend</h3>
+        <button class="btn btn-sm btn-outline" onclick="downloadChart('pressureChart')">📥 Download</button>
+    </div>
+    <div class="chart-container">
+        <canvas id="pressureChart"></canvas>
+    </div>
+    <div id="pressureChart-info"
+        style="padding: 10px 16px; font-size: 0.85rem; color: var(--text-secondary); border-top: 1px solid var(--border-color);">
+        {% if history_start %}{{ history_start }} to {{ history_end }} • {{ history_count }} records (from
+        {{ history_source }}){% else %}Loading pressure trend data...{% endif %}
+    </div>
+</div>
+
+<div class="card chart-card fade-in" style="animation-delay:0.19s">
+    <div class="card-header">
+        <h3 class="card-title"><span class="icon">💨</span> Wind Speed Trend</h3>
+        <button class="btn btn-sm btn-outline" onclick="downloadChart('windChart')">📥 Download</button>
+    </div>
+    <div class="chart-container">
+        <canvas id="windChart"></canvas>
+    </div>
+    <div id="windChart-info"
+        style="padding: 10px 16px; font-size: 0.85rem; color: var(--text-secondary); border-top: 1px solid var(--border-color);">
+        {% if history_start %}{{ history_start }} to {{ history_end }} • {{ history_count }} records (from
+        {{ history_source }}){% else %}Loading wind trend data...{% endif %}
+    </div>
+</div>
+
+<!-- ========== WIND ANALYSIS ========== 
+<div class="card fade-in" style="animation-delay:0.2s">
+    <div class="card-header">
+        <h3 class="card-title"><span class="icon">🧭</span> Wind Analysis Center</h3>
+        <span class="text-muted" style="font-size:0.8rem">Station: {{ station }}</span>
+    </div>
+    <div style="margin-bottom: var(--space-md); color: var(--text-secondary); font-size: 0.9rem;">
+        Monitor real-time wind direction updates via the Wind Compass. The Wind Rose charts show distribution 
+        over the last 24 hours and the previous calendar month.
+    </div>
+</div> -->
+
+<!-- Wind Compass (Full Width) -->
+<div class="card fade-in" style="animation-delay:0.21s">
+    <div class="card-header">
+        <h3 class="card-title"><span class="icon">🧭</span> Real-time Wind Compass</h3>
+        <button class="btn btn-sm btn-outline" onclick="downloadChart('windCompassChart')">📥 Download</button>
+    </div>
+    <div id="windCompassChart" style="height:400px; max-width: 600px; margin: 0 auto;"></div>
+    <!-- Data store for compass -->
+    <div id="wind-data-store" style="display: none;" data-latest='{{ latest_wind | default("{}") | safe }}'
+        data-recent='{{ recent_winds | default("[]") | safe }}'></div>
+</div>
+
+<!-- Wind Roses (Grid) -->
+<div class="grid-2 fade-in" style="animation-delay:0.22s">
+    <!-- 24H Wind Rose -->
+    <div class="card flex flex-col">
+        <div class="card-header">
+            <h3 class="card-title"><span class="icon">🧭</span> Wind Rose (24 Hours)</h3>
+            <div class="flex items-center gap-sm">
+                <span id="windrose24h-badge" class="badge"
+                    style="background-color: #3b82f6; color: white;">Loading...</span>
+                <button class="btn btn-sm btn-outline" onclick="downloadChart('windRose24h')">📥 Download</button>
             </div>
-        </header>
+        </div>
+        <div id="windRose24h" style="height:400px;"></div>
+        <div id="windrose24h-info"
+            style="padding: 10px 16px; font-size: 0.85rem; color: var(--text-secondary); border-top: 1px solid var(--border-color);">
+            Fetching 24h wind data from Sheets...
+        </div>
+    </div>
 
-        <!-- ========== SIDEBAR ========== -->
-        <aside class="app-sidebar" id="appSidebar">
-            <!-- Airplane & Tower Decoration -->
-            <div class="airplane-decor-container fade-in" style="animation-delay:0.08s">
-                <img src="{{ url_for('static', filename='images/pesawat2.png') }}" alt="Airplane Decor"
-                    class="dashboard-airplane-img">
-                <img src="{{ url_for('static', filename='images/tower.png') }}" alt="Tower Decor"
-                    class="dashboard-tower-img">
+    <!-- Monthly Wind Rose -->
+    <div class="card flex flex-col">
+        <div class="card-header">
+            <h3 class="card-title"><span class="icon">🧭</span> Wind Rose (Previous Month)</h3>
+            <div class="flex items-center gap-sm">
+                <span id="windroseMonth-badge" class="badge"
+                    style="background-color: #059669; color: white;">Loading...</span>
+                <button class="btn btn-sm btn-outline" onclick="downloadChart('windRoseMonth')">📥 Download</button>
             </div>
-            <nav class="sidebar-nav">
-                <a href="/" class="sidebar-link active" id="nav-dashboard">
-                    <span class="icon">🏠</span>
-                    <span class="label">Dashboard</span>
-                </a>
-                <a href="/history_by_date" class="sidebar-link" id="nav-history">
-                    <span class="icon">📊</span>
-                    <span class="label">History</span>
-                </a>
-                <a href="/manual_parser" class="sidebar-link" id="nav-qam">
-                    <span class="icon">📄</span>
-                    <span class="label">Manual Parser</span>
-                </a>
-                <div class="sidebar-divider desktop-hidden"></div>
-                <button class="sidebar-link desktop-hidden" id="themeToggleSidebar" onclick="toggleTheme()">
-                    <span class="icon" id="themeIconSidebar">🌙</span>
-                    <span class="label" id="themeLabelSidebar">Dark Mode</span>
-                </button>
-                <button class="sidebar-link desktop-hidden" id="soundToggleSidebar" onclick="enableSound()">
-                    <span class="icon" id="soundIconSidebar">🔇</span>
-                    <span class="label" id="soundLabelSidebar">Sound OFF</span>
-                </button>
-            </nav>
+        </div>
+        <div id="windRoseMonth" style="height:400px;"></div>
+        <div id="windroseMonth-info"
+            style="padding: 10px 16px; font-size: 0.85rem; color: var(--text-secondary); border-top: 1px solid var(--border-color);">
+            Fetching monthly data from Google Sheets...
+        </div>
+    </div>
+</div>
 
-        </aside>
+<!-- ========== THUNDERSTORM DETECTION ========== -->
+<!-- (Internal module or currently hidden) -->
 
-        <!-- ========== MAIN CONTENT ========== -->
-        <main class="app-main">
-
-            <!-- Alert Banner -->
-            <div class="alert-banner" id="alertBanner">
-                <span class="pulse-icon">🔴</span>
-                <strong id="alertTitle">CRITICAL WEATHER ALERT</strong>
-                <span id="alertMessage"></span>
-                <button class="alert-dismiss" onclick="dismissAlert()">Acknowledge</button>
-            </div>
-
-            <!-- System Status Panel -->
-            <div class="card system-status-card fade-in" style="animation-delay:0.03s">
-                <div class="card-header">
-                    <h3 class="card-title" style="font-size: 1.1rem;"><span class="icon">🖥️</span> System Status</h3>
-                    <button class="btn btn-sm btn-outline" onclick="toggleSystem()" id="toggleSystemBtn">⏻ Toggle
-                        System</button>
-                </div>
-                <div class="status-grid">
-                    <div class="status-item">
-                        <span class="status-label">SERVER</span>
-                        <span class="status-value status-online" id="server-status">ONLINE 🟢</span>
-                    </div>
-                    <div class="status-item">
-                        <span class="status-label">METAR FETCH</span>
-                        <span class="status-value {% if auto_fetch %}status-running{% else %}status-paused{% endif %}"
-                            id="metar-status">
-                            {% if auto_fetch %}RUNNING 🟢{% else %}PAUSED 🟡{% endif %}
-                        </span>
-                    </div>
-                    <div class="status-item">
-                        <span class="status-label">LAST UPDATE</span>
-                        <span class="status-value" id="last-update-status">
-                            {{ last_metar_update if last_metar_update else "--:-- WIB" }}
-                        </span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Station Input Form -->
-            <div class="card fade-in" style="animation-delay:0.05s">
-                <form method="POST" class="form-row">
-                    <div class="form-group" style="max-width:200px">
-                        <label for="icaoInput">ICAO Station</label>
-                        <input type="text" name="icao" id="icaoInput" value="{{ station }}" class="form-input"
-                            placeholder="WARR">
-                    </div>
-                    <button type="submit" class="btn btn-primary" style="height:42px">⚡ Load METAR</button>
-                    <a href="/download_csv" class="btn btn-outline" style="height:42px">📥 Download CSV</a>
-                </form>
-            </div>
-
-            <!-- ========== METAR HERO SECTION ========== -->
-            {% if latest %}
-            <div class="metar-hero fade-in" style="animation-delay:0.1s">
-
-                <!-- Raw METAR Panel -->
-                <div class="metar-raw-panel {% if latest.status == 'danger' %}status-danger{% elif latest.status == 'warning' %}status-warning{% endif %}"
-                    id="metarRawPanel">
-                    <div class="panel-title">📡 RAW METAR DATA</div>
-                    <div class="metar-raw-code" id="metarRawCode">
-                        {{ latest.metar }}
-                        {% if latest.report_type == 'COR' or 'COR' in latest.metar or 'CCA' in latest.metar %}
-                        <span class="badge"
-                            style="background-color: #f59e0b; color: #1e293b; margin-left: 10px; font-size: 0.75rem; padding: 4px 8px; vertical-align: middle;">⚠️
-                            COR</span>
-                        {% elif latest.report_type == 'AMD' or 'AMD' in latest.metar %}
-                        <span class="badge"
-                            style="background-color: #3b82f6; color: #ffffff; margin-left: 10px; font-size: 0.75rem; padding: 4px 8px; vertical-align: middle;">⚠️
-                            AMD</span>
-                        {% elif latest.report_type == 'SPECI' or 'SPECI' in latest.metar %}
-                        <span class="badge"
-                            style="background-color: #ef4444; color: #ffffff; margin-left: 10px; font-size: 0.75rem; padding: 4px 8px; vertical-align: middle;">⚠️
-                            SPECI</span>
-                        {% endif %}
-                    </div>
-                    <div class="metar-actions">
-                        <button class="btn btn-sm btn-outline" onclick="copyMetar()">📋 Copy</button>
-                        <button class="btn btn-sm btn-outline" onclick="location.reload()">🔄 Refresh</button>
-                        <span class="copy-feedback" id="metarCopyFeedback">Copied!</span>
-                    </div>
-                    <!-- Validation Display -->
-                    <div id="metarValidation"
-                        style="margin-top: 12px; font-size: 0.85rem; font-family: 'Inter', sans-serif;">
-                        <!-- Populated by dashboard.js -->
-                    </div>
-                </div>
-
-                <!-- Decoded Parameters Panel -->
-                <div class="metar-decoded-panel" id="decodedPanel">
-                    <div class="param-card">
-                        <span class="param-label">🌡️ Temperature</span>
-                        <span class="param-value" id="paramTemp">--</span>
-                        <span class="param-unit">°C</span>
-                    </div>
-                    <div class="param-card">
-                        <span class="param-label">💧 Dew Point</span>
-                        <span class="param-value" id="paramDewpoint">--</span>
-                        <span class="param-unit">°C</span>
-                    </div>
-                    <div class="param-card">
-                        <span class="param-label">🌬️ Wind</span>
-                        <span class="param-value" id="paramWind">--</span>
-                        <span class="param-unit" id="paramWindDetail"></span>
-                    </div>
-                    <div class="param-card">
-                        <span class="param-label">👁️ Visibility</span>
-                        <span class="param-value" id="paramVis">--</span>
-                        <span class="param-unit" id="paramVisUnit">m</span>
-                        <div class="vis-bar">
-                            <div class="vis-bar-fill" id="visBar" style="width:100%"></div>
-                        </div>
-                    </div>
-                    <div class="param-card">
-                        <span class="param-label">📊 QNH</span>
-                        <span class="param-value" id="paramQNH">--</span>
-                        <span class="param-unit">hPa</span>
-                    </div>
-                    <div class="param-card">
-                        <span class="param-label">☁️ Cloud</span>
-                        <span class="param-value" id="paramCloud" style="font-size:1.1rem">--</span>
-                        <span class="param-unit" id="paramCloudExtra"></span>
-                    </div>
-                    <div class="param-card">
-                        <span class="param-label">🌩️ Weather</span>
-                        <span class="param-value" id="paramWeather" style="font-size:1.1rem">--</span>
-                    </div>
-                    <div class="param-card">
-                        <span class="param-label">🕐 Obs Time</span>
-                        <span class="param-value" id="paramTime" style="font-size:1.2rem">--:-- UTC</span>
-                    </div>
-                </div>
-
-            </div>
-            {% endif %}
-
-            <!-- ========== MINI TIMELINE (DISABLED) ========== -->
-            <!-- 
-            <div class="card fade-in" style="animation-delay:0.12s">
-                <div class="card-header" style="padding-bottom: 10px; border-bottom: 1px solid rgba(0,0,0,0.05);">
-                    <h3 class="card-title" style="font-size: 1.1rem;"><span class="icon">⏱️</span> METAR Timeline</h3>
-                </div>
-                <div class="timeline-container" style="padding: 15px 0; overflow-x: auto;">
-                    <div id="metarTimeline"
-                        style="display: flex; gap: 10px; font-family: 'JetBrains Mono', monospace; font-size: 0.85rem;">
-                        <span style="color: #64748b;">Loading timeline...</span>
-                    </div>
-                </div>
-            </div>
-            -->
-
-            <!-- ========== QAM & NARRATIVE ========== -->
-            {% if qam %}
-            <div class="grid-2 fade-in" style="animation-delay:0.15s">
-                <div class="card">
-                    <div class="card-header">
-                        <h3 class="card-title"><span class="icon">📄</span> QAM / MET Report</h3>
-                        <div class="flex gap-sm">
-                            <button class="btn btn-sm btn-outline" onclick="copyQam()">📋 Copy</button>
-                        </div>
-                    </div>
-                    <pre class="qam-display" id="qamDisplay">{{ qam }}</pre>
-                    <span class="copy-feedback" id="qamCopyFeedback">Copied!</span>
-                </div>
-                <div class="card">
-                    <div class="card-header">
-                        <h3 class="card-title"><span class="icon">📝</span> Narasi Cuaca</h3>
-                    </div>
-                    <div class="narrative-display" id="narrativeDisplay">{{ narrative }}</div>
-                </div>
-            </div>
-            {% endif %}
-
-            <!-- ========== WIND SECTION ========== -->
-            <div class="grid-2 fade-in" style="animation-delay:0.2s">
-                <div class="card">
-                    <div class="card-header">
-                        <h3 class="card-title"><span class="icon">🧭</span> Wind Compass</h3>
-                        <button class="btn btn-sm btn-outline" onclick="downloadChart('windCompassChart')">📥
-                            Download</button>
-                    </div>
-                    <div id="windCompassChart" style="height:400px;"></div>
-                </div>
-
-                <div class="card flex flex-col">
-                    <div class="card-header">
-                        <h3 class="card-title"><span class="icon">🧭</span> Wind Rose (24 Hours)</h3>
-                        <div class="flex items-center gap-sm">
-                            <span id="windrose24h-badge" class="badge"
-                                style="background-color: #3b82f6; color: white;">Loading...</span>
-                            <button class="btn btn-sm btn-outline" onclick="downloadChart('windRose24h')">📥
-                                Download</button>
-                        </div>
-                    </div>
-                    <div id="windRose24h" style="height:400px;"></div>
-                    <div id="windrose24h-info"
-                        style="padding: 10px 16px; font-size: 0.85rem; color: var(--text-secondary); border-top: 1px solid var(--border-color);">
-                        Fetching 24h wind data from Sheets...
-                    </div>
-                </div>
-            </div>
-
-            <div class="card fade-in" style="animation-delay:0.25s">
-                <div class="card-header">
-                    <h3 class="card-title"><span class="icon">🧭</span> Wind Rose (Previous Month)</h3>
-                    <div class="flex items-center gap-sm">
-                        <span id="windroseMonth-badge" class="badge"
-                            style="background-color: #059669; color: white;">Loading...</span>
-                        <button class="btn btn-sm btn-outline" onclick="downloadChart('windRoseMonth')">📥
-                            Download</button>
-                    </div>
-                </div>
-                <div id="windRoseMonth" style="height:500px;"></div>
-                <div id="windroseMonth-info"
-                    style="padding: 10px 16px; font-size: 0.85rem; color: var(--text-secondary); border-top: 1px solid var(--border-color);">
-                    Fetching monthly data from Google Sheets...
-                </div>
-            </div>
-
-            <!-- ========== CROSSWIND CALCULATOR ========== -->
-            <div class="card crosswind-card fade-in" style="animation-delay:0.25s">
-                <div class="card-header">
-                    <h3 class="card-title"><span class="icon">✈️</span> Runway Crosswind Calculator</h3>
-                </div>
-                <div class="runway-selector" id="runwaySelector">
-                    <button class="runway-btn active" data-heading="100" onclick="selectRunway(this, 100)">RWY
-                        10</button>
-                    <button class="runway-btn" data-heading="280" onclick="selectRunway(this, 280)">RWY 28</button>
-                </div>
-                <div class="crosswind-result" id="crosswindResult">
-                    <div class="xwind-item xw-safe">
-                        <div class="xw-label">Headwind</div>
-                        <div class="xw-value" id="xwHead">-- kt</div>
-                        <span class="xw-status" id="xwHeadStatus">--</span>
-                    </div>
-                    <div class="xwind-item xw-safe">
-                        <div class="xw-label">Crosswind</div>
-                        <div class="xw-value" id="xwCross">-- kt</div>
-                        <span class="xw-status" id="xwCrossStatus">--</span>
-                    </div>
-                    <div class="xwind-item xw-safe">
-                        <div class="xw-label">Tailwind</div>
-                        <div class="xw-value" id="xwTail">-- kt</div>
-                        <span class="xw-status" id="xwTailStatus">--</span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- ========== THUNDERSTORM MODULE ========== -->
-            <div class="card ts-module fade-in" style="animation-delay:0.3s">
-                <div class="card-header">
-                    <h3 class="card-title"><span class="icon">🌩️</span> Thunderstorm Detection</h3>
-                </div>
-                <div class="ts-status clear" id="tsStatus">
-                    <span>✅</span> No Thunderstorm Detected
-                </div>
-                <div class="grid-2">
-                    <div class="text-center">
-                        <div class="ts-radar" id="tsRadar">
-                            <div class="airport-dot"></div>
-                        </div>
-                        <p class="text-muted mt-sm" style="font-size:0.8rem">Radar Visualization</p>
-                    </div>
-                    <div class="ts-params" id="tsParams">
-                        <div class="ts-param-item">
-                            <span class="ts-key">CB Cloud</span>
-                            <span class="ts-val" id="tsCB">--</span>
-                        </div>
-                        <div class="ts-param-item">
-                            <span class="ts-key">TS in METAR</span>
-                            <span class="ts-val" id="tsInMetar">--</span>
-                        </div>
-                        <div class="ts-param-item">
-                            <span class="ts-key">Lightning</span>
-                            <span class="ts-val" id="tsLightning">--</span>
-                        </div>
-                        <div class="ts-param-item">
-                            <span class="ts-key">Status</span>
-                            <span class="ts-val" id="tsStatusText">Clear</span>
-                        </div>
-                    </div>
-                </div>
-                <p class="text-muted mt-md" style="font-size:0.8rem" id="tsLastUpdate">Last Update: --</p>
-            </div>
-
-            <!-- ========== CHARTS ========== -->
-            <div class="card chart-card fade-in" style="animation-delay:0.35s">
-                <div class="card-header">
-                    <h3 class="card-title"><span class="icon">🌡️</span> Temperature Trend</h3>
-                    <button class="btn btn-sm btn-outline" onclick="downloadChart('tempChart')">📥 Download</button>
-                </div>
-                <div class="chart-container">
-                    <canvas id="tempChart"></canvas>
-                </div>
-                <div id="tempChart-info"
-                    style="padding: 10px 16px; font-size: 0.85rem; color: var(--text-secondary); border-top: 1px solid var(--border-color);">
-                    {% if history_start %}{{ history_start }} to {{ history_end }} • {{ history_count }} records (from
-                    {{ history_source }}){% else %}Loading temperature trend data...{% endif %}
-                </div>
-            </div>
-
-            <div class="card chart-card fade-in" style="animation-delay:0.38s">
-                <div class="card-header">
-                    <h3 class="card-title"><span class="icon">📊</span> Pressure (QNH) Trend</h3>
-                    <button class="btn btn-sm btn-outline" onclick="downloadChart('pressureChart')">📥 Download</button>
-                </div>
-                <div class="chart-container">
-                    <canvas id="pressureChart"></canvas>
-                </div>
-                <div id="pressureChart-info"
-                    style="padding: 10px 16px; font-size: 0.85rem; color: var(--text-secondary); border-top: 1px solid var(--border-color);">
-                    {% if history_start %}{{ history_start }} to {{ history_end }} • {{ history_count }} records (from
-                    {{ history_source }}){% else %}Loading pressure trend data...{% endif %}
-                </div>
-            </div>
-
-            <div class="card chart-card fade-in" style="animation-delay:0.4s">
-                <div class="card-header">
-                    <h3 class="card-title"><span class="icon">💨</span> Wind Speed Trend</h3>
-                    <button class="btn btn-sm btn-outline" onclick="downloadChart('windChart')">📥 Download</button>
-                </div>
-                <div class="chart-container">
-                    <canvas id="windChart"></canvas>
-                </div>
-                <div id="windChart-info"
-                    style="padding: 10px 16px; font-size: 0.85rem; color: var(--text-secondary); border-top: 1px solid var(--border-color);">
-                    {% if history_start %}{{ history_start }} to {{ history_end }} • {{ history_count }} records (from
-                    {{ history_source }}){% else %}Loading wind trend data...{% endif %}
-                </div>
-            </div>
-
-            <!-- ========== HISTORY TABLE ========== -->
-            <div class="card fade-in" style="animation-delay:0.45s">
-                <div class="card-header">
-                    <h3 class="card-title"><span class="icon">📋</span> Last 20 Records</h3>
-                    <span class="text-muted" style="font-size:0.8rem">Updated: <span id="lastSaved">{{ last_saved
-                            }}</span></span>
-                </div>
-                <div class="data-table-container">
-                    <table class="data-table">
-                        <thead>
-                            <tr>
-                                <th>Time</th>
-                                <th>Station</th>
-                                <th>METAR</th>
-                            </tr>
-                        </thead>
-                        <tbody id="historyTableBody">
-                            {% if has_history %}
-                            {% for index, row in history.iloc[::-1].iterrows() %}
-                            <tr>
-                                <td>{{ row['time'] }}</td>
-                                <td>{{ row['station'] }}</td>
-                                <td class="metar-cell">{{ row['metar'] }}</td>
-                            </tr>
-                            {% endfor %}
+<!-- ========== HISTORY TABLE ========== -->
+<div class="card fade-in" style="animation-delay:0.22s">
+    <div class="card-header">
+        <h3 class="card-title"><span class="icon">📋</span> Records Today ({{ current_day }})</h3>
+        <span class="text-muted" style="font-size:0.8rem">Updated: <span id="lastSaved">{{ last_saved
+                }}</span></span>
+    </div>
+    <div class="card-body history-card-body">
+        <div class="data-table-container">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th class="col-time">Time</th>
+                        <th class="col-station">Station</th>
+                        <th class="col-metar">METAR Data</th>
+                        <th class="col-status">Status</th>
+                    </tr>
+                </thead>
+                <tbody id="historyTableBody">
+                    {% if has_history %}
+                    {% for index, row in history.iloc[::-1].iterrows() %}
+                    <tr>
+                        <td class="col-time">{{ row['time'] }}</td>
+                        <td class="col-station">{{ row['station'] }}</td>
+                        <td class="metar-cell col-metar">{{ row['metar'] }}</td>
+                        <td class="col-status">
+                            {% if ',' in row['metar'] %}
+                            <div class="metar-status-indicator metar-status-invalid">
+                                <span class="metar-status-icon">🔴</span>
+                                <span>ERROR</span>
+                                <div class="metar-status-tooltip">
+                                    <div class="tooltip-title"><span>⚠️</span><span>Data Anomali Terdeteksi</span></div>
+                                    <div class="tooltip-desc">Data METAR mengandung karakter tidak valid (koma).</div>
+                                    <div class="tooltip-error">Anomali ditemukan dalam string data</div>
+                                </div>
+                            </div>
+                            {% elif ' COR ' in row['metar'] or 'CCA' in row['metar'] %}
+                            <div class="metar-status-indicator metar-status-cor">
+                                <span class="metar-status-icon">🟠</span>
+                                <span>COR</span>
+                                <div class="metar-status-tooltip">
+                                    <div class="tooltip-title"><span>🔄</span><span>Koreksi (COR)</span></div>
+                                    <div class="tooltip-desc">Laporan koreksi terhadap METAR sebelumnya.</div>
+                                </div>
+                            </div>
+                            {% elif ' AMD ' in row['metar'] %}
+                            <div class="metar-status-indicator metar-status-amd">
+                                <span class="metar-status-icon">🔵</span>
+                                <span>AMD</span>
+                                <div class="metar-status-tooltip">
+                                    <div class="tooltip-title"><span>📝</span><span>Amandemen (AMD)</span></div>
+                                    <div class="tooltip-desc">Perubahan/amandemen terhadap laporan sebelumnya.</div>
+                                </div>
+                            </div>
+                            {% elif 'SPECI' in row['metar'] %}
+                            <div class="metar-status-indicator metar-status-speci">
+                                <span class="metar-status-icon">🟡</span>
+                                <span>SPECI</span>
+                                <div class="metar-status-tooltip">
+                                    <div class="tooltip-title"><span>📡</span><span>Laporan Khusus (SPECI)</span></div>
+                                    <div class="tooltip-desc">Laporan cuaca khusus di luar jadwal rutin.</div>
+                                </div>
+                            </div>
+                            {% elif row['status_minute']|default(-1)|int != 0 and row['status_minute']|default(-1)|int != 30 and row['status_minute']|default(-1)|int >= 0 %}
+                            <div class="metar-status-indicator metar-status-speci">
+                                <span class="metar-status-icon">🟡</span>
+                                <span>SPECI</span>
+                                <div class="metar-status-tooltip">
+                                    <div class="tooltip-title"><span>📡</span><span>Laporan Khusus (SPECI)</span></div>
+                                    <div class="tooltip-desc">Data masuk pada menit :{{ '%02d'|format(row['status_minute']|int) }}, di luar kelipatan 30 menit.</div>
+                                </div>
+                            </div>
                             {% else %}
-                            <tr>
-                                <td colspan="3" class="text-center text-muted">No data available</td>
-                            </tr>
+                            <div class="metar-status-indicator metar-status-normal">
+                                <span class="metar-status-icon">🟢</span>
+                                <span>METAR</span>
+                                <div class="metar-status-tooltip">
+                                    <div class="tooltip-title"><span>✓</span><span>Data Normal</span></div>
+                                    <div class="tooltip-desc">Laporan cuaca rutin sesuai jadwal standar (kelipatan 30 menit).</div>
+                                </div>
+                            </div>
                             {% endif %}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
-        </main>
-
-    </div>
-
-    <!-- Toast Container -->
-    <div class="toast-container" id="toastContainer"></div>
-
-    <script>
-        const STATION = "{{ station }}";
-    </script>
-
-    <script src="{{ url_for('static', filename='dashboard.js') }}"></script>
-
-    <!-- ============================================
-         FLOATING HELP BUTTON & MODAL
-         ============================================ -->
-    <button class="help-fab" id="helpFab" onclick="toggleHelpModal()" title="Bantuan Penggunaan">
-        <span class="help-fab-icon">❓</span>
-        <span class="help-fab-text">Bantuan</span>
-    </button>
-
-    <!-- Help Modal Overlay -->
-    <div class="help-modal-overlay" id="helpModalOverlay" onclick="closeHelpModal()"></div>
-
-    <!-- Help Modal Content -->
-    <div class="help-modal" id="helpModal">
-        <div class="help-modal-header">
-            <div class="help-modal-title">
-                <span class="help-logo">📡</span>
-                <div>
-                    <h3>PANDUAN METAR DASHBOARD</h3>
-                    <small>Weather Observation & METAR Processing</small>
-                </div>
-            </div>
-            <button class="help-modal-close" onclick="closeHelpModal()">✕</button>
-        </div>
-
-        <div class="help-modal-body">
-            <!-- Section 1: Apa itu METAR Dashboard? -->
-            <div class="help-section">
-                <h4 class="help-section-title">
-                    <span class="help-icon">💡</span>
-                    Apa itu METAR Dashboard?
-                </h4>
-                <p class="help-text">
-                    <strong>METAR Auto Dashboard</strong> merupakan platform pengolahan data cuaca penerbangan (METAR)
-                    yang terintegrasi dengan sistem BMKG. Dashboard ini dirancang untuk menyediakan informasi
-                    cuaca bandara secara <em>real-time</em> bagi operasional penerbangan dan prakira cuaca,
-                    menggabungkan data METAR, analisis visual, dan peringatan dini dalam satu tampilan interaktif.
-                </p>
-            </div>
-
-            <!-- Section 2: Fitur Utama -->
-            <div class="help-grid">
-                <!-- Data METAR -->
-                <div class="help-card">
-                    <h5 class="help-card-title">
-                        <span class="help-icon">📡</span>
-                        Data METAR Real-time
-                    </h5>
-                    <ul class="help-list">
-                        <li>Pengambilan data otomatis dari NOAA setiap 30 menit</li>
-                        <li>Highlight sintaks METAR dengan warna kategori</li>
-                        <li>Validasi format METAR 10 grup standar ICAO</li>
-                        <!-- <li>Deteksi otomatis kode COR, AMD, dan SPECI</li> -->
-                    </ul>
-                </div>
-
-                <!-- Visualisasi -->
-                <div class="help-card">
-                    <h5 class="help-card-title">
-                        <span class="help-icon">📊</span>
-                        Visualisasi Data
-                    </h5>
-                    <ul class="help-list">
-                        <li>Grafik trend suhu, tekanan, dan angin</li>
-                        <li>Wind Compass arah angin real-time</li>
-                        <li>Wind Rose 24 jam & bulanan</li>
-                        <li>Crosswind Calculator untuk runway</li>
-                    </ul>
-                </div>
-
-                <!-- Peringatan -->
-                <div class="help-card">
-                    <h5 class="help-card-title">
-                        <span class="help-icon">🚨</span>
-                        Sistem Peringatan
-                    </h5>
-                    <ul class="help-list">
-                        <li>Alert suara untuk visibility < 3000m</li>
-                        <li>Deteksi thunderstorm (TS, TSRA, CB)</li>
-                        <li>Notifikasi perubahan cuaca signifikan</li>
-                        <li>Status warna: Hijau (aman), Kuning (waspada), Merah (bahaya)</li>
-                    </ul>
-                </div>
-
-                <!-- Tools -->
-                <div class="help-card">
-                    <h5 class="help-card-title">
-                        <span class="help-icon">🛠️</span>
-                        Tools & Utilitas
-                    </h5>
-                    <ul class="help-list">
-                        <li>QAM Generator (MET Report format)</li>
-                        <li>Narasi cuaca otomatis (Bahasa Indonesia)</li>
-                        <li>Manual METAR Parser</li>
-                        <li>Export data ke CSV dan Google Sheets</li>
-                    </ul>
-                </div>
-            </div>
-
-            <!-- Section 3: Cara Penggunaan -->
-            <div class="help-section">
-                <h4 class="help-section-title">
-                    <span class="help-icon">🔧</span>
-                    Cara Penggunaan
-                </h4>
-                <div class="help-usage-grid">
-                    <div class="help-usage-item">
-                        <span class="help-step">1</span>
-                        <div>
-                            <strong>Pilih Stasiun</strong>
-                            <p>Masukkan kode ICAO (default: WARR untuk Juanda) di form atas</p>
-                        </div>
-                    </div>
-                    <div class="help-usage-item">
-                        <span class="help-step">2</span>
-                        <div>
-                            <strong>Aktifkan Sound</strong>
-                            <p>Klik tombol 🔇 Sound untuk enable notifikasi suara</p>
-                        </div>
-                    </div>
-                    <div class="help-usage-item">
-                        <span class="help-step">3</span>
-                        <div>
-                            <strong>Monitor Status</strong>
-                            <p>Perhatikan warna panel: Hijau (aman), Merah (bahaya)</p>
-                        </div>
-                    </div>
-                    <div class="help-usage-item">
-                        <span class="help-step">4</span>
-                        <div>
-                            <strong>Analisis Wind</strong>
-                            <p>Gunakan Wind Rose & Crosswind Calculator untuk operasional</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Section 4: Kontrol -->
-            <div class="help-section">
-                <h4 class="help-section-title">
-                    <span class="help-icon">🎛️</span>
-                    Kontrol & Navigasi
-                </h4>
-                <div class="help-controls">
-                    <div class="help-control-item">
-                        <span class="help-key">☰</span>
-                        <span>Toggle Sidebar (collapse/expand menu)</span>
-                    </div>
-                    <div class="help-control-item">
-                        <span class="help-key">🌙</span>
-                        <span>Dark/Light Mode (ubah tema tampilan)</span>
-                    </div>
-                    <div class="help-control-item">
-                        <span class="help-key">🔊</span>
-                        <span>Sound ON/OFF (aktifkan alarm)</span>
-                    </div>
-                    <div class="help-control-item">
-                        <span class="help-key">⏻</span>
-                        <span>Toggle System (pause/resume auto-fetch)</span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Section 5: Keterangan Status -->
-            <div class="help-section">
-                <h4 class="help-section-title">
-                    <span class="help-icon">🚦</span>
-                    Keterangan Status & Badge
-                </h4>
-                <div class="help-badges">
-                    <span class="help-badge badge-metar">🟢 METAR</span>
-                    <span class="help-badge badge-cor">🟡 COR</span>
-                    <span class="help-badge badge-amd">🔵 AMD</span>
-                    <span class="help-badge badge-speci">🔴 SPECI</span>
-                </div>
-                <p class="help-text-small">
-                    <strong>METAR</strong>: Laporan rutin | <strong>COR</strong>: Koreksi |
-                    <strong>AMD</strong>: Amandemen | <strong>SPECI</strong>: Laporan khusus (cuaca berubah signifikan)
-                </p>
-            </div>
-        </div>
-
-        <div class="help-modal-footer">
-            <span>© 2026 Stasiun Meteorologi Kelas I Juanda Sidoarjo</span>
-            <button class="btn btn-sm btn-primary" onclick="closeHelpModal()">Tutup</button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    {% else %}
+                    <tr>
+                        <td colspan="4" class="text-center text-muted">No records available for today</td>
+                    </tr>
+                    {% endif %}
+                </tbody>
+            </table>
         </div>
     </div>
+</div>
 
-</body>
+{% endblock %}
 
-</html>
+{% block extra_scripts_bottom %}
+<!-- We inject the initial chart data rendered from the server -->
+{% if has_history %}
+<!-- Data Storage for Charts -->
+<div id="chart-data-store" style="display: none;" data-labels='{{ labels | tojson | safe }}'
+    data-temps='{{ temps | tojson | safe }}' data-pressures='{{ pressures | tojson | safe }}'
+    data-winds='{{ winds | tojson | safe }}' data-gusts='{{ gusts | tojson | safe }}'></div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        console.log("[DASHBOARD] Initializing all-in-one components");
+
+        // 1. Initial Trends Render
+        const chartStore = document.getElementById('chart-data-store');
+        if (chartStore) {
+            try {
+                const labels = JSON.parse(chartStore.getAttribute('data-labels'));
+                const temps = JSON.parse(chartStore.getAttribute('data-temps'));
+                const pressures = JSON.parse(chartStore.getAttribute('data-pressures'));
+                const winds = JSON.parse(chartStore.getAttribute('data-winds'));
+                const gusts = JSON.parse(chartStore.getAttribute('data-gusts'));
+
+                if (typeof updateCharts === 'function' && labels && labels.length > 0) {
+                    setTimeout(() => {
+                        updateCharts(labels, temps, pressures, winds, gusts);
+                    }, 300);
+                }
+            } catch (e) {
+                console.error("Error parsing trend data:", e);
+            }
+        }
+
+        // 2. Initial Wind Analysis
+        const windStore = document.getElementById("wind-data-store");
+        if (windStore && typeof updateWindCompass === 'function') {
+            try {
+                const latestStr = windStore.getAttribute("data-latest");
+                const recentStr = windStore.getAttribute("data-recent");
+
+                if (latestStr && latestStr !== "{}") {
+                    const parsedLatest = JSON.parse(latestStr);
+                    if (parsedLatest && parsedLatest.speed !== undefined) {
+                        let recentArr = [];
+                        if (recentStr && recentStr !== "[]") {
+                            recentArr = JSON.parse(recentStr);
+                            window.recentWinds = recentArr.map(w => ({
+                                dir: parseFloat(w.dir),
+                                speed: parseFloat(w.speed),
+                                timestamp: w.timestamp
+                            }));
+                        }
+                        updateWindCompass({
+                            wind_direction: parsedLatest.dir,
+                            wind_speed: parsedLatest.speed
+                        }, "{{ station }}");
+                    }
+                }
+            } catch (e) {
+                console.error("Error setting wind data:", e);
+            }
+        }
+
+        // 3. Load Wind Rose
+        if (typeof loadWindRose === 'function') {
+            setTimeout(() => {
+                loadWindRose("{{ station }}");
+            }, 600);
+        }
+
+        // 4. Final Sync for tools/weather
+        if (window.lastKnownMetar && typeof updateDOM === 'function') {
+            updateDOM(window.lastKnownMetar, "{{ station }}");
+        }
+    });
+</script>
+{% endif %}
+{% endblock %}

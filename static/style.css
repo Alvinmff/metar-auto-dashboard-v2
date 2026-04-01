@@ -204,7 +204,7 @@ a:hover {
 }
 
 .header-logo {
-  height: 42px;
+  height: 50px;
   width: auto;
   object-fit: contain;
 }
@@ -1429,29 +1429,26 @@ button.sidebar-link {
 /* ============================================= */
 
 .data-table {
-  width: 100%;
-  border-collapse: separate;
-  border-spacing: 0;
+  width: auto;
+  min-width: auto;
+  border-collapse: collapse; /* Better alignment for lines */
+  margin: 0 auto;
 }
 
 .data-table thead th {
   background: var(--bmkg-primary);
-  color: var(--text-on-primary);
+  color: #fbbf24; /* BMKG Gold for better visibility on dark blue */
   font-weight: 700;
-  font-size: 0.8rem;
+  font-size: 0.72rem;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
-  padding: 14px 16px;
-  text-align: left;
-  border: none;
-}
-
-.data-table thead th:first-child {
-  border-radius: var(--radius-md) 0 0 0;
+  letter-spacing: 0.8px;
+  padding: 10px 12px;
+  text-align: center; /* Centered headers over content */
+  border-right: 1px solid rgba(255, 255, 255, 0.05); /* Subtle vertical lines */
 }
 
 .data-table thead th:last-child {
-  border-radius: 0 var(--radius-md) 0 0;
+  border-right: none;
 }
 
 .data-table tbody tr {
@@ -1463,15 +1460,234 @@ button.sidebar-link {
 }
 
 .data-table tbody td {
-  padding: 12px 16px;
+  padding: 6px 12px;
   border-bottom: 1px solid var(--border-color-light);
-  font-size: 0.88rem;
+  font-size: 0.81rem;
   color: var(--text-primary);
+  text-align: left;
 }
 
 .data-table tbody td.metar-cell {
   font-family: 'JetBrains Mono', monospace;
   font-size: 0.82rem;
+  text-align: left; /* Ensure METAR data is left-aligned */
+}
+
+/* Column widths - adjusted for compact left-aligned layout */
+.col-time {
+  width: 190px;
+  min-width: 190px;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.col-station {
+  width: 70px;
+  min-width: 70px;
+  text-align: left;
+}
+
+.col-metar {
+  width: auto; /* Let METAR column expand naturally */
+  min-width: 300px;
+  text-align: left;
+}
+
+.col-status {
+  width: 120px;
+  min-width: 120px;
+  text-align: center; /* Center badges in their column */
+}
+
+/* Container adjustments */
+.data-table-container {
+  max-width: fit-content;
+  min-width: auto;
+  overflow: visible; /* Prevent tooltip clipping! */
+  border-radius: var(--radius-md);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  margin: 0 auto;
+}
+
+.history-card-body .data-table-container {
+  max-width: fit-content;
+  margin: 20px auto;
+  padding: 0; /* Let table touching container edges for clean fit */
+}
+
+/* ============================================= */
+/* METAR STATUS INDICATORS                       */
+/* ============================================= */
+
+.metar-status-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  cursor: help;
+  position: relative;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.metar-status-indicator:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+/* Status: Normal (METAR) */
+.metar-status-normal {
+  background: #ECFDF5;
+  color: #065F46;
+  border: 1px solid #A7F3D0;
+}
+
+[data-theme="dark"] .metar-status-normal {
+  background: rgba(5, 150, 105, 0.2);
+  color: #34D399;
+  border-color: rgba(5, 150, 105, 0.4);
+}
+
+/* Status: SPECI (Intermediate) */
+.metar-status-speci {
+  background: #FEF3C7;
+  color: #92400E;
+  border: 1px solid #FDE68A;
+  animation: pulseSpeci 2s ease-in-out infinite;
+}
+
+[data-theme="dark"] .metar-status-speci {
+  background: rgba(245, 158, 11, 0.2);
+  color: #FBBF24;
+  border-color: rgba(245, 158, 11, 0.4);
+}
+
+@keyframes pulseSpeci {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4); }
+  50% { box-shadow: 0 0 0 4px rgba(245, 158, 11, 0); }
+}
+
+/* Status: COR (Correction) */
+.metar-status-cor {
+  background: #FFF7ED;
+  color: #9A3412;
+  border: 1px solid #FED7AA;
+}
+
+[data-theme="dark"] .metar-status-cor {
+  background: rgba(249, 115, 22, 0.2);
+  color: #FB923C;
+  border-color: rgba(249, 115, 22, 0.4);
+}
+
+/* Status: AMD (Amendment) */
+.metar-status-amd {
+  background: #EFF6FF;
+  color: #1E40AF;
+  border: 1px solid #BFDBFE;
+}
+
+[data-theme="dark"] .metar-status-amd {
+  background: rgba(59, 130, 246, 0.2);
+  color: #60A5FA;
+  border-color: rgba(59, 130, 246, 0.4);
+}
+
+/* Status: Invalid/Error */
+.metar-status-invalid {
+  background: #FEE2E2;
+  color: #991B1B;
+  border: 1px solid #FECACA;
+  animation: shake 0.5s ease-in-out;
+}
+
+[data-theme="dark"] .metar-status-invalid {
+  background: rgba(220, 38, 38, 0.2);
+  color: #F87171;
+  border-color: rgba(220, 38, 38, 0.4);
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-2px); }
+  75% { transform: translateX(2px); }
+}
+
+/* Status Icons */
+.metar-status-icon {
+  font-size: 0.9rem;
+}
+
+/* ============================================= */
+/* TOOLTIP FOR METAR STATUS                      */
+/* ============================================= */
+
+.metar-status-tooltip {
+  position: absolute;
+  bottom: 100%;
+  right: 0; /* Align to the right of the cell, expand left to prevent clipping */
+  transform: translateY(-8px);
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  font-size: 0.8rem;
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: normal;
+  white-space: normal;
+  max-width: 280px;
+  min-width: 200px;
+  box-shadow: var(--shadow-lg);
+  border: 1px solid var(--border-color);
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.2s ease;
+  z-index: 100;
+  pointer-events: none;
+}
+
+.metar-status-tooltip::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  right: 20px; /* Adjust arrow to be on the right side of the tooltip */
+  border: 6px solid transparent;
+  border-top-color: var(--bg-surface);
+}
+
+.metar-status-indicator:hover .metar-status-tooltip {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(-4px);
+}
+
+.metar-status-tooltip .tooltip-title {
+  font-weight: 700;
+  margin-bottom: 4px;
+  color: var(--bmkg-primary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.metar-status-tooltip .tooltip-desc {
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.metar-status-tooltip .tooltip-error {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border-color-light);
+  color: var(--bmkg-danger);
+  font-size: 0.75rem;
+  font-family: 'JetBrains Mono', monospace;
 }
 
 /* ============================================= */
@@ -1754,7 +1970,7 @@ body.low-visibility .chart-card {
   }
 
   .header-logo {
-    height: 28px;
+    height: 34px;
   }
 
   .header-title h1 {
@@ -3263,6 +3479,7 @@ body.fog-active .rain-indicator.active {
    MOBILE OVERRIDES (Indicators at Bottom Center)
    ============================================ */
 @media (max-width: 768px) {
+
   .fog-indicator,
   .rain-indicator {
     top: auto !important;
@@ -3287,6 +3504,7 @@ body.fog-active .rain-indicator.active {
   /* When BOTH fog and rain are active on mobile, 
      stack rain badge ABOVE fog (offset upward) */
   body.fog-active .rain-indicator.active {
-    bottom: 60px; /* Adjusted slightly for smaller indicator height */
+    bottom: 60px;
+    /* Adjusted slightly for smaller indicator height */
   }
 }

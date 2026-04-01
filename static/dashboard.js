@@ -436,6 +436,11 @@ function updateDecodedPanel(raw) {
         if (detailEl) detailEl.textContent = gustText;
 
         updateCrosswind();
+        
+        // Real-time update for Wind Compass if on page
+        if (typeof updateWindCompassDisplay === 'function') {
+            updateWindCompassDisplay(currentWindDir, currentWindSpeed);
+        }
     }
 
     // Extract visibility
@@ -1333,7 +1338,6 @@ function createWindChart() {
 // FETCH & UPDATE CHARTS
 // =======================
 async function loadHistory() {
-    if (!document.getElementById('tempChart')) return;
     console.log('[CHART] Requesting history update...');
     try {
         const res = await fetch('/api/metar/history');
@@ -1392,9 +1396,35 @@ async function loadHistory() {
 }
 
 // Alias for compatibility
-function updateCharts() {
-    loadHistory();
+function updateCharts(labels, temps, pressures, winds, gusts) {
+    if (labels && temps) {
+        // Initial manual load from template data
+        if (!tempChart && document.getElementById('tempChart')) createCharts();
+        if (!windChart && document.getElementById('windChart')) createWindChart();
+        
+        if (tempChart) {
+            tempChart.data.labels = labels;
+            tempChart.data.datasets[0].data = temps;
+            tempChart.update();
+        }
+        if (pressureChart) {
+            pressureChart.data.labels = labels;
+            pressureChart.data.datasets[0].data = pressures;
+            pressureChart.update();
+        }
+        if (windChart) {
+            windChart.data.labels = labels;
+            windChart.data.datasets[0].data = winds;
+            if (windChart.data.datasets[1] && gusts) {
+                windChart.data.datasets[1].data = gusts;
+            }
+            windChart.update();
+        }
+    } else {
+        loadHistory();
+    }
 }
+window.updateCharts = updateCharts;
 
 // =======================
 // FETCH METAR DATA
@@ -1402,40 +1432,166 @@ function updateCharts() {
 // 🗑️ fetchMetar() removed - replaced by pollLatestData() for consistency
 
 // =======================
+// METAR STATUS INDICATOR SYSTEM
+// =======================
+
+/**
+ * Determine METAR status based on data characteristics.
+ * Logic:
+ *   - COR/CCA in raw string → Correction
+ *   - AMD in raw string → Amendment
+ *   - Contains comma → Invalid/Anomaly
+ *   - Minute not on :00 or :30 → SPECI (intermediate)
+ *   - Otherwise → Normal METAR
+ */
+function getMetarStatus(rawMetar, fullTime) {
+    const raw = rawMetar || '';
+
+    // 1. Check for anomaly (contains comma)
+    if (raw.includes(',')) {
+        return {
+            type: 'invalid',
+            label: 'ERROR',
+            pillIcon: '🔴',
+            icon: '⚠️',
+            title: 'Data Anomali Terdeteksi',
+            description: 'Data METAR mengandung karakter tidak valid (koma).',
+            errorDetail: `Anomali ditemukan dalam string data`
+        };
+    }
+
+    // 2. Check for COR (Correction)
+    if (raw.includes(' COR ') || raw.startsWith('METAR COR') || raw.includes('CCA') || raw.includes(' CCA ')) {
+        return {
+            type: 'cor',
+            label: 'COR',
+            pillIcon: '🟠',
+            icon: '🔄',
+            title: 'Koreksi (COR)',
+            description: 'Laporan koreksi terhadap METAR sebelumnya.',
+            errorDetail: null
+        };
+    }
+
+    // 3. Check for AMD (Amendment)
+    if (raw.includes(' AMD ') || raw.startsWith('METAR AMD')) {
+        return {
+            type: 'amd',
+            label: 'AMD',
+            pillIcon: '🔵',
+            icon: '📝',
+            title: 'Amandemen (AMD)',
+            description: 'Perubahan/amandemen terhadap laporan sebelumnya.',
+            errorDetail: null
+        };
+    }
+
+    // 4. Extract minute from the METAR time group (DDHHMMz)
+    let minute = -1;
+    const timeGroupMatch = raw.match(/\b\d{6}Z\b/);
+    if (timeGroupMatch) {
+        minute = parseInt(timeGroupMatch[0].substring(4, 6), 10);
+    } else if (fullTime) {
+        const timeParts = fullTime.match(/:(\d{2})/);
+        if (timeParts) {
+            minute = parseInt(timeParts[1], 10);
+        }
+    }
+
+    // 5. Check for SPECI keyword in raw string
+    if (raw.includes('SPECI') || raw.startsWith('SPECI ')) {
+        const minuteStr = minute >= 0 ? minute.toString().padStart(2, '0') : '??';
+        return {
+            type: 'speci',
+            label: 'SPECI',
+            pillIcon: '🟡',
+            icon: '📡',
+            title: 'Laporan Khusus (SPECI)',
+            description: `Laporan cuaca khusus di luar jadwal rutin (menit :${minuteStr}).`,
+            errorDetail: null
+        };
+    }
+
+    // 6. Determine based on minute: 0 or 30 = normal, else = SPECI
+    if (minute >= 0 && minute !== 0 && minute !== 30) {
+        const minuteStr = minute.toString().padStart(2, '0');
+        return {
+            type: 'speci',
+            label: 'SPECI',
+            pillIcon: '🟡',
+            icon: '📡',
+            title: 'Laporan Khusus (SPECI)',
+            description: `Laporan cuaca khusus di luar jadwal rutin (menit :${minuteStr}).`,
+            errorDetail: null
+        };
+    }
+
+    // 7. Normal METAR
+    return {
+        type: 'normal',
+        label: 'METAR',
+        pillIcon: '🟢',
+        icon: '✓',
+        title: 'Data Normal',
+        description: 'Laporan cuaca rutin sesuai jadwal standar (kelipatan 30 menit).',
+        errorDetail: null
+    };
+}
+
+/**
+ * Create HTML for status indicator with tooltip
+ */
+function createStatusIndicatorHTML(status) {
+    const tooltipError = status.errorDetail
+        ? `<div class="tooltip-error">${status.errorDetail}</div>`
+        : '';
+
+    return `
+        <div class="metar-status-indicator metar-status-${status.type}">
+            <span class="metar-status-icon">${status.pillIcon}</span>
+            <span>${status.label}</span>
+            <div class="metar-status-tooltip">
+                <div class="tooltip-title">
+                    <span>${status.icon}</span>
+                    <span>${status.title}</span>
+                </div>
+                <div class="tooltip-desc">${status.description}</div>
+                ${tooltipError}
+            </div>
+        </div>
+    `;
+}
+
+// =======================
 // HISTORY TABLE UPDATE
 // =======================
 async function updateHistoryTable() {
     try {
-        const res = await fetch('/api/history');
-        const result = await res.json();
         const tbody = document.getElementById('historyTableBody');
         if (!tbody) return;
+        
+        const res = await fetch('/api/history');
+        const result = await res.json();
 
         tbody.innerHTML = '';
         if (result.data && result.data.length > 0) {
             result.data.forEach((item, i) => {
                 const row = document.createElement('tr');
                 row.style.animation = `fadeIn 0.3s ease-out ${i * 0.03}s both`;
-                let badgeHtml = '';
-                if (item.metar.includes(' COR ') || item.metar.startsWith('METAR COR') || item.metar.includes('CCA') || item.metar.includes(' CCA ')) {
-                    badgeHtml = '<span class="badge badge-cor" style="background-color: #f59e0b; color: #1e293b; margin-left: 6px; font-size: 0.70rem; padding: 2px 6px; vertical-align: middle;">🟡 COR</span>';
-                } else if (item.metar.includes(' AMD ') || item.metar.startsWith('METAR AMD')) {
-                    badgeHtml = '<span class="badge badge-amd" style="background-color: #3b82f6; color: #ffffff; margin-left: 6px; font-size: 0.70rem; padding: 2px 6px; vertical-align: middle;">🔵 AMD</span>';
-                } else if (item.metar.includes(' SPECI ') || item.metar.startsWith('SPECI ')) {
-                    badgeHtml = '<span class="badge badge-speci" style="background-color: #ef4444; color: #ffffff; margin-left: 6px; font-size: 0.70rem; padding: 2px 6px; vertical-align: middle;">🔴 SPECI</span>';
-                } else {
-                    badgeHtml = '<span class="badge badge-metar" style="background-color: #059669; color: #ffffff; margin-left: 6px; font-size: 0.70rem; padding: 2px 6px; vertical-align: middle;">🟢 METAR</span>';
-                }
+
+                const status = getMetarStatus(item.metar, item.full_time);
+                const statusHtml = createStatusIndicatorHTML(status);
 
                 row.innerHTML = `
-                    <td>${item.time}</td>
-                    <td>${item.station}</td>
-                    <td class="metar-cell">${item.metar}${badgeHtml}</td>
+                    <td class="col-time">${item.full_time}</td>
+                    <td class="col-station">${item.station}</td>
+                    <td class="metar-cell col-metar">${item.metar}</td>
+                    <td class="col-status">${statusHtml}</td>
                 `;
                 tbody.appendChild(row);
             });
         } else {
-            tbody.innerHTML = '<tr><td colspan="3" class="text-center text-muted">No data available</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">No records available for today</td></tr>';
         }
     } catch (e) {
         console.error('History table error:', e);
@@ -1528,7 +1684,16 @@ function loadWindCompass() {
 }
 
 function updateWindCompassDisplay(windDir, windSpeed) {
-    if (!windDir && windDir !== 0) return;
+    // Handle object as first argument (for consistency with template initialization)
+    if (typeof windDir === 'object' && windDir !== null) {
+        windSpeed = windDir.wind_speed;
+        windDir = windDir.wind_direction;
+    }
+    
+    if (windDir === undefined || (windDir === null && windDir !== 0)) return;
+    
+    // Check if the container actually exists on this page
+    if (!document.getElementById('windCompassChart')) return;
 
     const dir = windDir === 'VRB' ? 0 : windDir;
     const speed = windSpeed || 0;
@@ -1577,44 +1742,53 @@ function updateWindCompassDisplay(windDir, windSpeed) {
 async function loadWindRose(station = STATION) {
     if (typeof Plotly === 'undefined') return;
     if (!station) return;
+    
+    // Check if we need to render either of the wind roses on this page
+    const has24h = document.getElementById('windRose24h');
+    const hasMonth = document.getElementById('windRoseMonth');
+    if (!has24h && !hasMonth) return;
 
     try {
         // 1. Fetch & Render 24h Wind Rose
-        const res24h = await fetch(`/api/windrose/${station}`);
-        const data24h = await res24h.json();
+        if (has24h) {
+            const res24h = await fetch(`/api/windrose/${station}`);
+            const data24h = await res24h.json();
 
-        renderWindRose('windRose24h', data24h.data, {
-            title: 'Last 24 Hours',
-            colorScale: currentTheme === 'dark'
-                ? [[0, '#4ade80'], [0.5, '#facc15'], [1, '#f87171']]
-                : [[0, '#2E5C8A'], [0.5, '#E8B339'], [1, '#DC2626']]
-        });
+            renderWindRose('windRose24h', data24h.data, {
+                title: 'Last 24 Hours',
+                colorScale: currentTheme === 'dark'
+                    ? [[0, '#4ade80'], [0.5, '#facc15'], [1, '#f87171']]
+                    : [[0, '#2E5C8A'], [0.5, '#E8B339'], [1, '#DC2626']]
+            });
 
-        const badge24h = document.getElementById('windrose24h-badge');
-        const info24h = document.getElementById('windrose24h-info');
-        if (badge24h && data24h.count !== undefined) {
-            badge24h.textContent = `${data24h.count} records`;
-        }
-        if (info24h && data24h.range) {
-            info24h.textContent = `${data24h.range.start} to ${data24h.range.end} • ${data24h.count} records (from ${data24h.source || 'Sheets'})`;
+            const badge24h = document.getElementById('windrose24h-badge');
+            const info24h = document.getElementById('windrose24h-info');
+            if (badge24h && data24h.count !== undefined) {
+                badge24h.textContent = `${data24h.count} records`;
+            }
+            if (info24h && data24h.range) {
+                info24h.textContent = `${data24h.range.start} to ${data24h.range.end} • ${data24h.count} records (from ${data24h.source || 'Sheets'})`;
+            }
         }
 
         // 2. Fetch & Render Monthly Wind Rose
-        const resMonth = await fetch(`/api/windrose-monthly/${station}`);
-        const dataMonth = await resMonth.json();
+        if (hasMonth) {
+            const resMonth = await fetch(`/api/windrose-monthly/${station}`);
+            const dataMonth = await resMonth.json();
 
-        renderWindRose('windRoseMonth', dataMonth.data, {
-            title: `${dataMonth.month_name} ${dataMonth.year}`,
-            colorScale: currentTheme === 'dark'
-                ? [[0, '#10b981'], [0.5, '#facc15'], [1, '#f87171']]
-                : [[0, '#059669'], [0.5, '#E8B339'], [1, '#DC2626']]
-        });
+            renderWindRose('windRoseMonth', dataMonth.data, {
+                title: `${dataMonth.month_name} ${dataMonth.year}`,
+                colorScale: currentTheme === 'dark'
+                    ? [[0, '#10b981'], [0.5, '#facc15'], [1, '#f87171']]
+                    : [[0, '#059669'], [0.5, '#E8B339'], [1, '#DC2626']]
+            });
 
-        const badgeMonth = document.getElementById('windroseMonth-badge');
-        const infoMonth = document.getElementById('windroseMonth-info');
-        if (badgeMonth) badgeMonth.textContent = `${dataMonth.month_name} ${dataMonth.year}`;
-        if (infoMonth) {
-            infoMonth.textContent = `${dataMonth.range.start} to ${dataMonth.range.end} • ${dataMonth.count} records (from Sheets)`;
+            const badgeMonth = document.getElementById('windroseMonth-badge');
+            const infoMonth = document.getElementById('windroseMonth-info');
+            if (badgeMonth) badgeMonth.textContent = `${dataMonth.month_name} ${dataMonth.year}`;
+            if (infoMonth) {
+                infoMonth.textContent = `${dataMonth.range.start} to ${dataMonth.range.end} • ${dataMonth.count} records (from Sheets)`;
+            }
         }
 
     } catch (e) {
@@ -1817,12 +1991,17 @@ document.addEventListener('DOMContentLoaded', function () {
                 initialRaw.innerHTML += ' <span class="badge" style="background-color: #ef4444; color: #ffffff; margin-left: 10px; font-size: 0.75rem; padding: 4px 8px; vertical-align: middle;">⚠️ SPECI</span>';
             }
 
-            updateDecodedPanel(cleanText);
+            updateDOM(cleanText, STATION);
             runMetarValidation(cleanText);
             lastMetarRaw = cleanText;
             alarmState.lastMetarHash = hashMetar(cleanText);
             saveAlarmState();
         }
+    }
+    
+    // For pages that don't have the initial raw text but still need to render widgets based on last state
+    if (!initialRaw && window.lastKnownMetar) {
+        updateDOM(window.lastKnownMetar, STATION);
     }
 
     // Skip background polling and heavy UI initialization if this is a manual session
@@ -2080,12 +2259,34 @@ function deactivateFog() {
     document.body.classList.remove('fog-active');
 }
 
-/**
- * Update fog effect saat data METAR berubah
- */
+// Update fog effect saat data METAR berubah
 function updateFogEffect(data) {
     const rawMetar = data.raw || data.metar || '';
     checkAndActivateFog(rawMetar);
+}
+
+// Global helper to trigger DOM updates on auxiliary pages
+function updateDOM(raw, station) {
+    if (!raw) return;
+    window.lastKnownMetar = raw;
+    
+    // Try updating decoded panels (home) and crosswind (operational tools)
+    if (typeof updateDecodedPanel === 'function') {
+        updateDecodedPanel(raw);
+    }
+    
+    // Try updating thunderstorm panel (weather analysis)
+    if (typeof updateThunderstormModule === 'function') {
+        updateThunderstormModule(raw);
+    }
+
+    // Refresh Historical Charts and Wind Rose
+    if (typeof loadHistory === 'function') {
+        loadHistory();
+    }
+    if (typeof loadWindRose === 'function') {
+        loadWindRose(station);
+    }
 }
 
 // Global expose
@@ -2094,3 +2295,5 @@ window.checkAndActivateFog = checkAndActivateFog;
 window.checkRainStatus = checkRainStatus;
 window.makeItRain = makeItRain;
 window.stopRain = stopRain;
+window.updateDOM = updateDOM;
+window.updateWindCompass = updateWindCompassDisplay;

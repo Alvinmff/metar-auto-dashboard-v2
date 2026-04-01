@@ -1,565 +1,453 @@
-<!DOCTYPE html>
-<html lang="en">
+{% extends "layout.html" %}
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>History — METAR Auto Dashboard</title>
-    <meta name="description" content="METAR History by Date Range - BMKG Aviation Weather">
-    <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/favicon.png') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.plot.ly/plotly-2.30.0.min.js"></script>
-    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/vanta@latest/dist/vanta.fog.min.js"></script>
-</head>
+{% block title %}History Search — METAR Auto Dashboard{% endblock %}
 
-<body>
+{% block header_station_text %}
+<span class="station-code">History</span>
+<span class="station-name">By Date</span>
+{% endblock %}
 
-    <div class="rain front-row" id="rainFront"></div>
-    <div class="rain back-row" id="rainBack"></div>
+{% block nav_active_history %}active{% endblock %}
 
-
-    <audio id="lowVisSound" src="{{ url_for('static', filename='alarm.mp3') }}" preload="auto"></audio>
-    <audio id="newDataSound" src="{{ url_for('static', filename='notify.mp3') }}" preload="auto"></audio>
-
-    <!-- ============================================
-         FOG / MIST / HAZE EFFECT CONTAINER
-         ============================================ -->
-    <div class="fog-container" id="fogContainer"></div>
-    
-    <!-- Fog Indicator Badge -->
-    <div class="fog-indicator" id="fogIndicator">
-        <span class="fog-indicator-icon">🌫️</span>
-        <span class="fog-indicator-text" id="fogIndicatorText">FOG DETECTED</span>
+{% block content %}
+<!-- Search Form -->
+<div class="card fade-in">
+    <div class="card-header">
+        <h3 class="card-title"><span class="icon">📅</span> Search History by Date</h3>
     </div>
+    <form method="post" class="form-row">
+        <div class="form-group" style="max-width:160px">
+            <label>ICAO Station</label>
+            <input type="text" name="icao" value="{{ station }}" class="form-input" placeholder="WARR"
+                required>
+        </div>
+        <div class="form-group">
+            <label>Start Date</label>
+            <input type="datetime-local" name="start_date" class="form-input" value="{{ start_date }}"
+                required>
+        </div>
+        <div class="form-group">
+            <label>End Date</label>
+            <input type="datetime-local" name="end_date" class="form-input" value="{{ end_date }}" required>
+        </div>
+        <button type="submit" class="btn btn-primary" style="height:42px">🔍 Search</button>
+    </form>
+</div>
 
-    <!-- Rain Indicator Badge -->
-    <div class="rain-indicator" id="rainIndicator">
-        <span class="rain-indicator-icon">🌧️</span>
-        <span class="rain-indicator-text" id="rainIndicatorText">RAIN DETECTED</span>
+{% if results is not none %}
+
+{% if labels and labels|length > 0 %}
+<!-- Period Info -->
+<div class="card fade-in">
+    <div class="card-header">
+        <h3 class="card-title"><span class="icon">📊</span> METAR History — {{ station }}</h3>
     </div>
-
-    <!-- Overlay untuk mobile sidebar -->
-    <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
-
-    <div class="app-layout" id="appLayout">
-
-        <!-- HEADER -->
-        <header class="app-header">
-            <div class="header-left">
-                <button class="sidebar-toggle" id="sidebarToggle" title="Toggle Sidebar">☰</button>
-                <img src="https://yt3.googleusercontent.com/irzhWXcNV6M94Ow6P2ytjC2HFi7gVbLbkq2wcgwOyie63VkKHBiWUw1XJjc1NJUeWwgFwsWjYw=s900-c-k-c0x00ffffff-no-rj"
-                    alt="BMKG Logo" class="header-logo">
-                <div class="header-title">
-                    <h1>METAR Auto Dashboard</h1>
-                    <div class="station-badge">
-                        <div class="station-text">
-                            <span class="station-code">History</span>
-                            <span class="station-name">By Date</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="header-right">
-                <div class="wib-clock" id="wibClock">--:--:-- <small>WIB</small></div>
-                <div class="utc-clock" id="utcClock">--:--:-- <small>UTC</small></div>
-                <button class="theme-toggle mobile-hidden" id="themeToggle" onclick="toggleTheme()"
-                    title="Toggle Dark/Light Mode">🌙</button>
-                <button class="sound-toggle mobile-hidden" id="soundToggle" onclick="enableSound()">🔇 Sound</button>
-                <div class="connection-status" id="connectionStatus">
-                    <span class="connection-dot" id="connectionDot"></span>
-                    <span id="connectionText">OFFLINE</span>
-                </div>
-            </div>
-        </header>
-
-        <!-- SIDEBAR -->
-        <aside class="app-sidebar" id="appSidebar">
-            <!-- Airplane & Tower Decoration -->
-            <div class="airplane-decor-container fade-in" style="animation-delay:0.08s">
-                <img src="{{ url_for('static', filename='images/pesawat2.png') }}" alt="Airplane Decor"
-                    class="dashboard-airplane-img">
-                <img src="{{ url_for('static', filename='images/tower.png') }}" alt="Tower Decor"
-                    class="dashboard-tower-img">
-            </div>
-            <nav class="sidebar-nav">
-                <a href="/" class="sidebar-link" id="nav-dashboard">
-                    <span class="icon">🏠</span>
-                    <span class="label">Dashboard</span>
-                </a>
-                <a href="/history_by_date" class="sidebar-link active" id="nav-history">
-                    <span class="icon">📊</span>
-                    <span class="label">History</span>
-                </a>
-                <a href="/manual_parser" class="sidebar-link" id="nav-qam">
-                    <span class="icon">📄</span>
-                    <span class="label">Manual Parser</span>
-                </a>
-                <div class="sidebar-divider desktop-hidden"></div>
-                <button class="sidebar-link desktop-hidden" id="themeToggleSidebar" onclick="toggleTheme()">
-                    <span class="icon" id="themeIconSidebar">🌙</span>
-                    <span class="label" id="themeLabelSidebar">Dark Mode</span>
-                </button>
-                <button class="sidebar-link desktop-hidden" id="soundToggleSidebar" onclick="enableSound()">
-                    <span class="icon" id="soundIconSidebar">🔇</span>
-                    <span class="label" id="soundLabelSidebar">Sound OFF</span>
-                </button>
-            </nav>
-        </aside>
-
-        <!-- MAIN -->
-        <main class="app-main">
-
-            <!-- Search Form -->
-            <div class="card fade-in">
-                <div class="card-header">
-                    <h3 class="card-title"><span class="icon">📅</span> Search History by Date</h3>
-                </div>
-                <form method="post" class="form-row">
-                    <div class="form-group" style="max-width:160px">
-                        <label>ICAO Station</label>
-                        <input type="text" name="icao" value="{{ station }}" class="form-input" placeholder="WARR"
-                            required>
-                    </div>
-                    <div class="form-group">
-                        <label>Start Date</label>
-                        <input type="datetime-local" name="start_date" class="form-input" value="{{ start_date }}"
-                            required>
-                    </div>
-                    <div class="form-group">
-                        <label>End Date</label>
-                        <input type="datetime-local" name="end_date" class="form-input" value="{{ end_date }}" required>
-                    </div>
-                    <button type="submit" class="btn btn-primary" style="height:42px">🔍 Search</button>
-                </form>
-            </div>
-
-            {% if results is not none %}
-
-            {% if labels and labels|length > 0 %}
-            <!-- Period Info -->
-            <div class="card fade-in">
-                <div class="card-header">
-                    <h3 class="card-title"><span class="icon">📊</span> METAR History — {{ station }}</h3>
-                </div>
-                {% if start_date and end_date %}
-                <div style="background:var(--bg-body);padding:10px 16px;border-radius:var(--radius-sm);font-size:0.9rem;border-left:4px solid var(--accent-primary);">
-                    <div style="color:var(--text-secondary); margin-bottom: 4px;">
-                        📅 Showing data from <strong>{{ start_date.replace('T', ' ') }}</strong> to <strong>{{ end_date.replace('T', ' ') }}</strong>
-                    </div>
-                    <div style="display: flex; align-items: center; gap: 12px; font-weight: 600;">
-                        <span style="color:var(--accent-primary)">📊 {% if results is not none %}{{ results|length }}{% else %}0{% endif %} records found</span>
-                        <span style="height: 12px; width: 1px; background: var(--border-color);"></span>
-                        <span style="color:var(--text-muted); font-size: 0.8rem; font-weight: 400;">🌐 Searches are performed in WIB and converted to UTC database time.</span>
-                    </div>
-                </div>
-                {% endif %}
-            </div>
-
-            <!-- Charts Stacked Vertically (3 Rows) -->
-            <div class="charts-stack fade-in">
-                <!-- Chart 1: Temperature -->
-                <div class="card chart-card" style="margin-bottom: 20px;">
-                    <div class="card-header">
-                        <h3 class="card-title"><span class="icon">🌡️</span> Temperature</h3>
-                        <button class="btn btn-sm btn-outline" onclick="downloadChart('tempChart')">📥 Download</button>
-                    </div>
-                    <div class="chart-container" style="height: 300px;">
-                        <canvas id="tempChart"></canvas>
-                    </div>
-                </div>
-
-                <!-- Chart 2: Pressure -->
-                <div class="card chart-card" style="margin-bottom: 20px;">
-                    <div class="card-header">
-                        <h3 class="card-title"><span class="icon">📊</span> Pressure (QNH)</h3>
-                        <button class="btn btn-sm btn-outline" onclick="downloadChart('pressureChart')">📥 Download</button>
-                    </div>
-                    <div class="chart-container" style="height: 300px;">
-                        <canvas id="pressureChart"></canvas>
-                    </div>
-                </div>
-
-                <!-- Chart 3: Wind Speed -->
-                <div class="card chart-card" style="margin-bottom: 20px;">
-                    <div class="card-header">
-                        <h3 class="card-title"><span class="icon">💨</span> Wind Speed</h3>
-                        <button class="btn btn-sm btn-outline" onclick="downloadChart('windChart')">📥 Download</button>
-                    </div>
-                    <div class="chart-container" style="height: 300px;">
-                        <canvas id="windChart"></canvas>
-                    </div>
-                </div>
-            </div>
-
-
-            <div class="card fade-in">
-                <div class="card-header">
-                    <h3 class="card-title"><span class="icon">🧭</span> Wind Rose (Filtered Period)</h3>
-                    <button class="btn btn-sm btn-outline" onclick="downloadChart('windRoseChart')">📥 Download</button>
-                </div>
-                <div id="windRoseHistory" style="height:500px;"></div>
-            </div>
-            {% endif %}
-
-            <!-- Table -->
-            <div class="card fade-in">
-                <div class="card-header">
-                    <h3 class="card-title"><span class="icon">📋</span> History Results — {{ station }}</h3>
-                    <form method="post" action="/download_history" style="margin:0;">
-                        <input type="hidden" name="icao" value="{{ station }}">
-                        <input type="hidden" name="start_date" value="{{ request.form.start_date }}">
-                        <input type="hidden" name="end_date" value="{{ request.form.end_date }}">
-                        <button class="btn btn-sm btn-outline">📥 Download CSV</button>
-                    </form>
-                </div>
-                <div class="data-table-container">
-                    <table class="data-table">
-                        <thead>
-                            <tr>
-                                <th>Station</th>
-                                <th>Time</th>
-                                <th>METAR</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for row in results.itertuples() %}
-                            <tr>
-                                <td>{{ row.station }}</td>
-                                <td>{{ row.time }}</td>
-                                <td class="metar-cell">
-                                    {{ row.metar }}
-                                    {% if " COR " in row.metar or row.metar.startswith("METAR COR") or " CCA " in
-                                    row.metar or "CCA" in row.metar %}
-                                    <span class="badge badge-cor"
-                                        style="background-color: #f59e0b; color: #1e293b; margin-left: 6px; font-size: 0.70rem; padding: 2px 6px; vertical-align: middle;">🟡
-                                        COR</span>
-                                    {% elif " AMD " in row.metar or row.metar.startswith("METAR AMD") %}
-                                    <span class="badge badge-amd"
-                                        style="background-color: #3b82f6; color: #ffffff; margin-left: 6px; font-size: 0.70rem; padding: 2px 6px; vertical-align: middle;">🔵
-                                        AMD</span>
-                                    {% elif " SPECI " in row.metar or row.metar.startswith("SPECI ") %}
-                                    <span class="badge badge-speci"
-                                        style="background-color: #ef4444; color: #ffffff; margin-left: 6px; font-size: 0.70rem; padding: 2px 6px; vertical-align: middle;">🔴
-                                        SPECI</span>
-                                    {% else %}
-                                    <span class="badge badge-metar"
-                                        style="background-color: #059669; color: #ffffff; margin-left: 6px; font-size: 0.70rem; padding: 2px 6px; vertical-align: middle;">🟢
-                                        METAR</span>
-                                    {% endif %}
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-            {% endif %}
-
-        </main>
+    {% if start_date and end_date %}
+    <div style="background:var(--bg-body);padding:10px 16px;border-radius:var(--radius-sm);font-size:0.9rem;border-left:4px solid var(--accent-primary);">
+        <div style="color:var(--text-secondary); margin-bottom: 4px;">
+            📅 Showing data from <strong>{{ start_date.replace('T', ' ') }}</strong> to <strong>{{ end_date.replace('T', ' ') }}</strong>
+        </div>
+        <div style="display: flex; align-items: center; gap: 12px; font-weight: 600;">
+            <span style="color:var(--accent-primary)">📊 {% if results is not none %}{{ results|length }}{% else %}0{% endif %} records found</span>
+            <span style="height: 12px; width: 1px; background: var(--border-color);"></span>
+            <span style="color:var(--text-muted); font-size: 0.8rem; font-weight: 400;">🌐 Searches are performed in WIB and converted to UTC database time.</span>
+        </div>
     </div>
-
-    {% if labels and labels|length > 0 %}
-    <script>
-        const labels = JSON.parse('{{ labels | tojson | safe }}');
-        const temps = JSON.parse('{{ temps | tojson | safe }}');
-        const pressures = JSON.parse('{{ pressures | tojson | safe }}');
-        const winds = JSON.parse('{{ winds | tojson | safe }}');
-        const gusts = JSON.parse('{{ gusts | tojson | safe }}');
-        const thunder_flags = JSON.parse('{{ thunder_flags | tojson | safe }}');
-        const wind_dirs = JSON.parse('{{ wind_dirs | tojson | safe }}');
-        const utc_wib_labels = JSON.parse('{{ utc_wib_labels | tojson | safe }}');
-
-        const gridColor = 'rgba(0,0,0,0.06)';
-        const tickColor = '#64748B';
-
-        // Common chart options untuk konsistensi
-        const commonOptions = {
-            responsive: true,
-            maintainAspectRatio: false,
-            interaction: {
-                mode: 'index',
-                intersect: false,
-            },
-            plugins: {
-                legend: {
-                    labels: {
-                        font: { family: 'Inter', size: 12 },
-                        color: '#475569',
-                        padding: 28 // Space below the legend
-                    }
-                },
-                tooltip: {
-                    backgroundColor: '#1E3A5F',
-                    titleFont: { family: 'Inter', size: 13 },
-                    bodyFont: { family: 'JetBrains Mono', size: 12 },
-                    padding: 12,
-                    cornerRadius: 8
-                }
-            },
-            layout: {
-                padding: {
-                    top: 10
-                }
-            }
-        };
-
-        if (labels.length > 0) {
-            // Chart 1: Temperature (Full Width)
-            new Chart(document.getElementById('tempChart'), {
-                type: 'line',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        label: 'Temperature (°C)',
-                        data: temps,
-                        borderColor: '#DC2626',
-                        backgroundColor: 'rgba(220, 38, 38, 0.08)',
-                        pointBackgroundColor: '#DC2626',
-                        pointRadius: 4,
-                        pointHoverRadius: 6,
-                        fill: true,
-                        tension: 0.4,
-                        borderWidth: 2.5
-                    }]
-                },
-                options: {
-                    ...commonOptions,
-                    scales: {
-                        y: {
-                            beginAtZero: false,
-                            grace: '10%', // Provides headroom above top line
-                            grid: { color: gridColor },
-                            ticks: { 
-                                color: tickColor, 
-                                font: { family: 'Inter', size: 11 } 
-                            },
-                            title: { 
-                                display: true, 
-                                text: 'Temperature (°C)', 
-                                color: tickColor,
-                                font: { family: 'Inter', weight: 'bold' }
-                            }
-                        },
-                        x: {
-                            grid: { display: false },
-                            ticks: { 
-                                color: tickColor, 
-                                font: { family: 'Inter', size: 10 }, 
-                                maxRotation: 45,
-                                maxTicksLimit: 15
-                            }
-                        }
-                    }
-                }
-            });
-
-            // Chart 2: Pressure (Full Width)
-            new Chart(document.getElementById('pressureChart'), {
-                type: 'line',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        label: 'QNH (hPa)',
-                        data: pressures,
-                        borderColor: '#2E5C8A',
-                        backgroundColor: 'rgba(46, 92, 138, 0.08)',
-                        pointBackgroundColor: '#2E5C8A',
-                        pointRadius: 4,
-                        pointHoverRadius: 6,
-                        fill: true,
-                        tension: 0.4,
-                        borderWidth: 2.5
-                    }]
-                },
-                options: {
-                    ...commonOptions,
-                    scales: {
-                        y: {
-                            beginAtZero: false,
-                            grace: '10%', // Provides headroom above top line
-                            grid: { color: gridColor },
-                            ticks: { 
-                                color: tickColor,
-                                font: { family: 'Inter', size: 11 }
-                            },
-                            title: { 
-                                display: true, 
-                                text: 'Pressure (hPa)', 
-                                color: tickColor,
-                                font: { family: 'Inter', weight: 'bold' }
-                            }
-                        },
-                        x: {
-                            grid: { display: false },
-                            ticks: { 
-                                color: tickColor, 
-                                font: { size: 10 }, 
-                                maxRotation: 45,
-                                maxTicksLimit: 15
-                            }
-                        }
-                    }
-                }
-            });
-
-            // Chart 3: Wind Speed (Full Width)
-            new Chart(document.getElementById('windChart'), {
-                type: 'line',
-                data: {
-                    labels: labels,
-                    datasets: [
-                        {
-                            label: 'Wind Speed (KT)',
-                            data: winds,
-                            borderColor: '#E8B339',
-                            backgroundColor: 'rgba(232, 179, 57, 0.1)',
-                            pointBackgroundColor: '#E8B339',
-                            pointRadius: 4,
-                            pointHoverRadius: 6,
-                            fill: true,
-                            tension: 0.4,
-                            borderWidth: 2.5
-                        },
-                        {
-                            label: 'Wind Gust (KT)',
-                            data: gusts,
-                            borderColor: '#059669',
-                            backgroundColor: 'rgba(5, 150, 105, 0.08)',
-                            pointBackgroundColor: '#059669',
-                            pointRadius: 4,
-                            pointHoverRadius: 6,
-                            fill: true,
-                            tension: 0.4,
-                            borderWidth: 2,
-                            borderDash: [5, 5],
-                            spanGaps: true
-                        }
-                    ]
-                },
-                options: {
-                    ...commonOptions,
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            grace: '10%', // Provides headroom above top line
-                            grid: { color: gridColor },
-                            ticks: { 
-                                color: tickColor,
-                                font: { family: 'Inter', size: 11 }
-                            },
-                            title: { 
-                                display: true, 
-                                text: 'Speed (KT)', 
-                                color: tickColor,
-                                font: { family: 'Inter', weight: 'bold' }
-                            }
-                        },
-                        x: {
-                            grid: { display: false },
-                            ticks: { 
-                                color: tickColor, 
-                                font: { size: 10 }, 
-                                maxRotation: 45,
-                                maxTicksLimit: 15
-                            }
-                        }
-                    }
-                }
-            });
-
-            // Wind Rose (tetap di bawah)
-            const validWind = wind_dirs.map((dir, i) => {
-                if (dir !== null && winds[i] !== null) {
-                    return { 
-                        dir: parseInt(dir), 
-                        speed: winds[i],
-                        timeLabel: utc_wib_labels[i] || labels[i]
-                    };
-                }
-                return null;
-            }).filter(x => x);
-
-            if (validWind.length > 0) {
-                Plotly.newPlot('windRoseHistory', [{
-                    type: 'barpolar',
-                    r: validWind.map(d => d.speed),
-                    theta: validWind.map(d => d.dir),
-                    customdata: validWind.map(d => d.timeLabel),
-                    marker: {
-                        color: validWind.map(d => d.speed),
-                        colorscale: [[0, '#2E5C8A'], [0.5, '#E8B339'], [1, '#DC2626']],
-                        showscale: true,
-                        colorbar: { 
-                            title: 'KT', 
-                            thickness: 12, 
-                            len: 0.6,
-                            tickfont: { family: 'Inter', size: 10 },
-                            titlefont: { family: 'Inter', size: 12 }
-                        }
-                    },
-                    hovertemplate: '<b>Dir: %{theta}°</b><br>Speed: %{r} KT<br>Time: %{customdata}<extra></extra>'
-                }], {
-                    polar: {
-                        bgcolor: 'rgba(0,0,0,0)',
-                        angularaxis: { 
-                            direction: 'clockwise', 
-                            rotation: 90, 
-                            tickmode: 'array', 
-                            tickvals: [0, 45, 90, 135, 180, 225, 270, 315], 
-                            ticktext: ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'], 
-                            tickfont: { size: 12, color: '#1E3A5F', family: 'Inter' } 
-                        },
-                        radialaxis: { 
-                            showgrid: true, 
-                            gridcolor: 'rgba(0,0,0,0.06)', 
-                            title: 'KT',
-                            tickfont: { family: 'Inter', size: 10 }
-                        }
-                    },
-                    showlegend: false,
-                    margin: { t: 60, b: 40, l: 60, r: 60 },
-                    paper_bgcolor: 'rgba(0,0,0,0)', 
-                    plot_bgcolor: 'rgba(0,0,0,0)',
-                    title: {
-                        text: 'Wind Rose (Filtered Period)',
-                        font: { family: 'Inter', size: 18, color: '#1E3A5F', weight: 'bold' },
-                        y: 0.95
-                    }
-                });
-            }
-        }
-
-
-        function downloadChart(chartId) {
-            // ... (keep existing downloadChart logic)
-            if (chartId === 'windRoseChart') {
-                Plotly.downloadImage('windRoseHistory', { 
-                    format: 'png', 
-                    width: 800, 
-                    height: 600, 
-                    filename: 'windRose_Filtered' 
-                });
-                return;
-            }
-            const c = document.getElementById(chartId);
-            if (!c) return;
-            const link = document.createElement('a');
-            link.download = chartId + '_' + new Date().toISOString().slice(0, 10) + '.png';
-            link.href = c.toDataURL('image/png');
-            link.click();
-        }
-
-    </script>
     {% endif %}
+</div>
 
-    <script>
-        const STATION = "{{ station }}";
-    </script>
-    <script src="{{ url_for('static', filename='dashboard.js') }}"></script>
+<!-- Charts Stacked Vertically (3 Rows) -->
+<div class="charts-stack fade-in">
+    <!-- Chart 1: Temperature -->
+    <div class="card chart-card" style="margin-bottom: 20px;">
+        <div class="card-header">
+            <h3 class="card-title"><span class="icon">🌡️</span> Temperature</h3>
+            <button class="btn btn-sm btn-outline" onclick="downloadChart('tempChart')">📥 Download</button>
+        </div>
+        <div class="chart-container" style="height: 300px;">
+            <canvas id="tempChart"></canvas>
+        </div>
+    </div>
 
-</body>
+    <!-- Chart 2: Pressure -->
+    <div class="card chart-card" style="margin-bottom: 20px;">
+        <div class="card-header">
+            <h3 class="card-title"><span class="icon">📊</span> Pressure (QNH)</h3>
+            <button class="btn btn-sm btn-outline" onclick="downloadChart('pressureChart')">📥 Download</button>
+        </div>
+        <div class="chart-container" style="height: 300px;">
+            <canvas id="pressureChart"></canvas>
+        </div>
+    </div>
 
-</html>
+    <!-- Chart 3: Wind Speed -->
+    <div class="card chart-card" style="margin-bottom: 20px;">
+        <div class="card-header">
+            <h3 class="card-title"><span class="icon">💨</span> Wind Speed</h3>
+            <button class="btn btn-sm btn-outline" onclick="downloadChart('windChart')">📥 Download</button>
+        </div>
+        <div class="chart-container" style="height: 300px;">
+            <canvas id="windChart"></canvas>
+        </div>
+    </div>
+</div>
+
+
+<div class="card fade-in">
+    <div class="card-header">
+        <h3 class="card-title"><span class="icon">🧭</span> Wind Rose (Filtered Period)</h3>
+        <button class="btn btn-sm btn-outline" onclick="downloadChart('windRoseChart')">📥 Download</button>
+    </div>
+    <div id="windRoseHistory" style="height:500px;"></div>
+</div>
+{% endif %}
+
+<!-- Table -->
+<div class="card fade-in">
+    <div class="card-header">
+        <h3 class="card-title"><span class="icon">📋</span> History Results — {{ station }}</h3>
+        <form method="post" action="/download_history" style="margin:0;">
+            <input type="hidden" name="icao" value="{{ station }}">
+            <input type="hidden" name="start_date" value="{{ request.form.start_date }}">
+            <input type="hidden" name="end_date" value="{{ request.form.end_date }}">
+            <button class="btn btn-sm btn-outline">📥 Download CSV</button>
+        </form>
+    </div>
+    <div class="data-table-container">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Station</th>
+                    <th>Time</th>
+                    <th>METAR</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in results.itertuples() %}
+                <tr>
+                    <td>{{ row.station }}</td>
+                    <td>{{ row.time }}</td>
+                    <td class="metar-cell">
+                        {{ row.metar }}
+                        {% if " COR " in row.metar or row.metar.startswith("METAR COR") or " CCA " in
+                        row.metar or "CCA" in row.metar %}
+                        <span class="badge badge-cor"
+                            style="background-color: #f59e0b; color: #1e293b; margin-left: 6px; font-size: 0.70rem; padding: 2px 6px; vertical-align: middle;">🟡
+                            COR</span>
+                        {% elif " AMD " in row.metar or row.metar.startswith("METAR AMD") %}
+                        <span class="badge badge-amd"
+                            style="background-color: #3b82f6; color: #ffffff; margin-left: 6px; font-size: 0.70rem; padding: 2px 6px; vertical-align: middle;">🔵
+                            AMD</span>
+                        {% elif " SPECI " in row.metar or row.metar.startswith("SPECI ") %}
+                        <span class="badge badge-speci"
+                            style="background-color: #ef4444; color: #ffffff; margin-left: 6px; font-size: 0.70rem; padding: 2px 6px; vertical-align: middle;">🔴
+                            SPECI</span>
+                        {% else %}
+                        <span class="badge badge-metar"
+                            style="background-color: #059669; color: #ffffff; margin-left: 6px; font-size: 0.70rem; padding: 2px 6px; vertical-align: middle;">🟢
+                            METAR</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block extra_scripts_bottom %}
+{% if labels and labels|length > 0 %}
+<script>
+    const labels = JSON.parse('{{ labels | tojson | safe }}');
+    const temps = JSON.parse('{{ temps | tojson | safe }}');
+    const pressures = JSON.parse('{{ pressures | tojson | safe }}');
+    const winds = JSON.parse('{{ winds | tojson | safe }}');
+    const gusts = JSON.parse('{{ gusts | tojson | safe }}');
+    const thunder_flags = JSON.parse('{{ thunder_flags | tojson | safe }}');
+    const wind_dirs = JSON.parse('{{ wind_dirs | tojson | safe }}');
+    const utc_wib_labels = JSON.parse('{{ utc_wib_labels | tojson | safe }}');
+
+    const gridColor = 'rgba(0,0,0,0.06)';
+    const tickColor = '#64748B';
+
+    // Common chart options untuk konsistensi
+    const commonOptions = {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: {
+            mode: 'index',
+            intersect: false,
+        },
+        plugins: {
+            legend: {
+                labels: {
+                    font: { family: 'Inter', size: 12 },
+                    color: '#475569',
+                    padding: 28 // Space below the legend
+                }
+            },
+            tooltip: {
+                backgroundColor: '#1E3A5F',
+                titleFont: { family: 'Inter', size: 13 },
+                bodyFont: { family: 'JetBrains Mono', size: 12 },
+                padding: 12,
+                cornerRadius: 8
+            }
+        },
+        layout: {
+            padding: {
+                top: 10
+            }
+        }
+    };
+
+    if (labels.length > 0) {
+        // Chart 1: Temperature (Full Width)
+        new Chart(document.getElementById('tempChart'), {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Temperature (°C)',
+                    data: temps,
+                    borderColor: '#DC2626',
+                    backgroundColor: 'rgba(220, 38, 38, 0.08)',
+                    pointBackgroundColor: '#DC2626',
+                    pointRadius: 4,
+                    pointHoverRadius: 6,
+                    fill: true,
+                    tension: 0.4,
+                    borderWidth: 2.5
+                }]
+            },
+            options: {
+                ...commonOptions,
+                scales: {
+                    y: {
+                        beginAtZero: false,
+                        grace: '10%', // Provides headroom above top line
+                        grid: { color: gridColor },
+                        ticks: { 
+                            color: tickColor, 
+                            font: { family: 'Inter', size: 11 } 
+                        },
+                        title: { 
+                            display: true, 
+                            text: 'Temperature (°C)', 
+                            color: tickColor,
+                            font: { family: 'Inter', weight: 'bold' }
+                        }
+                    },
+                    x: {
+                        grid: { display: false },
+                        ticks: { 
+                            color: tickColor, 
+                            font: { family: 'Inter', size: 10 }, 
+                            maxRotation: 45,
+                            maxTicksLimit: 15
+                        }
+                    }
+                }
+            }
+        });
+
+        // Chart 2: Pressure (Full Width)
+        new Chart(document.getElementById('pressureChart'), {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'QNH (hPa)',
+                    data: pressures,
+                    borderColor: '#2E5C8A',
+                    backgroundColor: 'rgba(46, 92, 138, 0.08)',
+                    pointBackgroundColor: '#2E5C8A',
+                    pointRadius: 4,
+                    pointHoverRadius: 6,
+                    fill: true,
+                    tension: 0.4,
+                    borderWidth: 2.5
+                }]
+            },
+            options: {
+                ...commonOptions,
+                scales: {
+                    y: {
+                        beginAtZero: false,
+                        grace: '10%', // Provides headroom above top line
+                        grid: { color: gridColor },
+                        ticks: { 
+                            color: tickColor,
+                            font: { family: 'Inter', size: 11 }
+                        },
+                        title: { 
+                            display: true, 
+                            text: 'Pressure (hPa)', 
+                            color: tickColor,
+                            font: { family: 'Inter', weight: 'bold' }
+                        }
+                    },
+                    x: {
+                        grid: { display: false },
+                        ticks: { 
+                            color: tickColor, 
+                            font: { size: 10 }, 
+                            maxRotation: 45,
+                            maxTicksLimit: 15
+                        }
+                    }
+                }
+            }
+        });
+
+        // Chart 3: Wind Speed (Full Width)
+        new Chart(document.getElementById('windChart'), {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: 'Wind Speed (KT)',
+                        data: winds,
+                        borderColor: '#E8B339',
+                        backgroundColor: 'rgba(232, 179, 57, 0.1)',
+                        pointBackgroundColor: '#E8B339',
+                        pointRadius: 4,
+                        pointHoverRadius: 6,
+                        fill: true,
+                        tension: 0.4,
+                        borderWidth: 2.5
+                    },
+                    {
+                        label: 'Wind Gust (KT)',
+                        data: gusts,
+                        borderColor: '#059669',
+                        backgroundColor: 'rgba(5, 150, 105, 0.08)',
+                        pointBackgroundColor: '#059669',
+                        pointRadius: 4,
+                        pointHoverRadius: 6,
+                        fill: true,
+                        tension: 0.4,
+                        borderWidth: 2,
+                        borderDash: [5, 5],
+                        spanGaps: true
+                    }
+                ]
+            },
+            options: {
+                ...commonOptions,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        grace: '10%', // Provides headroom above top line
+                        grid: { color: gridColor },
+                        ticks: { 
+                            color: tickColor,
+                            font: { family: 'Inter', size: 11 }
+                        },
+                        title: { 
+                            display: true, 
+                            text: 'Speed (KT)', 
+                            color: tickColor,
+                            font: { family: 'Inter', weight: 'bold' }
+                        }
+                    },
+                    x: {
+                        grid: { display: false },
+                        ticks: { 
+                            color: tickColor, 
+                            font: { size: 10 }, 
+                            maxRotation: 45,
+                            maxTicksLimit: 15
+                        }
+                    }
+                }
+            }
+        });
+
+        // Wind Rose (tetap di bawah)
+        const validWind = wind_dirs.map((dir, i) => {
+            if (dir !== null && winds[i] !== null) {
+                return { 
+                    dir: parseInt(dir), 
+                    speed: winds[i],
+                    timeLabel: utc_wib_labels[i] || labels[i]
+                };
+            }
+            return null;
+        }).filter(x => x);
+
+        if (validWind.length > 0) {
+            Plotly.newPlot('windRoseHistory', [{
+                type: 'barpolar',
+                r: validWind.map(d => d.speed),
+                theta: validWind.map(d => d.dir),
+                customdata: validWind.map(d => d.timeLabel),
+                marker: {
+                    color: validWind.map(d => d.speed),
+                    colorscale: [[0, '#2E5C8A'], [0.5, '#E8B339'], [1, '#DC2626']],
+                    showscale: true,
+                    colorbar: { 
+                        title: 'KT', 
+                        thickness: 12, 
+                        len: 0.6,
+                        tickfont: { family: 'Inter', size: 10 },
+                        titlefont: { family: 'Inter', size: 12 }
+                    }
+                },
+                hovertemplate: '<b>Dir: %{theta}°</b><br>Speed: %{r} KT<br>Time: %{customdata}<extra></extra>'
+            }], {
+                polar: {
+                    bgcolor: 'rgba(0,0,0,0)',
+                    angularaxis: { 
+                        direction: 'clockwise', 
+                        rotation: 90, 
+                        tickmode: 'array', 
+                        tickvals: [0, 45, 90, 135, 180, 225, 270, 315], 
+                        ticktext: ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'], 
+                        tickfont: { size: 12, color: '#1E3A5F', family: 'Inter' } 
+                    },
+                    radialaxis: { 
+                        showgrid: true, 
+                        gridcolor: 'rgba(0,0,0,0.06)', 
+                        title: 'KT',
+                        tickfont: { family: 'Inter', size: 10 }
+                    }
+                },
+                showlegend: false,
+                margin: { t: 60, b: 40, l: 60, r: 60 },
+                paper_bgcolor: 'rgba(0,0,0,0)', 
+                plot_bgcolor: 'rgba(0,0,0,0)',
+                title: {
+                    text: 'Wind Rose (Filtered Period)',
+                    font: { family: 'Inter', size: 18, color: '#1E3A5F', weight: 'bold' },
+                    y: 0.95
+                }
+            });
+        }
+    }
+
+
+    function downloadChart(chartId) {
+        if (chartId === 'windRoseChart') {
+            Plotly.downloadImage('windRoseHistory', { 
+                format: 'png', 
+                width: 800, 
+                height: 600, 
+                filename: 'windRose_Filtered' 
+            });
+            return;
+        }
+        const c = document.getElementById(chartId);
+        if (!c) return;
+        const link = document.createElement('a');
+        link.download = chartId + '_' + new Date().toISOString().slice(0, 10) + '.png';
+        link.href = c.toDataURL('image/png');
+        link.click();
+    }
+</script>
+{% endif %}
+{% endblock %}

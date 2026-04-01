@@ -1,4 +1,5 @@
 from flask import Flask, render_template, request, send_file, jsonify  # pyre-ignore
+import json
 import requests  # pyre-ignore
 import pandas as pd  # pyre-ignore
 import os
@@ -608,7 +609,7 @@ def generate_metar_narrative(parsed, raw_metar=None):
     month_indonesian = month_map.get(current_month_name, current_month_name)
     
     # Opening sentence
-    narrative.append(f"Observasi cuaca di Bandara Juanda ({station}) pada tanggal {day} {month_indonesian} {year} pukul {hour}:{minute} UTC menunjukkan kondisi berikut:")
+    narrative.append(f"Observasi cuaca di Stasiun Meteorologi Kelas I Juanda ({station}) pada tanggal {day} {month_indonesian} {year} pukul {hour}:{minute} UTC menunjukkan kondisi berikut:")
     
     # Wind information - FORMAT: "160° derajat 13 Gust 27 Knot"
     wind = display.get('wind', '')
@@ -1114,15 +1115,21 @@ def get_history_api():
             return jsonify({"data": [], "labels": [], "temps": [], "pressures": []})
 
     try:
-        df = pd.read_csv(CSV_FILE).tail(30)
-        df["metar"] = df["metar"].fillna("").astype(str)
+        df = fetch_history_from_source()
+        if not df.empty:
+            df = df.tail(30)
+        df["metar"] = df.get("metar", pd.Series(dtype='str')).fillna("").astype(str)
         
         # Format for history table (newest first)
         data_list = []
         for _, row in df.iloc[::-1].iterrows():
             parsed = parse_metar(str(row["metar"]))
+            # Parse time for better display
+            dt = pd.to_datetime(row["time"])
             data_list.append({
-                "time": pd.to_datetime(row["time"]).strftime("%Y-%m-%d %H:%M UTC"),
+                "day_name": dt.strftime('%A'),
+                "time": dt.strftime('%H:%M'),
+                "full_time": pd.to_datetime(row["time"]).strftime("%Y-%m-%d %H:%M UTC"),
                 "station": row["station"],
                 "metar": row["metar"],
                 "temp": extract_temp(str(row["metar"])),
@@ -1184,6 +1191,34 @@ def get_single_metar_api(station):
     return jsonify({"error": "No data available"}), 404
 
 # =========================
+# DATA SOURCE HELPER
+# =========================
+def fetch_history_from_source():
+    """
+    Unified fetcher for METAR history. 
+    Prioritizes Google Sheets, fallbacks to local CSV if Sheets fails.
+    """
+    try:
+        # 1. Try Google Sheets first (Preferred for Vercel/Cloud)
+        print("[DATA] Fetching history from Google Sheets...", file=sys.stderr)
+        all_data = sheets_handler.get_all_data()
+        if all_data:
+            df = pd.DataFrame(all_data)
+            if not df.empty and "time" in df.columns:
+                print(f"[DATA] Successfully fetched {len(df)} records from Sheets", file=sys.stderr)
+                return df
+                
+        # 2. Fallback to local CSV
+        if os.path.exists(CSV_FILE):
+            print("[DATA] Falling back to local CSV...", file=sys.stderr)
+            return pd.read_csv(CSV_FILE)
+            
+    except Exception as e:
+        print(f"[DATA] ❌ Error fetching history: {e}", file=sys.stderr)
+        
+    return pd.DataFrame(columns=["station", "time", "metar"])
+
+# =========================
 # HOME ROUTE
 # =========================
 @app.route("/", methods=["GET", "POST"])
@@ -1191,9 +1226,12 @@ def home():
     global last_metar_update, auto_fetch
     station = "WARR"
     metar = None
-    parsed = None
+    parsed = {}
     qam = None
     narrative = None
+    latest = None
+    latest_wind_obj = {}
+    safe_recent_winds = []
     temps = []
     pressures = []
     has_history = False
@@ -1260,8 +1298,31 @@ def home():
     history_count = 0
     history_source = "Sheets" if IS_VERCEL else "Local CSV"
 
-    if os.path.exists(CSV_FILE):
-        history = pd.read_csv(CSV_FILE).tail(20)
+    full_history = fetch_history_from_source()
+    if not full_history.empty:
+        # Calculate TODAY in WIB (UTC+7)
+        now_wib = datetime.utcnow() + timedelta(hours=7)
+        today_str = now_wib.strftime("%Y-%m-%d")
+        current_day = now_wib.strftime("%A")
+        current_day = now_wib.strftime("%A")
+        
+        # Filter for today's records (WIB date)
+        # Ensure time column is string for startswith comparison
+        full_history['time'] = full_history['time'].astype(str)
+        history = full_history[full_history['time'].str.contains(today_str)].copy()
+        
+        # Update history source if data actually came from Sheets
+        # (This is a bit redundant but helps UI accuracy)
+        if len(full_history) > 0 and history_source == "Local CSV":
+             # We can't easily know if it came from Sheets unless we check sheets_handler status
+             pass
+        
+        # Add day name for the table
+        if not history.empty:
+            history['day_name'] = pd.to_datetime(history['time']).dt.strftime('%A')
+            history['time_short'] = pd.to_datetime(history['time']).dt.strftime('%H:%M')
+            # Extract minute for METAR/SPECI status detection (0 or 30 = normal, else = SPECI)
+            history['status_minute'] = pd.to_datetime(history['time']).dt.minute
         
         # Convert metar column to string and handle NaN values
         history["metar"] = history["metar"].fillna("").astype(str)
@@ -1272,24 +1333,59 @@ def home():
             temps = [extract_temp(m) for m in history['metar'].tolist()]
             pressures = [extract_pressure(m) for m in history['metar'].tolist()]
             
+            # Extract winds and gusts for trend charts
+            winds = []
+            gusts = []
+            for m in history['metar'].tolist():
+                wind_match = re.search(r'(\d{3}|VRB)(\d{2,3})(G(\d{2,3}))?KT', m)
+                if wind_match:
+                    winds.append(int(wind_match.group(2)))
+                    gusts.append(int(wind_match.group(4)) if wind_match.group(4) else None)
+                else:
+                    winds.append(None)
+                    gusts.append(None)
+            
             history_start = pd.to_datetime(history['time'].iloc[0]).strftime("%Y-%m-%d %H:%M")
             history_end = pd.to_datetime(history['time'].iloc[-1]).strftime("%Y-%m-%d %H:%M")
             history_count = len(history)
         else:
             labels = []
+            winds = []
+            gusts = []
     else:
         history = pd.DataFrame(columns=["station", "time", "metar"])
         labels = []
+        winds = []
+        gusts = []
     
+    # Convert recent winds for Wind Compass
+    safe_recent_winds = []
+    for w in wind_history:
+        if w.get("station") == station:
+            safe_recent_winds.append({
+                "dir": w.get("dir"),
+                "speed": w.get("speed"),
+                "timestamp": w.get("time")
+            })
+
+    # Extract latest wind specifically
+    latest_wind_obj = {}
+    if parsed and parsed.get('wind_dir') is not None and parsed.get('wind_speed_kt') is not None:
+        latest_wind_obj = {
+            "dir": parsed['wind_dir'],
+            "speed": parsed['wind_speed_kt']
+        }
+
     # Create latest dict for the METAR display with status color
     latest = None
     if metar and parsed:
         latest = {
             "station": station,
             "metar": metar,
-            "status": parsed.get("status", "normal")
+            "status": parsed.get("status", "normal"),
+            "report_type": detect_metar_report_type(metar)
         }
-    
+
     last_saved = history["time"].iloc[-1] if has_history else "N/A"
     print(f"[HOME] Rendering template with QAM: {qam is not None}")
 
@@ -1312,9 +1408,12 @@ def home():
         qam=qam,
         narrative=narrative,
         history=history,
+        current_day=current_day if 'current_day' in locals() else "",
         last_saved=last_saved,
         temps=temps,
         pressures=pressures,
+        winds=winds,
+        gusts=gusts,
         labels=labels,
         has_history=has_history,
         auto_fetch=auto_fetch,
@@ -1322,8 +1421,135 @@ def home():
         history_start=history_start,
         history_end=history_end,
         history_count=history_count,
-        history_source=history_source
+        history_source=history_source,
+        recent_winds=json.dumps(safe_recent_winds),
+        latest_wind=json.dumps(latest_wind_obj)
     )
+
+def common_view_context(template_name):
+    """Helper to load common metrics for the new specialized pages"""
+    global last_metar_update, auto_fetch
+    station = "WARR"
+    metar = None
+    parsed = {}
+    qam = None
+    narrative = None
+    latest = None
+    latest_wind_obj = {}
+    # Fetch latest data from cache
+    metar = str(latest_metar_data.get("raw") or "")
+    if metar:
+        parsed = parse_metar(metar)
+        qam = latest_metar_data.get("qam")
+        narrative = latest_metar_data.get("narrative")
+    
+    # Read history and prepare chart data
+    history_start = ""
+    history_end = ""
+    history_count = 0
+    history_source = "Sheets" if IS_VERCEL else "Local CSV"
+    
+    labels = []
+    temps = []
+    pressures = []
+    winds = []
+    gusts = []
+    has_history = False
+    
+    full_history = fetch_history_from_source()
+    if not full_history.empty:
+        # Calculate TODAY in WIB (UTC+7)
+        now_wib = datetime.utcnow() + timedelta(hours=7)
+        today_str = now_wib.strftime("%Y-%m-%d")
+        current_day = now_wib.strftime("%A")
+        
+        # Filter for today's records (WIB date)
+        full_history['time'] = full_history['time'].astype(str)
+        history = full_history[full_history['time'].str.contains(today_str)].copy()
+        
+        # Add day name and formatted time for the table
+        if not history.empty:
+            history['day_name'] = pd.to_datetime(history['time']).dt.strftime('%A')
+            history['time_short'] = pd.to_datetime(history['time']).dt.strftime('%H:%M')
+            
+        history["metar"] = history["metar"].fillna("").astype(str)
+        has_history = not history.empty
+        if has_history:
+            for _, row in history.iterrows():
+                m = str(row["metar"])
+                labels.append(pd.to_datetime(row["time"]).strftime("%d/%m/%y %H:%M"))
+                temps.append(extract_temp(m))
+                pressures.append(extract_pressure(m))
+                
+                # Extract wind speed and gust for charts
+                wind_match = re.search(r'(\d{3}|VRB)(\d{2,3})(G(\d{2,3}))?KT', m)
+                if wind_match:
+                    winds.append(int(wind_match.group(2)))
+                    gusts.append(int(wind_match.group(4)) if wind_match.group(4) else None)
+                else:
+                    winds.append(None)
+                    gusts.append(None)
+            
+            history_start = pd.to_datetime(history['time'].iloc[0]).strftime("%Y-%m-%d %H:%M")
+            history_end = pd.to_datetime(history['time'].iloc[-1]).strftime("%Y-%m-%d %H:%M")
+            history_count = len(history)
+
+    # Convert recent winds strictly to a list of dicts for JSON serialization
+    safe_recent_winds = []
+    # wind_history is a global deque of dictionaries
+    for w in wind_history:
+        if w.get("station") == station:
+            safe_recent_winds.append({
+                "dir": w.get("dir"),
+                "speed": w.get("speed"),
+                "timestamp": w.get("time")
+            })
+            
+    # Extract latest wind specifically
+    latest_wind_obj = {}
+    if parsed and parsed.get('wind_dir') is not None and parsed.get('wind_speed_kt') is not None:
+        latest_wind_obj = {
+            "dir": parsed['wind_dir'],
+            "speed": parsed['wind_speed_kt']
+        }
+
+    return render_template(
+        template_name,
+        station=station,
+        latest={"station": station, "metar": metar, "status": parsed.get("status", "normal"), "report_type": detect_metar_report_type(metar)} if parsed else None,
+        qam=qam,
+        narrative=narrative,
+        history=history,
+        current_day=current_day if 'current_day' in locals() else "",
+        has_history=has_history,
+        temps=temps,
+        pressures=pressures,
+        winds=winds,
+        gusts=gusts,
+        labels=labels,
+        history_start=history_start,
+        history_end=history_end,
+        history_count=history_count,
+        history_source=history_source,
+        recent_winds=json.dumps(safe_recent_winds),
+        latest_wind=json.dumps(latest_wind_obj)
+    )
+
+@app.route("/charts")
+def charts_view():
+    return common_view_context("charts.html")
+
+@app.route("/wind_analysis")
+def wind_analysis_view():
+    return common_view_context("wind_analysis.html")
+
+@app.route("/operational_tools")
+def operational_tools_view():
+    return common_view_context("operational_tools.html")
+
+@app.route("/weather_analysis")
+def weather_analysis_view():
+    return common_view_context("weather_analysis.html")
 
 # =========================
 # DOWNLOAD QAM
@@ -1935,12 +2161,15 @@ def background_metar_loop():
 
 @app.route("/download_history", methods=["POST"])
 def download_history():
-
     station = request.form["icao"].upper()
     start_date = request.form["start_date"]
     end_date = request.form["end_date"]
 
-    df = pd.read_csv(CSV_FILE)
+    # Use unified fetcher to support Vercel/Sheets
+    df = fetch_history_from_source()
+    if df.empty:
+        return "No data available in history", 404
+        
     df["time"] = pd.to_datetime(df["time"])
 
     start = pd.to_datetime(start_date)
@@ -1951,6 +2180,9 @@ def download_history():
         (df["time"] >= start) &
         (df["time"] <= end)
     ]
+
+    if results.empty:
+        return f"No records found for {station} between {start_date} and {end_date}", 404
 
     output = io.StringIO()
     results.to_csv(output, index=False)
