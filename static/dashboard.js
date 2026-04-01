@@ -321,6 +321,19 @@ function showToast(title, body, type = 'success', duration = 5000, playSound = t
 }
 
 // =======================
+// METAR UTILITIES
+// =======================
+function normalizeMetar(metar) {
+    if (!metar) return "";
+    // Remove trailing = (end of METAR marker)
+    let clean = metar.replace(/=/g, "");
+    // Normalize whitespace (multiple spaces -> single space)
+    clean = clean.split(/\s+/).join(" ");
+    // Uppercase and trim for consistency
+    return clean.toUpperCase().trim();
+}
+
+// =======================
 // METAR SYNTAX HIGHLIGHTING
 // =======================
 function highlightMetar(raw) {
