@@ -436,7 +436,7 @@ function updateDecodedPanel(raw) {
         if (detailEl) detailEl.textContent = gustText;
 
         updateCrosswind();
-        
+
         // Real-time update for Wind Compass if on page
         if (typeof updateWindCompassDisplay === 'function') {
             updateWindCompassDisplay(currentWindDir, currentWindSpeed);
@@ -507,8 +507,8 @@ function updateDecodedPanel(raw) {
 
     for (const code of weatherCodes) {
         // Fix: Use a regex that allows space or start-of-line before codes that start with + or -
-        const pattern = code.startsWith('\\+') || code.startsWith('-') 
-            ? '(?:^|\\s)' + code + '\\b' 
+        const pattern = code.startsWith('\\+') || code.startsWith('-')
+            ? '(?:^|\\s)' + code + '\\b'
             : '\\b' + code + '\\b';
         const regex = new RegExp(pattern, 'i');
         const cleanCode = code.replace(/\\/g, '');
@@ -549,14 +549,14 @@ function updateDecodedPanel(raw) {
 // =======================
 function checkRainStatus(raw) {
     if (!raw) return;
-    
+
     console.log('[RAIN] Checking rain status for:', raw.substring(0, 60));
-    
+
     // Fix: Updated regex to properly handle +/- prefixes by using (?:\s|^) instead of leading \b
     const rainRegex = /(?:^|\s)([\+\-]|VC)?(RA|DZ|SHRA|TSRA|SH|SN|SG|GR|GS|PL|IC|UP)\b/i;
     const match = raw.match(rainRegex);
     const hasRain = !!match;
-    
+
     console.log('[RAIN] Regex match result:', hasRain, match ? match[0].trim() : 'no match');
 
     const rainIndicator = document.getElementById('rainIndicator');
@@ -566,7 +566,7 @@ function checkRainStatus(raw) {
         console.log('[RAIN] Rain detected! Activating effects...');
         document.body.classList.add('rain-active');
         makeItRain();
-        
+
         if (rainIndicator) {
             rainIndicator.classList.add('active');
             if (rainIndicatorText) {
@@ -881,7 +881,7 @@ function handleMetarUpdate(data) {
             allowToastSound = false; // Matikan suara notify biasa agar khusus alarm saja
         } else if (alarmPlayedThisCycle) {
             // Jika sudah ada alarm lain (seperti Low Vis), matikan notify juga
-            allowToastSound = false; 
+            allowToastSound = false;
         }
         // Jika tidak ada berbahaya, allowToastSound tetap true sehingga toast akan berbunyi
     }
@@ -1401,7 +1401,7 @@ function updateCharts(labels, temps, pressures, winds, gusts) {
         // Initial manual load from template data
         if (!tempChart && document.getElementById('tempChart')) createCharts();
         if (!windChart && document.getElementById('windChart')) createWindChart();
-        
+
         if (tempChart) {
             tempChart.data.labels = labels;
             tempChart.data.datasets[0].data = temps;
@@ -1569,7 +1569,7 @@ async function updateHistoryTable() {
     try {
         const tbody = document.getElementById('historyTableBody');
         if (!tbody) return;
-        
+
         const res = await fetch('/api/history');
         const result = await res.json();
 
@@ -1689,9 +1689,9 @@ function updateWindCompassDisplay(windDir, windSpeed) {
         windSpeed = windDir.wind_speed;
         windDir = windDir.wind_direction;
     }
-    
+
     if (windDir === undefined || (windDir === null && windDir !== 0)) return;
-    
+
     // Check if the container actually exists on this page
     if (!document.getElementById('windCompassChart')) return;
 
@@ -1742,7 +1742,7 @@ function updateWindCompassDisplay(windDir, windSpeed) {
 async function loadWindRose(station = STATION) {
     if (typeof Plotly === 'undefined') return;
     if (!station) return;
-    
+
     // Check if we need to render either of the wind roses on this page
     const has24h = document.getElementById('windRose24h');
     const hasMonth = document.getElementById('windRoseMonth');
@@ -1998,7 +1998,7 @@ document.addEventListener('DOMContentLoaded', function () {
             saveAlarmState();
         }
     }
-    
+
     // For pages that don't have the initial raw text but still need to render widgets based on last state
     if (!initialRaw && window.lastKnownMetar) {
         updateDOM(window.lastKnownMetar, STATION);
@@ -2269,12 +2269,12 @@ function updateFogEffect(data) {
 function updateDOM(raw, station) {
     if (!raw) return;
     window.lastKnownMetar = raw;
-    
+
     // Try updating decoded panels (home) and crosswind (operational tools)
     if (typeof updateDecodedPanel === 'function') {
         updateDecodedPanel(raw);
     }
-    
+
     // Try updating thunderstorm panel (weather analysis)
     if (typeof updateThunderstormModule === 'function') {
         updateThunderstormModule(raw);

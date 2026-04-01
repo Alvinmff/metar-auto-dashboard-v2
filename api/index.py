@@ -914,6 +914,7 @@ def windrose_api(station):
         if all_records:
             df = pd.DataFrame(all_records)
             df["time"] = pd.to_datetime(df["time"], errors='coerce')
+            print(f"[WINDROSE 24H] Total records from Sheets: {len(df)}", file=sys.stderr)
             
             # Filter untuk station dan rentang hari ini (WIB 00.00 - 00.00)
             station_df = df[
@@ -922,7 +923,23 @@ def windrose_api(station):
                 (df["time"] < end_cutoff_time)
             ]
             
-            print(f"[WINDROSE 24H] Found {len(station_df)} rows in Sheets", file=sys.stderr)
+            print(f"[WINDROSE 24H] Found {len(station_df)} rows for yesterday's range", file=sys.stderr)
+            
+            # If yesterday has no data, try today's range as fallback
+            if len(station_df) == 0:
+                print(f"[WINDROSE 24H] No data for yesterday, trying today's range...", file=sys.stderr)
+                # Today: start_today_wib (UTC) to now
+                today_cutoff = start_today_wib - timedelta(hours=7)
+                station_df = df[
+                    (df["station"].str.strip().str.upper() == station.upper()) &
+                    (df["time"] >= today_cutoff) &
+                    (df["time"] <= now_utc)
+                ]
+                if len(station_df) > 0:
+                    # Update range labels to reflect today
+                    start_yesterday_wib = start_today_wib  # relabel
+                    start_today_wib = now_wib  # relabel
+                    print(f"[WINDROSE 24H] Found {len(station_df)} rows for today's range (fallback)", file=sys.stderr)
             
             for _, row in station_df.iterrows():
                 metar = str(row["metar"]) if pd.notna(row["metar"]) else ""
@@ -945,6 +962,8 @@ def windrose_api(station):
                             })
                     except:
                         continue
+        else:
+            print(f"[WINDROSE 24H] No records returned from Sheets", file=sys.stderr)
     except Exception as e:
         print(f"[WINDROSE 24H] Sheets Error: {e}", file=sys.stderr)
         # Fallback to local CSV if Sheets fails
@@ -977,6 +996,8 @@ def windrose_api(station):
     # Use fixed WIB boundaries for the range labels
     start_range = start_yesterday_wib.strftime("%Y-%m-%d %H:%M")
     end_range = start_today_wib.strftime("%Y-%m-%d %H:%M")
+
+    print(f"[WINDROSE 24H] Returning {len(filtered_data)} wind data points", file=sys.stderr)
 
     return jsonify({
         "period": "24h",
@@ -1013,12 +1034,14 @@ def windrose_monthly_api(station):
     print(f"[WINDROSE MONTHLY] {station}: Fetching from Google Sheets for {target_year}-{target_month:02d}", file=sys.stderr)
     
     monthly_data = []
+    used_current_month = False
     # 🔥 FETCH DIRECTLY FROM GOOGLE SHEETS AS REQUESTED
     try:
         all_records = sheets_handler.get_all_data()
         if all_records:
             df = pd.DataFrame(all_records)
             df["time"] = pd.to_datetime(df["time"], errors='coerce')
+            print(f"[WINDROSE MONTHLY] Total records from Sheets: {len(df)}", file=sys.stderr)
             
             # Filter untuk station dan rentang bulan target
             station_df = df[
@@ -1027,7 +1050,24 @@ def windrose_monthly_api(station):
                 (df["time"] <= end_date)
             ]
             
-            print(f"[WINDROSE MONTHLY] Found {len(station_df)} rows in Sheets", file=sys.stderr)
+            print(f"[WINDROSE MONTHLY] Found {len(station_df)} rows for {target_year}-{target_month:02d}", file=sys.stderr)
+            
+            # Fallback: if previous month has NO data, try CURRENT month
+            if len(station_df) == 0:
+                print(f"[WINDROSE MONTHLY] No data for previous month, trying current month...", file=sys.stderr)
+                current_start = datetime(now.year, now.month, 1)
+                station_df = df[
+                    (df["station"].str.strip().str.upper() == station.upper()) &
+                    (df["time"] >= current_start) &
+                    (df["time"] <= now)
+                ]
+                if len(station_df) > 0:
+                    used_current_month = True
+                    target_month = now.month
+                    target_year = now.year
+                    start_date = current_start
+                    end_date = now
+                    print(f"[WINDROSE MONTHLY] Found {len(station_df)} rows for current month (fallback)", file=sys.stderr)
             
             for _, row in station_df.iterrows():
                 metar = str(row["metar"]) if pd.notna(row["metar"]) else ""
@@ -1050,6 +1090,8 @@ def windrose_monthly_api(station):
                             })
                     except:
                         continue
+        else:
+            print(f"[WINDROSE MONTHLY] No records returned from Sheets", file=sys.stderr)
     except Exception as e:
         print(f"[WINDROSE MONTHLY] Sheets Error: {e}", file=sys.stderr)
     
@@ -1061,8 +1103,10 @@ def windrose_monthly_api(station):
     }
     month_name = month_names.get(target_month, str(target_month))
     
+    print(f"[WINDROSE MONTHLY] Returning {len(monthly_data)} wind data points for {month_name} {target_year}", file=sys.stderr)
+    
     return jsonify({
-        "period": "monthly",
+        "period": "monthly" if not used_current_month else "current_month",
         "month": target_month,
         "year": target_year,
         "month_name": month_name,
@@ -1070,7 +1114,7 @@ def windrose_monthly_api(station):
         "count": len(monthly_data),
         "range": {
             "start": start_date.strftime("%Y-%m-%d"),
-            "end": end_date.strftime("%Y-%m-%d")
+            "end": end_date.strftime("%Y-%m-%d") if isinstance(end_date, datetime) else str(end_date)
         }
     })
 
