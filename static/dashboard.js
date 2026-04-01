@@ -2322,14 +2322,18 @@ window.updateWindCompass = updateWindCompassDisplay;
 
 class MetarStaleMonitor {
     constructor(options = {}) {
-        this.graceMinutes = options.graceMinutes || 10; // Minutes past observation time before alerting
-        this.checkInterval = options.checkInterval || 30 * 1000; // Check every 30s
-        this.lastMetarTimestamp = null; // UTC timestamp from METAR observation
-        this.lastMetarRaw = null; // Raw METAR string for tracking changes
-        this.alertShown = false;
+        this.graceMinutes = options.graceMinutes || 10; 
+        this.checkInterval = options.checkInterval || 30 * 1000; 
+        this.lastMetarTimestamp = null; 
+        this.lastMetarRaw = null; 
+        
+        // State management
+        this.isAlerting = false;     // Is the popup currently showing?
+        this.isDismissed = false;    // Has the user clicked "Dismiss" for the current period?
+        this.dismissedObsKey = null; // Which period was dismissed?
+        
         this.alarmTimer = null;
         this.timer = null;
-        this.lastExpectedObsKey = null; // Track which observation period triggered the alert
     }
 
     /**
@@ -2384,21 +2388,29 @@ class MetarStaleMonitor {
 
         const newTs = timestamp.getTime();
 
-        // Only reset alert if the METAR observation time actually changed
+        // Only process if the METAR observation time changed
         if (this.lastMetarTimestamp === null || newTs !== this.lastMetarTimestamp) {
-            console.log(`[STALE] METAR observation time updated: ${timestamp.toUTCString()}`);
+            console.log(`[STALE] New METAR timestamp: ${timestamp.toUTCString()}`);
             this.lastMetarTimestamp = newTs;
             this.lastMetarRaw = metarString;
 
-            // Check if data now matches the expected observation → clear alert
+            // Immediately check if this new data clears a currently active or dismissed alert
             const expected = this.getExpectedObservationTime();
             if (newTs >= expected.getTime()) {
-                this.alertShown = false;
-                this.lastExpectedObsKey = null;
-                this.hideAlert();
-                this.stopAlarm();
+                if (this.isAlerting || this.isDismissed) {
+                    console.log("[STALE] Fresh data arrived. Clearing all alerts.");
+                }
+                this.resetState();
             }
         }
+    }
+
+    resetState() {
+        this.isAlerting = false;
+        this.isDismissed = false;
+        this.dismissedObsKey = null;
+        this.hideAlert();
+        this.stopAlarm();
     }
 
     /**
@@ -2416,37 +2428,38 @@ class MetarStaleMonitor {
         const now = new Date();
         const expectedObs = this.getExpectedObservationTime();
         const expectedObsMs = expectedObs.getTime();
+        const obsKey = expectedObs.toISOString();
 
-        // How many ms past the expected observation time are we?
-        const msPastExpected = now.getTime() - expectedObsMs;
-        const gracePeriodMs = this.graceMinutes * 60 * 1000;
-
-        // Not yet past the grace period → nothing to do
-        if (msPastExpected < gracePeriodMs) {
-            return;
-        }
-
-        // Is the METAR data already updated for this observation period?
-        // METAR timestamp should be >= expected observation time
+        // 1. If data is NOT stale (it's current for this period), ensure state is reset
         if (this.lastMetarTimestamp >= expectedObsMs) {
-            // Data is current for this observation period → clear any previous alert
-            if (this.alertShown) {
-                this.alertShown = false;
-                this.lastExpectedObsKey = null;
-                this.hideAlert();
-                this.stopAlarm();
+            if (this.isAlerting || this.isDismissed) {
+                this.resetState();
             }
             return;
         }
 
-        // Create a unique key for this expected observation to avoid repeat alerts
-        const obsKey = expectedObs.toISOString();
-        if (this.alertShown && this.lastExpectedObsKey === obsKey) {
-            return; // Already alerted for this period
+        // 2. Data IS old relative to schedule. Now check if we are past grace period.
+        const msPastExpected = now.getTime() - expectedObsMs;
+        const gracePeriodMs = this.graceMinutes * 60 * 1000;
+
+        if (msPastExpected < gracePeriodMs) {
+            // Still in grace period → do nothing
+            return;
         }
 
-        // METAR is stale: data is from before the expected observation,
-        // and we're past the grace period
+        // 3. We are past grace period and data is still old.
+        // Check if we already handled this period
+        if (this.isDismissed && this.dismissedObsKey === obsKey) {
+            return; // User already acknowledged this specific stale period
+        }
+
+        if (this.isAlerting) {
+            // Already showing the popup. No need to re-trigger, 
+            // but we could update the "Minutes Late" text if we wanted.
+            return; 
+        }
+
+        // 4. Trigger the Alert
         const metarDate = new Date(this.lastMetarTimestamp);
         const metarTimeStr = metarDate.getUTCHours().toString().padStart(2, '0') + ':' +
             metarDate.getUTCMinutes().toString().padStart(2, '0') + ':' +
@@ -2464,11 +2477,13 @@ class MetarStaleMonitor {
         const delayMinutes = Math.floor(totalDelay / 60000);
         const delaySeconds = Math.floor((totalDelay % 60000) / 1000);
 
-        console.warn(`[STALE] ⚠️ METAR not updated! Expected obs: ${expectedTimeStr}, still showing: ${metarTimeStr}. Delay: ${delayMinutes}m ${delaySeconds}s`);
+        console.warn(`[STALE] ⚠️ ALERT: Expected ${expectedTimeStr}Z, current is ${metarTimeStr}Z. Delay: ${delayMinutes}m`);
+        
         this.showAlert(metarTimeStr, nowTimeStr, delayMinutes, delaySeconds, expectedTimeStr);
         this.startAlarmLoop();
-        this.alertShown = true;
-        this.lastExpectedObsKey = obsKey;
+        this.isAlerting = true;
+        this.isDismissed = false;
+        this.dismissedObsKey = null;
     }
 
     /**
@@ -2563,13 +2578,14 @@ class MetarStaleMonitor {
     }
 
     dismiss() {
+        const expectedObs = this.getExpectedObservationTime();
+        this.isAlerting = false;
+        this.isDismissed = true;
+        this.dismissedObsKey = expectedObs.toISOString();
+        
         this.hideAlert();
         this.stopAlarm();
-        this.alertShown = true;
-        // Alert stays dismissed for this observation period (lastExpectedObsKey stays set)
-        // It will automatically re-arm when the next observation period starts
-        // because lastExpectedObsKey won't match the new period's key
-        console.log('[STALE] Alert dismissed. Will re-check on next observation period.');
+        console.log(`[STALE] Alert dismissed for period ${this.dismissedObsKey}.`);
     }
 
     start() {
