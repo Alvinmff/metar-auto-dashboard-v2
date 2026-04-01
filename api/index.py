@@ -2030,62 +2030,24 @@ def update_metar_data_and_sync(station="WARR"):
             df = pd.read_csv(CSV_FILE)
         
         # =====================================================
-        # LOGIKA ANTI-DUPLIKASI - CHECK 1: 24-hour window
+        # LOGIKA ANTI-DUPLIKASI: Strict String Match
         # =====================================================
         should_save = True
         skip_reason = ""
         
         if len(df) > 0:
-            df["time"] = pd.to_datetime(df["time"], errors='coerce')
-            
-            # Cek dalam 24 jam terakhir: apakah METAR ini sudah pernah tercatat?
-            time_24h_ago = datetime.utcnow() - timedelta(hours=24)
-            recent_df = df[df["time"] > time_24h_ago]
-            
-            if len(recent_df) > 0:
-                # Normalisasi semua METAR recent untuk comparison
-                recent_metars_clean = [normalize_metar(str(m)) for m in recent_df["metar"].tolist()]
-                
-                if metar_clean in recent_metars_clean:
-                    # METAR ini sudah ada dalam 24 jam terakhir
-                    # Cari entri yang sama untuk cek waktunya
-                    # Find all indices where metar matches
-                    matching_indices = [i for i, m in enumerate(recent_metars_clean) if m == metar_clean]
-                    # Get the most recent match
-                    last_match_idx = matching_indices[-1]
-                    matching_time = recent_df.iloc[last_match_idx]["time"]
-                    
-                    if pd.notnull(matching_time):
-                        time_diff = (datetime.utcnow() - matching_time).total_seconds()
-                        
-                        # Jika sudah lewat 30 menit (1800 detik) dari entri yang sama,
-                        # kita boleh save lagi untuk tracking continuity
-                        if time_diff < 1800:  # Kurang dari 30 menit
-                            should_save = False
-                            skip_reason = f"Duplikat: METAR identik sudah tercatat {time_diff/60:.1f} menit lalu"
-                        else:
-                            # Lebih dari 30 menit, save lagi meski sama (refresh data)
-                            should_save = True
-                            skip_reason = ""
-                            print(f"[SYNC] METAR sama tapi sudah {time_diff/60:.1f} menit, akan di-refresh", file=sys.stderr)
-        
-        # =====================================================
-        # LOGIKA ANTI-DUPLIKASI - CHECK 2: Last entry immediate check
-        # =====================================================
-        if should_save and len(df) > 0:
+            # Check only the MOST RECENT entry
             last_row = df.iloc[-1]
             last_metar_clean = normalize_metar(str(last_row["metar"]))
-            try:
-                last_time = pd.to_datetime(last_row["time"])
-                if pd.notnull(last_time):
-                    # Jika METAR sama persis dengan yang terakhir DAN waktunya kurang dari 5 menit
-                    if metar_clean == last_metar_clean:
-                        time_diff_last = (datetime.utcnow() - last_time).total_seconds()
-                        if time_diff_last < 300:  # Kurang dari 5 menit
-                            should_save = False
-                            skip_reason = f"Duplikat immediate: data sama {time_diff_last:.0f} detik yang lalu"
-            except:
-                pass
+            
+            if metar_clean == last_metar_clean:
+                # METAR identik dengan data terakhir -> No need to save a new row
+                should_save = False
+                skip_reason = "Duplikat: METAR identik dengan data terakhir"
+            else:
+                # NEW DATA or SPECI (which has different timestamp) -> Save
+                should_save = True
+                skip_reason = ""
         
         # =====================================================
         # EXECUTE SAVE OR SKIP

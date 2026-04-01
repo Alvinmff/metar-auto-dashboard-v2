@@ -875,29 +875,37 @@ function handleMetarUpdate(data) {
     }
 
     // 3. Notifikasi suara untuk data baru (mencegah tabrakan alarm & notify)
-    let allowToastSound = true; // Secara default izinkan toast berbunyi notify
-    if (!isFirstLoad && soundEnabled && data.status === 'new') {
+    // Anti-Duplikasi: Hanya bunyikan alarm/notif jika isi METAR benar-benar berubah
+    const isMetarChanged = data.raw && (!window.lastProcessedMetar || normalizeMetar(data.raw) !== normalizeMetar(window.lastProcessedMetar));
+    
+    let allowToastSound = true; 
+    if (!isFirstLoad && soundEnabled && data.status === 'new' && isMetarChanged) {
         if (hasTS) {
-            // Jika ada TS, jalankan alarm (jika belum dimainkan di block atas)
             if (!alarmPlayedThisCycle) {
                 playAlarm();
                 alarmPlayedThisCycle = true;
             }
-            allowToastSound = false; // Matikan suara notify biasa agar khusus alarm saja
+            allowToastSound = false; 
         } else if (alarmPlayedThisCycle) {
-            // Jika sudah ada alarm lain (seperti Low Vis), matikan notify juga
             allowToastSound = false;
         }
-        // Jika tidak ada berbahaya, allowToastSound tetap true sehingga toast akan berbunyi
+    } else if (data.status !== 'new' || !isMetarChanged) {
+        // Jika data duplikat atau tidak berubah, jangan bunyikan notif apa pun
+        allowToastSound = false;
     }
 
     // ============================================================
     // UI UPDATES (hanya jika data berbeda atau first load)
     // ============================================================
 
-    // Show toast untuk data baru (non-critical)
-    if (!isFirstLoad && data.raw && data.status === 'new') {
+    // Show toast untuk data baru (hanya jika konten METAR berubah)
+    if (!isFirstLoad && data.raw && data.status === 'new' && isMetarChanged) {
         showToast('New METAR Received', `${STATION} — ${new Date().toUTCString().slice(17, 25)} UTC`, 'success', 5000, allowToastSound);
+    }
+    
+    // Simpan data terakhir untuk perbandingan di polling berikutnya
+    if (data.raw) {
+        window.lastProcessedMetar = data.raw;
     }
 
     // Update METAR raw display
