@@ -1652,14 +1652,14 @@ button.sidebar-link {
   pointer-events: none;
 }
 
- /* METAR text highlighting */
-.metar-text-speci {
-    color: #ce9b00; /* Amber/Gold for better contrast on light bg */
+ /* SPECI Row Highlighting */
+.metar-row-speci td:not(.col-status) {
+    color: #ce9b00 !important; /* Force amber for better contrast on light bg */
     font-weight: 600;
 }
 
-[data-theme="dark"] .metar-text-speci {
-    color: #fbbf24; /* Brighter gold for dark theme */
+[data-theme="dark"] .metar-row-speci td:not(.col-status) {
+    color: #fbbf24 !important; /* Force brighter gold for dark theme */
     text-shadow: 0 0 8px rgba(251, 191, 36, 0.2);
 }
 
