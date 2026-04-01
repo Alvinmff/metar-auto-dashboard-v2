@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, send_file, jsonify  # pyre-ignore
+from flask import Flask, render_template, request, send_file, jsonify, make_response  # pyre-ignore
 import json
 import requests  # pyre-ignore
 import pandas as pd  # pyre-ignore
@@ -1874,8 +1874,8 @@ def latest_data():
         else:
             try:
                 last_dt = pd.to_datetime(last_metar_update.replace("Z", ""), format='mixed')
-                # If more than 30 seconds old, trigger an update (Faster Sync)
-                if (now - last_dt).total_seconds() > 30: 
+                # If more than 20 seconds old, trigger an update
+                if (now - last_dt).total_seconds() > 20: 
                     should_update = True
             except:
                 should_update = True
@@ -1930,7 +1930,10 @@ def latest_data():
         "last_update": last_metar_update,
         "server": "online"
     })
-    return jsonify(data)
+    # Return with Edge Cache headers for Vercel optimization
+    response = make_response(jsonify(data))
+    response.headers['Cache-Control'] = 's-maxage=20, stale-while-revalidate=40'
+    return response
 
 # =========================
 # CRON JOB ENDPOINT (For 24/7 background sync)

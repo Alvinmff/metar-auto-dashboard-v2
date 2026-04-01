@@ -129,9 +129,9 @@ async function pollLatestData() {
 // =======================
 // KEEP-ALIVE PING
 // =======================
-// Start polling every 12 seconds (Faster Real-time Sync)
+// Start polling every 20 seconds (Optimized for Vercel CPU + SPECI detection)
 if (typeof pollLatestData === 'function') {
-    setInterval(pollLatestData, 12000);
+    setInterval(pollLatestData, 20000);
 }
 
 // =======================
