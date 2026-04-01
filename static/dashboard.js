@@ -2315,13 +2315,14 @@ window.updateWindCompass = updateWindCompassDisplay;
 
 class MetarStaleMonitor {
     constructor(options = {}) {
-        this.staleThreshold = options.staleThreshold || 5 * 60 * 1000; // 5 minutes
+        this.graceMinutes = options.graceMinutes || 5; // Minutes past observation time before alerting
         this.checkInterval = options.checkInterval || 30 * 1000; // Check every 30s
         this.lastMetarTimestamp = null; // UTC timestamp from METAR observation
         this.lastMetarRaw = null; // Raw METAR string for tracking changes
         this.alertShown = false;
         this.alarmTimer = null;
         this.timer = null;
+        this.lastExpectedObsKey = null; // Track which observation period triggered the alert
     }
 
     /**
@@ -2352,6 +2353,20 @@ class MetarStaleMonitor {
     }
 
     /**
+     * Get the most recent scheduled observation time (:00 or :30) that has passed
+     */
+    getExpectedObservationTime() {
+        const now = new Date();
+        const minute = now.getUTCMinutes();
+        const expectedMinute = minute >= 30 ? 30 : 0;
+
+        return new Date(Date.UTC(
+            now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(),
+            now.getUTCHours(), expectedMinute, 0
+        ));
+    }
+
+    /**
      * Called when new METAR data arrives from polling
      */
     updateFromMetar(metarString) {
@@ -2367,40 +2382,86 @@ class MetarStaleMonitor {
             console.log(`[STALE] METAR observation time updated: ${timestamp.toUTCString()}`);
             this.lastMetarTimestamp = newTs;
             this.lastMetarRaw = metarString;
-            this.alertShown = false;
-            this.hideAlert();
-            this.stopAlarm();
+
+            // Check if data now matches the expected observation → clear alert
+            const expected = this.getExpectedObservationTime();
+            if (newTs >= expected.getTime()) {
+                this.alertShown = false;
+                this.lastExpectedObsKey = null;
+                this.hideAlert();
+                this.stopAlarm();
+            }
         }
     }
 
     /**
-     * Periodic check: is the METAR data stale?
+     * Periodic check: has METAR data failed to update after a new observation period?
+     * 
+     * Logic:
+     *   1. Determine the latest scheduled observation time (:00 or :30 UTC)
+     *   2. If we are more than `graceMinutes` past that time...
+     *   3. AND the METAR timestamp is still from BEFORE that observation time...
+     *   4. THEN the data is stale → show popup
      */
     checkStale() {
         if (!this.lastMetarTimestamp) return;
 
-        const now = Date.now();
-        const diff = now - this.lastMetarTimestamp;
+        const now = new Date();
+        const expectedObs = this.getExpectedObservationTime();
+        const expectedObsMs = expectedObs.getTime();
 
-        if (diff > this.staleThreshold && !this.alertShown) {
-            const metarDate = new Date(this.lastMetarTimestamp);
-            const metarTimeStr = metarDate.getUTCHours().toString().padStart(2, '0') + ':' +
-                metarDate.getUTCMinutes().toString().padStart(2, '0') + ':' +
-                metarDate.getUTCSeconds().toString().padStart(2, '0');
+        // How many ms past the expected observation time are we?
+        const msPastExpected = now.getTime() - expectedObsMs;
+        const gracePeriodMs = this.graceMinutes * 60 * 1000;
 
-            const nowDate = new Date();
-            const nowTimeStr = nowDate.getUTCHours().toString().padStart(2, '0') + ':' +
-                nowDate.getUTCMinutes().toString().padStart(2, '0') + ':' +
-                nowDate.getUTCSeconds().toString().padStart(2, '0');
-
-            const diffMinutes = Math.floor(diff / 60000);
-            const diffSeconds = Math.floor((diff % 60000) / 1000);
-
-            console.warn(`[STALE] ⚠️ METAR data is ${diffMinutes}m ${diffSeconds}s old! Triggering alert.`);
-            this.showAlert(metarTimeStr, nowTimeStr, diffMinutes, diffSeconds);
-            this.startAlarmLoop();
-            this.alertShown = true;
+        // Not yet past the grace period → nothing to do
+        if (msPastExpected < gracePeriodMs) {
+            return;
         }
+
+        // Is the METAR data already updated for this observation period?
+        // METAR timestamp should be >= expected observation time
+        if (this.lastMetarTimestamp >= expectedObsMs) {
+            // Data is current for this observation period → clear any previous alert
+            if (this.alertShown) {
+                this.alertShown = false;
+                this.lastExpectedObsKey = null;
+                this.hideAlert();
+                this.stopAlarm();
+            }
+            return;
+        }
+
+        // Create a unique key for this expected observation to avoid repeat alerts
+        const obsKey = expectedObs.toISOString();
+        if (this.alertShown && this.lastExpectedObsKey === obsKey) {
+            return; // Already alerted for this period
+        }
+
+        // METAR is stale: data is from before the expected observation,
+        // and we're past the grace period
+        const metarDate = new Date(this.lastMetarTimestamp);
+        const metarTimeStr = metarDate.getUTCHours().toString().padStart(2, '0') + ':' +
+            metarDate.getUTCMinutes().toString().padStart(2, '0') + ':' +
+            metarDate.getUTCSeconds().toString().padStart(2, '0');
+
+        const expectedTimeStr = expectedObs.getUTCHours().toString().padStart(2, '0') + ':' +
+            expectedObs.getUTCMinutes().toString().padStart(2, '0') + ':' +
+            expectedObs.getUTCSeconds().toString().padStart(2, '0');
+
+        const nowTimeStr = now.getUTCHours().toString().padStart(2, '0') + ':' +
+            now.getUTCMinutes().toString().padStart(2, '0') + ':' +
+            now.getUTCSeconds().toString().padStart(2, '0');
+
+        const totalDelay = now.getTime() - expectedObsMs;
+        const delayMinutes = Math.floor(totalDelay / 60000);
+        const delaySeconds = Math.floor((totalDelay % 60000) / 1000);
+
+        console.warn(`[STALE] ⚠️ METAR not updated! Expected obs: ${expectedTimeStr}, still showing: ${metarTimeStr}. Delay: ${delayMinutes}m ${delaySeconds}s`);
+        this.showAlert(metarTimeStr, nowTimeStr, delayMinutes, delaySeconds, expectedTimeStr);
+        this.startAlarmLoop();
+        this.alertShown = true;
+        this.lastExpectedObsKey = obsKey;
     }
 
     /**
@@ -2421,7 +2482,7 @@ class MetarStaleMonitor {
         }
     }
 
-    showAlert(metarTime, currentTime, minutes, seconds) {
+    showAlert(metarTime, currentTime, minutes, seconds, expectedTime) {
         let popup = document.getElementById('stale-metar-alert');
         if (!popup) {
             popup = document.createElement('div');
@@ -2437,24 +2498,33 @@ class MetarStaleMonitor {
                     <h3>DATA METAR TIDAK UPDATE</h3>
                 </div>
                 <div class="stale-alert-body">
+                    <div class="stale-expected-obs">
+                        <span class="expected-obs-icon">📡</span>
+                        <span>Observasi <strong>${expectedTime} UTC</strong> belum diterima</span>
+                    </div>
                     <div class="time-comparison">
                         <div class="time-box time-metar">
-                            <label>Waktu Data METAR</label>
+                            <label>Data Terakhir</label>
                             <span class="time-value">${metarTime} UTC</span>
                         </div>
                         <div class="time-arrow">➔</div>
+                        <div class="time-box time-expected">
+                            <label>Seharusnya</label>
+                            <span class="time-value">${expectedTime} UTC</span>
+                        </div>
+                        <div class="time-arrow">➔</div>
                         <div class="time-box time-now">
-                            <label>Waktu Sekarang</label>
+                            <label>Sekarang</label>
                             <span class="time-value">${currentTime} UTC</span>
                         </div>
                     </div>
                     <div class="stale-duration">
-                        <span class="duration-label">Selisih Waktu:</span>
+                        <span class="duration-label">Terlambat dari jadwal:</span>
                         <span class="duration-value">${minutes} menit ${seconds} detik</span>
                     </div>
                     <div class="stale-warning-box">
                         <strong>⚠️ PERINGATAN</strong>
-                        <p>Data METAR belum diperbarui lebih dari 5 menit.</p>
+                        <p>Data METAR seharusnya sudah update pada <strong>${expectedTime} UTC</strong>, namun masih menampilkan data <strong>${metarTime} UTC</strong> setelah lebih dari ${this.graceMinutes} menit.</p>
                         <p class="stale-cause">Kemungkinan: Alat pengirim data BMKG bermasalah atau koneksi terputus.</p>
                     </div>
                 </div>
@@ -2462,7 +2532,7 @@ class MetarStaleMonitor {
                     ✓ Saya Mengerti (Matikan Alarm)
                 </button>
                 <div class="stale-alert-footer">
-                    Cek akan berulang dalam 10 menit jika data masih tidak update
+                    Popup akan muncul lagi pada periode observasi berikutnya jika data masih tidak update
                 </div>
             </div>
         `;
@@ -2472,8 +2542,8 @@ class MetarStaleMonitor {
         // Browser notification
         if ('Notification' in window && Notification.permission === 'granted') {
             try {
-                new Notification('🔔 Data METAR Stale', {
-                    body: `Data METAR tidak update selama ${minutes} menit ${seconds} detik. Cek koneksi BMKG!`,
+                new Notification('🔔 Data METAR Tidak Update', {
+                    body: `Observasi ${expectedTime} UTC belum diterima! Data masih ${metarTime} UTC (terlambat ${minutes}m ${seconds}s).`,
                     requireInteraction: true
                 });
             } catch (e) { /* ignore notification errors */ }
@@ -2489,16 +2559,14 @@ class MetarStaleMonitor {
         this.hideAlert();
         this.stopAlarm();
         this.alertShown = true;
-
-        // Re-enable alert check after 10 minutes
-        setTimeout(() => {
-            this.alertShown = false;
-            console.log('[STALE] Alert re-armed after 10 minute cooldown.');
-        }, 10 * 60 * 1000);
+        // Alert stays dismissed for this observation period (lastExpectedObsKey stays set)
+        // It will automatically re-arm when the next observation period starts
+        // because lastExpectedObsKey won't match the new period's key
+        console.log('[STALE] Alert dismissed. Will re-check on next observation period.');
     }
 
     start() {
-        console.log('[STALE] Monitor started (threshold: 5 minutes, check every 30s)');
+        console.log(`[STALE] Monitor started (grace: ${this.graceMinutes}min past obs time, check every ${this.checkInterval / 1000}s)`);
         this.checkStale();
         this.timer = setInterval(() => this.checkStale(), this.checkInterval);
     }
@@ -2511,8 +2579,8 @@ class MetarStaleMonitor {
 
 // Initialize and expose globally
 const metarStaleMonitor = new MetarStaleMonitor({
-    staleThreshold: 5 * 60 * 1000,  // 5 minutes
-    checkInterval: 30 * 1000         // Check every 30 seconds
+    graceMinutes: 5,          // Alert if data not updated 5 min past observation time
+    checkInterval: 30 * 1000  // Check every 30 seconds
 });
 metarStaleMonitor.start();
 window.metarStaleMonitor = metarStaleMonitor;
