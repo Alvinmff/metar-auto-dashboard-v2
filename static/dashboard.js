@@ -925,6 +925,11 @@ function handleMetarUpdate(data) {
 
         updateDecodedPanel(data.raw);
 
+        // 🔔 Update Stale Data Monitor with fresh METAR
+        if (typeof metarStaleMonitor !== 'undefined') {
+            metarStaleMonitor.updateFromMetar(data.raw);
+        }
+
         // 🔥 AKTIFKAN EFEK KABUT JIKA ADA FG/HZ/BR
         if (typeof updateFogEffect === 'function') {
             if (!window.isManualSession) updateFogEffect(data);
@@ -2303,3 +2308,228 @@ window.makeItRain = makeItRain;
 window.stopRain = stopRain;
 window.updateDOM = updateDOM;
 window.updateWindCompass = updateWindCompassDisplay;
+
+// ============================================
+// STALE DATA DETECTOR - 5 MINUTE THRESHOLD
+// ============================================
+
+class MetarStaleMonitor {
+    constructor(options = {}) {
+        this.staleThreshold = options.staleThreshold || 5 * 60 * 1000; // 5 minutes
+        this.checkInterval = options.checkInterval || 30 * 1000; // Check every 30s
+        this.lastMetarTimestamp = null; // UTC timestamp from METAR observation
+        this.lastMetarRaw = null; // Raw METAR string for tracking changes
+        this.alertShown = false;
+        this.alarmTimer = null;
+        this.timer = null;
+    }
+
+    /**
+     * Parse METAR timestamp (e.g., "010600Z" -> Date object in UTC)
+     */
+    parseMetarTimestamp(metarString) {
+        if (!metarString) return null;
+
+        const match = metarString.match(/\b(\d{2})(\d{2})(\d{2})Z\b/);
+        if (!match) return null;
+
+        const day = parseInt(match[1]);
+        const hour = parseInt(match[2]);
+        const minute = parseInt(match[3]);
+
+        const now = new Date();
+        const year = now.getUTCFullYear();
+        const month = now.getUTCMonth();
+
+        let metarDate = new Date(Date.UTC(year, month, day, hour, minute, 0));
+
+        // If parsed date is in the future by more than 1 day, it's likely from previous month
+        if (metarDate.getTime() - now.getTime() > 24 * 60 * 60 * 1000) {
+            metarDate = new Date(Date.UTC(year, month - 1, day, hour, minute, 0));
+        }
+
+        return metarDate;
+    }
+
+    /**
+     * Called when new METAR data arrives from polling
+     */
+    updateFromMetar(metarString) {
+        if (!metarString) return;
+
+        const timestamp = this.parseMetarTimestamp(metarString);
+        if (!timestamp) return;
+
+        const newTs = timestamp.getTime();
+
+        // Only reset alert if the METAR observation time actually changed
+        if (this.lastMetarTimestamp === null || newTs !== this.lastMetarTimestamp) {
+            console.log(`[STALE] METAR observation time updated: ${timestamp.toUTCString()}`);
+            this.lastMetarTimestamp = newTs;
+            this.lastMetarRaw = metarString;
+            this.alertShown = false;
+            this.hideAlert();
+            this.stopAlarm();
+        }
+    }
+
+    /**
+     * Periodic check: is the METAR data stale?
+     */
+    checkStale() {
+        if (!this.lastMetarTimestamp) return;
+
+        const now = Date.now();
+        const diff = now - this.lastMetarTimestamp;
+
+        if (diff > this.staleThreshold && !this.alertShown) {
+            const metarDate = new Date(this.lastMetarTimestamp);
+            const metarTimeStr = metarDate.getUTCHours().toString().padStart(2, '0') + ':' +
+                metarDate.getUTCMinutes().toString().padStart(2, '0') + ':' +
+                metarDate.getUTCSeconds().toString().padStart(2, '0');
+
+            const nowDate = new Date();
+            const nowTimeStr = nowDate.getUTCHours().toString().padStart(2, '0') + ':' +
+                nowDate.getUTCMinutes().toString().padStart(2, '0') + ':' +
+                nowDate.getUTCSeconds().toString().padStart(2, '0');
+
+            const diffMinutes = Math.floor(diff / 60000);
+            const diffSeconds = Math.floor((diff % 60000) / 1000);
+
+            console.warn(`[STALE] ⚠️ METAR data is ${diffMinutes}m ${diffSeconds}s old! Triggering alert.`);
+            this.showAlert(metarTimeStr, nowTimeStr, diffMinutes, diffSeconds);
+            this.startAlarmLoop();
+            this.alertShown = true;
+        }
+    }
+
+    /**
+     * Play alarm using existing system, repeat every 10 seconds
+     */
+    startAlarmLoop() {
+        // Use existing playAlarm if sound is enabled
+        if (typeof playAlarm === 'function') {
+            playAlarm();
+        }
+        this.alarmTimer = setTimeout(() => this.startAlarmLoop(), 10000);
+    }
+
+    stopAlarm() {
+        if (this.alarmTimer) {
+            clearTimeout(this.alarmTimer);
+            this.alarmTimer = null;
+        }
+    }
+
+    showAlert(metarTime, currentTime, minutes, seconds) {
+        let popup = document.getElementById('stale-metar-alert');
+        if (!popup) {
+            popup = document.createElement('div');
+            popup.id = 'stale-metar-alert';
+            popup.className = 'stale-alert-overlay';
+            document.body.appendChild(popup);
+        }
+
+        popup.innerHTML = `
+            <div class="stale-alert-box">
+                <div class="stale-alert-header">
+                    <span class="stale-alert-bell">🔔</span>
+                    <h3>DATA METAR TIDAK UPDATE</h3>
+                </div>
+                <div class="stale-alert-body">
+                    <div class="time-comparison">
+                        <div class="time-box time-metar">
+                            <label>Waktu Data METAR</label>
+                            <span class="time-value">${metarTime} UTC</span>
+                        </div>
+                        <div class="time-arrow">➔</div>
+                        <div class="time-box time-now">
+                            <label>Waktu Sekarang</label>
+                            <span class="time-value">${currentTime} UTC</span>
+                        </div>
+                    </div>
+                    <div class="stale-duration">
+                        <span class="duration-label">Selisih Waktu:</span>
+                        <span class="duration-value">${minutes} menit ${seconds} detik</span>
+                    </div>
+                    <div class="stale-warning-box">
+                        <strong>⚠️ PERINGATAN</strong>
+                        <p>Data METAR belum diperbarui lebih dari 5 menit.</p>
+                        <p class="stale-cause">Kemungkinan: Alat pengirim data BMKG bermasalah atau koneksi terputus.</p>
+                    </div>
+                </div>
+                <button class="stale-alert-dismiss" onclick="window.metarStaleMonitor.dismiss()">
+                    ✓ Saya Mengerti (Matikan Alarm)
+                </button>
+                <div class="stale-alert-footer">
+                    Cek akan berulang dalam 10 menit jika data masih tidak update
+                </div>
+            </div>
+        `;
+
+        popup.classList.add('visible');
+
+        // Browser notification
+        if ('Notification' in window && Notification.permission === 'granted') {
+            try {
+                new Notification('🔔 Data METAR Stale', {
+                    body: `Data METAR tidak update selama ${minutes} menit ${seconds} detik. Cek koneksi BMKG!`,
+                    requireInteraction: true
+                });
+            } catch (e) { /* ignore notification errors */ }
+        }
+    }
+
+    hideAlert() {
+        const popup = document.getElementById('stale-metar-alert');
+        if (popup) popup.classList.remove('visible');
+    }
+
+    dismiss() {
+        this.hideAlert();
+        this.stopAlarm();
+        this.alertShown = true;
+
+        // Re-enable alert check after 10 minutes
+        setTimeout(() => {
+            this.alertShown = false;
+            console.log('[STALE] Alert re-armed after 10 minute cooldown.');
+        }, 10 * 60 * 1000);
+    }
+
+    start() {
+        console.log('[STALE] Monitor started (threshold: 5 minutes, check every 30s)');
+        this.checkStale();
+        this.timer = setInterval(() => this.checkStale(), this.checkInterval);
+    }
+
+    stop() {
+        if (this.timer) clearInterval(this.timer);
+        this.stopAlarm();
+    }
+}
+
+// Initialize and expose globally
+const metarStaleMonitor = new MetarStaleMonitor({
+    staleThreshold: 5 * 60 * 1000,  // 5 minutes
+    checkInterval: 30 * 1000         // Check every 30 seconds
+});
+metarStaleMonitor.start();
+window.metarStaleMonitor = metarStaleMonitor;
+
+// Request notification permission on first interaction
+document.addEventListener('click', () => {
+    if ('Notification' in window && Notification.permission === 'default') {
+        Notification.requestPermission();
+    }
+}, { once: true });
+
+// Seed stale monitor from server-rendered METAR on page load
+(function initStaleMonitorFromDOM() {
+    const rawEl = document.getElementById('metarRawCode');
+    if (rawEl && rawEl.textContent.trim()) {
+        const rawText = rawEl.textContent.trim().replace(/=/g, '');
+        metarStaleMonitor.updateFromMetar(rawText);
+        console.log('[STALE] Seeded from server-rendered METAR');
+    }
+})();
