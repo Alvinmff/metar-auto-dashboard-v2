@@ -1344,11 +1344,10 @@ def home():
 
     full_history = fetch_history_from_source()
     if not full_history.empty:
-        # Calculate TODAY in WIB (UTC+7)
-        now_wib = datetime.utcnow() + timedelta(hours=7)
-        today_str = now_wib.strftime("%Y-%m-%d")
-        current_day = now_wib.strftime("%A")
-        current_day = now_wib.strftime("%A")
+        # Calculate TODAY in UTC
+        now_utc = datetime.utcnow()
+        today_str = now_utc.strftime("%Y-%m-%d")
+        current_day = now_utc.strftime("%A")
         
         # Filter for today's records (WIB date)
         # Ensure time column is string for startswith comparison
@@ -1517,10 +1516,10 @@ def common_view_context(template_name):
     
     full_history = fetch_history_from_source()
     if not full_history.empty:
-        # Calculate TODAY in WIB (UTC+7)
-        now_wib = datetime.utcnow() + timedelta(hours=7)
-        today_str = now_wib.strftime("%Y-%m-%d")
-        current_day = now_wib.strftime("%A")
+        # Calculate TODAY in UTC
+        now_utc = datetime.utcnow()
+        today_str = now_utc.strftime("%Y-%m-%d")
+        current_day = now_utc.strftime("%A")
         
         # Filter for today's records (WIB date)
         full_history['time'] = full_history['time'].astype(str)
