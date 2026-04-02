@@ -1799,11 +1799,10 @@ async function loadWindRose(station = STATION) {
             const res24h = await fetch(`/api/windrose/${station}`);
             const data24h = await res24h.json();
 
-            renderWindRose('windRose24h', data24h.data, {
-                title: 'Yesterday (UTC)',
-                colorScale: currentTheme === 'dark'
-                    ? [[0, '#4ade80'], [0.5, '#facc15'], [1, '#f87171']]
-                    : [[0, '#2E5C8A'], [0.5, '#E8B339'], [1, '#DC2626']]
+            // 🔥 Passing the whole data object for binned visualization
+            renderWindRose('windRose24h', data24h, {
+                title: 'Today (UTC)',
+                isBinned: true
             });
 
             const badge24h = document.getElementById('windrose24h-badge');
@@ -1821,11 +1820,9 @@ async function loadWindRose(station = STATION) {
             const resMonth = await fetch(`/api/windrose-monthly/${station}`);
             const dataMonth = await resMonth.json();
 
-            renderWindRose('windRoseMonth', dataMonth.data, {
+            renderWindRose('windRoseMonth', dataMonth, {
                 title: `${dataMonth.month_name} ${dataMonth.year}`,
-                colorScale: currentTheme === 'dark'
-                    ? [[0, '#10b981'], [0.5, '#facc15'], [1, '#f87171']]
-                    : [[0, '#059669'], [0.5, '#E8B339'], [1, '#DC2626']]
+                isBinned: true
             });
 
             const badgeMonth = document.getElementById('windroseMonth-badge');
@@ -1841,17 +1838,96 @@ async function loadWindRose(station = STATION) {
     }
 }
 
-function renderWindRose(containerId, data, options) {
+function renderWindRose(containerId, dataObj, options) {
     const container = document.getElementById(containerId);
     if (!container) return;
 
-    if (!data || data.length === 0) {
+    if (!dataObj || (dataObj.data && dataObj.data.length === 0 && !dataObj.binned)) {
         container.innerHTML =
             '<div style="display:flex;justify-content:center;align-items:center;height:100%;color:#64748B;font-family:Inter;font-size:0.9rem;">No wind data available</div>';
         return;
     }
 
     const isDark = currentTheme === 'dark';
+    
+    // 🔥 BMKG STANDARD: BINNING DATA VISUALIZATION
+    if (dataObj.binned) {
+        const binned = dataObj.binned;
+        const labels = binned.bin_labels;
+        const colors = [
+            '#1E3A5F', '#2563EB', '#60A5FA', '#94A3B8', 
+            '#FDBA74', '#F97316', '#DC2626'
+        ];
+        
+        const sectors = binned.sectors; // 16 sectors
+        const theta = sectors.map(s => s.sector);
+        
+        // Create 7 traces (one for each speed bin) for STACKED BAR POLAR
+        const traces = labels.map((label, i) => {
+            return {
+                type: 'barpolar',
+                name: label + ' kt',
+                r: sectors.map(s => s.bins[i].percentage),
+                theta: theta,
+                marker: { color: colors[i] },
+                hovertemplate: `<b>Dir: %{theta}</b><br>Speed: ${label} KT<br>Freq: %{r}%<extra></extra>`
+            };
+        });
+
+        const layout = {
+            polar: {
+                barmode: 'overlay', // Using individual percentages for stacking effect if needed, but 'stack' is supported in barpolar
+                barmode: 'stack',
+                bgcolor: 'rgba(0,0,0,0)',
+                angularaxis: {
+                    direction: 'clockwise',
+                    rotation: 90,
+                    showgrid: true,
+                    gridcolor: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)',
+                    tickfont: { size: 10, color: isDark ? '#E2E8F0' : '#1E293B', family: 'Inter' }
+                },
+                radialaxis: {
+                    showgrid: true,
+                    gridcolor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
+                    ticksuffix: '%',
+                    tickfont: { size: 9, color: isDark ? '#94A3B8' : '#64748B' }
+                }
+            },
+            showlegend: true,
+            legend: {
+                title: { text: 'Kecepatan (Knot)', font: { size: 10, family: 'Inter' } },
+                font: { size: 9, family: 'Inter', color: isDark ? '#E2E8F0' : '#1E293B' },
+                x: 1,
+                y: 0.5
+            },
+            margin: { t: 50, b: 50, l: 40, r: 100 },
+            paper_bgcolor: 'rgba(0,0,0,0)',
+            plot_bgcolor: 'rgba(0,0,0,0)',
+            title: {
+                text: options.title || '',
+                font: { family: 'Inter', size: 16, color: isDark ? '#F1F5F9' : '#1E3A5F', weight: 'bold' },
+                y: 0.98
+            },
+            annotations: [
+                {
+                    text: `<b style="color:red">Angin Tenang (Calm): ${binned.calm_percent}%</b>`,
+                    showarrow: false,
+                    xref: 'paper',
+                    yref: 'paper',
+                    x: 0,
+                    y: -0.1,
+                    xanchor: 'left',
+                    font: { size: 11, family: 'Inter' }
+                }
+            ]
+        };
+
+        Plotly.newPlot(containerId, traces, layout, { responsive: true });
+        return;
+    }
+
+    // Fallback for raw data if binned is missing
+    const data = dataObj.data || [];
     const gridColor = isDark ? 'rgba(255, 255, 255, 0.4)' : '#1E3A5F';
 
     Plotly.newPlot(containerId, [{
@@ -1861,52 +1937,18 @@ function renderWindRose(containerId, data, options) {
         customdata: data.map(d => d.utc_time || ''),
         marker: {
             color: data.map(d => d.speed),
-            colorscale: options.colorScale,
-            showscale: true,
-            colorbar: {
-                title: 'kt',
-                thickness: 12,
-                len: 0.6,
-                tickfont: { family: 'Inter', size: 10, color: isDark ? '#F1F5F9' : '#475569' },
-                titlefont: { family: 'Inter', size: 12, color: isDark ? '#F1F5F9' : '#475569' }
-            }
-        },
-        hovertemplate: '<b>Dir: %{theta}°</b><br>Speed: %{r} KT<br>Time: %{customdata}<extra></extra>',
-        opacity: 0.85
+            colorscale: options.colorScale || 'Viridis',
+            showscale: true
+        }
     }], {
         polar: {
             bgcolor: 'rgba(0,0,0,0)',
-            angularaxis: {
-                direction: 'clockwise',
-                rotation: 90,
-                showgrid: true,
-                gridcolor: isDark ? 'rgba(255, 255, 255, 0.25)' : 'rgba(30, 58, 95, 0.2)',
-                gridwidth: 1,
-                tickmode: 'array',
-                tickvals: [0, 45, 90, 135, 180, 225, 270, 315],
-                ticktext: ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'],
-                tickfont: { size: 12, color: isDark ? '#F1F5F9' : '#1E3A5F', family: 'Inter', weight: 'bold' }
-            },
-            radialaxis: {
-                showgrid: true,
-                gridcolor: isDark ? 'rgba(255, 255, 255, 0.25)' : 'rgba(30, 58, 95, 0.2)',
-                gridwidth: 1,
-                title: 'KT',
-                tickfont: { color: isDark ? '#94A3B8' : '#64748B', weight: 'bold' }
-            }
+            angularaxis: { direction: 'clockwise', rotation: 90 },
+            radialaxis: { showgrid: true }
         },
-        showlegend: false,
-        margin: { t: 60, b: 40, l: 60, r: 60 },
         paper_bgcolor: 'rgba(0,0,0,0)',
         plot_bgcolor: 'rgba(0,0,0,0)',
-        title: {
-            text: options.title || '',
-            font: { family: 'Inter', size: 18, color: isDark ? '#F1F5F9' : '#475569', weight: 'bold' },
-            y: 0.98,
-            x: 0.5,
-            xanchor: 'center',
-            yanchor: 'top'
-        }
+        title: { text: options.title || '' }
     }, { responsive: true });
 }
 
@@ -1925,6 +1967,7 @@ function downloadChart(chartId) {
     // 1. Handle Plotly.js Charts (Compass & Roses)
     const plotlyCharts = ['windCompassChart', 'windRose24h', 'windRoseMonth'];
     if (plotlyCharts.includes(chartId)) {
+        const isDark = currentTheme === 'dark'; // 🔥 Added local definition
         if (typeof Plotly !== 'undefined') {
             const filename = chartId.replace(/([A-Z])/g, '_$1').replace(/^./, str => str.toUpperCase());
             Plotly.downloadImage(chartId, {

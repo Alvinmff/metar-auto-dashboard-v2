@@ -30,6 +30,84 @@ def format_indonesian_date(dt):
     
     return f"{day_name}, {dt.day:02d} {month_name} {dt.year}"
 
+def bin_wind_data(records):
+    """
+    Bin raw wind records into 16 sectors and 7 speed categories.
+    Berdasarkan standar BMKG/WRPlot.
+    Sectors: N, NNE, NE, ENE, E, ESE, SE, SSE, S, SSW, SW, WSW, W, WNW, NW, NNW
+    Bins: 0-5, 5-10, 10-15, 15-20, 20-25, 25-30, >30 (knots)
+    """
+    sectors_list = [
+        "N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", 
+        "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"
+    ]
+    # Speed bins (upper limits)
+    bins = [5, 10, 15, 20, 25, 30, float('inf')]
+    bin_labels = ["0-5", "5-10", "10-15", "15-20", "20-25", "25-30", ">30"]
+    
+    # Initialize counts: matrix[sector_idx][bin_idx]
+    matrix = [[0 for _ in range(len(bins))] for _ in range(len(sectors_list))]
+    calm_count = 0
+    total_valid = 0
+    
+    for r in records:
+        try:
+            speed_val = r.get("speed")
+            speed = float(speed_val) if speed_val is not None else 0
+            direction_raw = r.get("dir")
+            
+            # Count towards total for percentage base
+            total_valid += 1
+            
+            # Calm check: 0 KT or VRB
+            if speed <= 0 or direction_raw == "VRB" or direction_raw is None:
+                calm_count += 1
+                continue
+                
+            direction = float(direction_raw)
+            # Map direction (0-360) to sector index (0-15)
+            # North (0) is centered at -11.25 to 11.25.
+            idx = int(((direction + 11.25) % 360) / 22.5)
+            
+            # Map speed to bin index
+            bin_idx = 0
+            for i, limit in enumerate(bins):
+                if speed <= limit:
+                    bin_idx = i
+                    break
+            
+            if idx < len(sectors_list):
+                matrix[idx][bin_idx] += 1
+        except:
+            continue
+            
+    # Calculate results
+    binned_results = []
+    calm_percent = (calm_count / total_valid * 100) if total_valid > 0 else 0
+    
+    for i, sector in enumerate(sectors_list):
+        sector_bins = []
+        for j, label in enumerate(bin_labels):
+            count = matrix[i][j]
+            percent = (count / total_valid * 100) if total_valid > 0 else 0
+            sector_bins.append({
+                "label": label,
+                "count": count,
+                "percentage": round(percent, 2)
+            })
+        binned_results.append({
+            "sector": sector,
+            "angle": i * 22.5,
+            "bins": sector_bins
+        })
+        
+    return {
+        "sectors": binned_results,
+        "calm_percent": round(calm_percent, 2),
+        "total_count": total_valid,
+        "bin_labels": bin_labels
+    }
+
 # Resolve absolute paths for Vercel
 # Vercel structured as /var/task/api/index.py
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -947,6 +1025,8 @@ def windrose_api(station):
     yesterday = now_utc - timedelta(days=1)
     cutoff_time = yesterday.replace(hour=0, minute=0, second=0, microsecond=0)
     end_cutoff_time = yesterday.replace(hour=23, minute=59, second=59, microsecond=999999)
+    # y_end matching yesterday_records endpoint
+    y_end_simple = yesterday.replace(hour=23, minute=59, second=59)
     
     print(f"[WINDROSE 24H] {station}: Yesterday UTC Range {cutoff_time} to {end_cutoff_time}", file=sys.stderr)
     
@@ -1031,19 +1111,24 @@ def windrose_api(station):
                         })
              except: pass
 
+    # Binning data for BMKG Standard
+    binned_data = bin_wind_data(filtered_data)
+    
     # Determine source (logic matches implementation above)
     source_info = "Sheets" if IS_VERCEL else "Local CSV"
+    total_found = len(station_df)
     
     # Use UTC boundaries for range labels
-    start_range = cutoff_time.strftime("%Y-%m-%d %H:%M UTC")
-    end_range = end_cutoff_time.strftime("%Y-%m-%d %H:%M UTC")
+    start_range = cutoff_time.strftime("%H:%M UTC")
+    end_range = end_cutoff_time.strftime("%H:%M UTC")
 
-    print(f"[WINDROSE 24H] Returning {len(filtered_data)} wind data points", file=sys.stderr)
+    print(f"[WINDROSE 24H] Returning binned data with {len(filtered_data)} points", file=sys.stderr)
 
     return jsonify({
         "period": "24h",
         "data": filtered_data,
-        "count": len(filtered_data),
+        "binned": binned_data,
+        "count": total_found,
         "range": {
             "start": start_range,
             "end": end_range
@@ -1143,7 +1228,10 @@ def windrose_monthly_api(station):
     }
     month_name = month_names.get(target_month, str(target_month))
     
-    print(f"[WINDROSE MONTHLY] Returning {len(monthly_data)} wind data points for {month_name} {target_year}", file=sys.stderr)
+    # Binning data
+    binned_data = bin_wind_data(monthly_data)
+    
+    print(f"[WINDROSE MONTHLY] Returning binned data for {month_name} {target_year}", file=sys.stderr)
     
     return jsonify({
         "period": "monthly" if not used_current_month else "current_month",
@@ -1151,7 +1239,8 @@ def windrose_monthly_api(station):
         "year": target_year,
         "month_name": month_name,
         "data": monthly_data,
-        "count": len(monthly_data),
+        "binned": binned_data,
+        "count": len(station_df),
         "range": {
             "start": start_date.strftime("%Y-%m-%d"),
             "end": end_date.strftime("%Y-%m-%d") if isinstance(end_date, datetime) else str(end_date)
