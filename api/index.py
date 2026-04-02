@@ -18,6 +18,17 @@ try:
     from .sheets_handler import sheets_handler  # type: ignore
 except (ImportError, ValueError):
     from sheets_handler import sheets_handler  # type: ignore
+ 
+def format_indonesian_date(dt):
+    """Format datetime ke format Indonesia: Kamis, 02 April 2026"""
+    days = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"]
+    months = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", 
+              "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
+    
+    day_name = days[dt.weekday()]
+    month_name = months[dt.month - 1]
+    
+    return f"{day_name}, {dt.day:02d} {month_name} {dt.year}"
 
 # Resolve absolute paths for Vercel
 # Vercel structured as /var/task/api/index.py
@@ -2417,7 +2428,7 @@ def get_today_records():
         # Mengambil data langsung dari Google Sheets
         all_records = sheets_handler.get_all_data()
         if not all_records:
-            return jsonify({"records": [], "date": now_utc.strftime("%d %B %Y")})
+            return jsonify({"records": [], "date": format_indonesian_date(now_utc)})
         
         df = pd.DataFrame(all_records)
         df["time"] = pd.to_datetime(df["time"], errors='coerce')
@@ -2471,7 +2482,7 @@ def get_today_records():
             chart_gusts.append(float(p.get("wind_gust_kt")) if p.get("wind_gust_kt") else None)
 
         return jsonify({
-            "date": now_utc.strftime("%d %B %Y"),
+            "date": format_indonesian_date(now_utc),
             "records": records,
             "count": len(records),
             "chart_data": {
@@ -2547,7 +2558,7 @@ def get_yesterday_records():
             chart_gusts.append(float(p.get("wind_gust_kt")) if p.get("wind_gust_kt") else None)
 
         return jsonify({
-            "date": yesterday.strftime("%d %B %Y"),
+            "date": format_indonesian_date(yesterday),
             "records": records,
             "count": len(records),
             "chart_data": {
