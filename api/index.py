@@ -587,18 +587,18 @@ def generate_qam(station, parsed, raw_metar):
 
     qam = f"""MET REPORT (QAM)
 BANDARA JUANDA ({station})
-DATE    : {date_str}
-TIME    : {time_str} UTC
+DATE     : {date_str}
+TIME     : {time_str} UTC
 ========================
-WIND    : {display['wind']}
-VIS     : {display['visibility']}
-WEATHER : {display['weather']}
-CLOUD   : {display['cloud']}
-TT/TD   : {display['temp_td']}
-QNH     : {display['qnh']} MB
-QFE     : {display['qfe']} MB
-TREND   : {display['trend']}
-SUPPLEMENTARY   : {supp_info}
+WIND     : {display['wind']}
+VIS      : {display['visibility']}
+WEATHER  : {display['weather']}
+CLOUD    : {display['cloud']}
+TT/TD    : {display['temp_td']}
+QNH      : {display['qnh']} MB
+QFE      : {display['qfe']} MB
+TREND    : {display['trend']}
+SUPPLMNT : {supp_info}
 """
     return qam
 
@@ -2403,6 +2403,83 @@ def manual_parser():
         auto_fetch=auto_fetch,
         last_metar_update=last_metar_update
     )
+
+# ============================================
+# DAILY METAR RECORD MANAGER - BACKEND
+# ============================================
+@app.route("/api/records/today")
+def get_today_records():
+    """Mengambil data METAR khusus hari ini (Reset otomatis 00:00 UTC)"""
+    now_utc = datetime.utcnow()
+    today_start = now_utc.replace(hour=0, minute=0, second=0, microsecond=0)
+    
+    try:
+        # Mengambil data langsung dari Google Sheets
+        all_records = sheets_handler.get_all_data()
+        if not all_records:
+            return jsonify({"records": [], "date": now_utc.strftime("%d %B %Y")})
+        
+        df = pd.DataFrame(all_records)
+        df["time"] = pd.to_datetime(df["time"], errors='coerce')
+        
+        # Filter: Hanya data dari 00:00 UTC hari ini
+        today_df = df[df["time"] >= today_start].sort_values("time", ascending=False)
+        
+        records = []
+        for _, row in today_df.iterrows():
+            metar = str(row["metar"])
+            parsed = parse_metar(metar)
+            records.append({
+                "time": row["time"].strftime("%H:%M UTC"),
+                "station": row["station"],
+                "metar": metar,
+                "status": parsed.get("status", "normal"),
+                "wind": f"{parsed.get('wind_dir')}°/{parsed.get('wind_speed_kt')}KT" if parsed.get('wind_dir') else "-"
+            })
+            
+        return jsonify({
+            "date": now_utc.strftime("%d %B %Y"),
+            "records": records,
+            "count": len(records)
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/records/yesterday")
+def get_yesterday_records():
+    """Mengambil data METAR lengkap dari hari kemarin"""
+    now_utc = datetime.utcnow()
+    yesterday = now_utc - timedelta(days=1)
+    y_start = yesterday.replace(hour=0, minute=0, second=0, microsecond=0)
+    y_end = yesterday.replace(hour=23, minute=59, second=59)
+    
+    try:
+        all_records = sheets_handler.get_all_data()
+        df = pd.DataFrame(all_records)
+        df["time"] = pd.to_datetime(df["time"], errors='coerce')
+        
+        # Filter: Rentang waktu penuh hari kemarin (UTC)
+        yesterday_df = df[(df["time"] >= y_start) & (df["time"] <= y_end)].sort_values("time", ascending=False)
+        
+        records = []
+        for _, row in yesterday_df.iterrows():
+            metar = str(row["metar"])
+            parsed = parse_metar(metar)
+            records.append({
+                "time": row["time"].strftime("%H:%M UTC"),
+                "station": row["station"],
+                "metar": metar,
+                "status": parsed.get("status", "normal"),
+                "wind": f"{parsed.get('wind_dir')}°/{parsed.get('wind_speed_kt')}KT" if parsed.get('wind_dir') else "-"
+            })
+            
+        return jsonify({
+            "date": yesterday.strftime("%d %B %Y"),
+            "records": records,
+            "count": len(records)
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 # ============ VERCEL HANDLER ============
 # Vercel akan otomatis mencari objek bernama 'app'

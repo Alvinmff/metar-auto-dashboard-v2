@@ -2645,3 +2645,60 @@ document.addEventListener('click', () => {
         console.log('[STALE] Seeded from server-rendered METAR');
     }
 })();
+
+// =======================
+// DAILY METAR RECORD MANAGER
+// =======================
+let currentView = 'today';
+
+async function loadView(viewType) {
+    currentView = viewType;
+    
+    // Update Button UI
+    document.querySelectorAll('.toggle-btn').forEach(btn => btn.classList.remove('active'));
+    const btn = document.getElementById(`btn-${viewType}`);
+    if(btn) btn.classList.add('active');
+    
+    try {
+        const response = await fetch(`/api/records/${viewType}`);
+        const data = await response.json();
+        
+        const displayDate = document.getElementById('display-date');
+        if(displayDate) displayDate.textContent = data.date;
+        
+        const tbody = document.getElementById('table-body');
+        if (!tbody) return;
+        tbody.innerHTML = '';
+
+        if (!data.records || data.records.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="5" class="empty" style="text-align: center; padding: 20px;">Tidak ada data untuk periode ini.</td></tr>`;
+        } else {
+            data.records.forEach(record => {
+                const row = `
+                    <tr class="status-${record.status}">
+                        <td class="time-cell">${record.time}</td>
+                        <td><strong>${record.station}</strong></td>
+                        <td class="metar-cell">${record.metar}</td>
+                        <td>${record.wind}</td>
+                        <td><span class="status-pill">${record.status.toUpperCase()}</span></td>
+                    </tr>
+                `;
+                tbody.insertAdjacentHTML('beforeend', row);
+            });
+        }
+        
+        // Update count badge
+        const countBadge = document.getElementById(`count-${viewType}`);
+        if(countBadge) countBadge.textContent = data.count || 0;
+    } catch (e) {
+        console.error('Failed to load view:', e);
+    }
+}
+
+// Auto-refresh setiap 1 menit hanya jika di view 'today'
+setInterval(() => {
+    if (currentView === 'today') loadView('today');
+}, 60000);
+
+// Load data awal
+document.addEventListener('DOMContentLoaded', () => loadView('today'));

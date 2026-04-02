@@ -309,100 +309,36 @@
 <!-- (Internal module or currently hidden) -->
 
 <!-- ========== HISTORY TABLE ========== -->
-<div class="card fade-in" style="animation-delay:0.22s">
-    <div class="card-header">
-        <h3 class="card-title"><span class="icon">📋</span> Records Today ({{ current_day }})</h3>
-        <span class="text-muted" style="font-size:0.8rem">Updated: <span id="lastSaved">{{ last_saved
-                }}</span></span>
-    </div>
-    <div class="card-body history-card-body">
-        <div class="data-table-container">
-            <table class="data-table">
-                <thead>
-                    <tr>
-                        <th class="col-time">Time</th>
-                        <th class="col-station">Station</th>
-                        <th class="col-metar">METAR Data</th>
-                        <th class="col-status">Status</th>
-                    </tr>
-                </thead>
-                <tbody id="historyTableBody">
-                    {% if has_history %}
-                    {% for index, row in history.iloc[::-1].iterrows() %}
-                    <tr class="{% if 'SPECI' in row['metar'] or (row['status_minute']|default(-1)|int != 0 and row['status_minute']|default(-1)|int != 30 and row['status_minute']|default(-1)|int >= 0) %}metar-row-speci{% endif %}">
-                        <td class="col-time">{{ row['time'] }}</td>
-                        <td class="col-station">{{ row['station'] }}</td>
-                        <td class="metar-cell col-metar">
-                            {{ row['metar'] if row['metar'].endswith('=') else row['metar'] + '=' }}
-                        </td>
-                        <td class="col-status">
-                            {% if ',' in row['metar'] %}
-                            <div class="metar-status-indicator metar-status-invalid">
-                                <span class="metar-status-icon">🔴</span>
-                                <span>ERROR</span>
-                                <div class="metar-status-tooltip">
-                                    <div class="tooltip-title"><span>⚠️</span><span>Data Anomali Terdeteksi</span></div>
-                                    <div class="tooltip-desc">Data METAR mengandung karakter tidak valid (koma).</div>
-                                    <div class="tooltip-error">Anomali ditemukan dalam string data</div>
-                                </div>
-                            </div>
-                            {% elif ' COR ' in row['metar'] or 'CCA' in row['metar'] %}
-                            <div class="metar-status-indicator metar-status-cor">
-                                <span class="metar-status-icon">🟠</span>
-                                <span>COR</span>
-                                <div class="metar-status-tooltip">
-                                    <div class="tooltip-title"><span>🔄</span><span>Koreksi (COR)</span></div>
-                                    <div class="tooltip-desc">Laporan koreksi terhadap METAR sebelumnya.</div>
-                                </div>
-                            </div>
-                            {% elif ' AMD ' in row['metar'] %}
-                            <div class="metar-status-indicator metar-status-amd">
-                                <span class="metar-status-icon">🔵</span>
-                                <span>AMD</span>
-                                <div class="metar-status-tooltip">
-                                    <div class="tooltip-title"><span>📝</span><span>Amandemen (AMD)</span></div>
-                                    <div class="tooltip-desc">Perubahan/amandemen terhadap laporan sebelumnya.</div>
-                                </div>
-                            </div>
-                            {% elif 'SPECI' in row['metar'] %}
-                            <div class="metar-status-indicator metar-status-speci">
-                                <span class="metar-status-icon">🟡</span>
-                                <span>SPECI</span>
-                                <div class="metar-status-tooltip">
-                                    <div class="tooltip-title"><span>📡</span><span>Laporan Khusus (SPECI)</span></div>
-                                    <div class="tooltip-desc">Laporan cuaca khusus di luar jadwal rutin.</div>
-                                </div>
-                            </div>
-                            {% elif row['status_minute']|default(-1)|int != 0 and row['status_minute']|default(-1)|int != 30 and row['status_minute']|default(-1)|int >= 0 %}
-                            <div class="metar-status-indicator metar-status-speci">
-                                <span class="metar-status-icon">🟡</span>
-                                <span>SPECI</span>
-                                <div class="metar-status-tooltip">
-                                    <div class="tooltip-title"><span>📡</span><span>Laporan Khusus (SPECI)</span></div>
-                                    <div class="tooltip-desc">Data masuk pada menit :{{ '%02d'|format(row['status_minute']|int) }}, di luar kelipatan 30 menit.</div>
-                                </div>
-                            </div>
-                            {% else %}
-                            <div class="metar-status-indicator metar-status-normal">
-                                <span class="metar-status-icon">🟢</span>
-                                <span>METAR</span>
-                                <div class="metar-status-tooltip">
-                                    <div class="tooltip-title"><span>✓</span><span>Data Normal</span></div>
-                                    <div class="tooltip-desc">Laporan cuaca rutin sesuai jadwal standar (kelipatan 30 menit).</div>
-                                </div>
-                            </div>
-                            {% endif %}
-                        </td>
-                    </tr>
-                    {% endfor %}
-                    {% else %}
-                    <tr>
-                        <td colspan="4" class="text-center text-muted">No records available for today</td>
-                    </tr>
-                    {% endif %}
-                </tbody>
-            </table>
+<div class="record-manager-card">
+    <div class="manager-controls">
+        <div class="button-group">
+            <button id="btn-today" class="toggle-btn active" onclick="loadView('today')">
+                Hari Ini <span id="count-today" class="badge">0</span>
+            </button>
+            <button id="btn-yesterday" class="toggle-btn" onclick="loadView('yesterday')">
+                Hari Kemarin <span id="count-yesterday" class="badge">0</span>
+            </button>
         </div>
+        <div class="view-info">
+            <span id="display-date">-- --- ----</span>
+            <span class="live-dot"></span>
+        </div>
+    </div>
+
+    <div class="table-responsive">
+        <table id="metar-daily-table" class="modern-table">
+            <thead>
+                <tr>
+                    <th>Waktu</th>
+                    <th>Stasiun</th>
+                    <th>Data METAR</th>
+                    <th>Angin</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody id="table-body">
+                </tbody>
+        </table>
     </div>
 </div>
 
