@@ -2441,8 +2441,8 @@ def get_today_records():
                 record_status = "speci"
             else:
                 try:
-                    minute = pd.to_datetime(row["time"]).minute
-                    if minute != 0 and minute != 30:
+                    minute = int(parsed.get("minute", "-1"))
+                    if minute != 0 and minute != 30 and minute != -1:
                         record_status = "speci"
                 except:
                     pass
@@ -2494,8 +2494,8 @@ def get_yesterday_records():
                 record_status = "speci"
             else:
                 try:
-                    minute = pd.to_datetime(row["time"]).minute
-                    if minute != 0 and minute != 30:
+                    minute = int(parsed.get("minute", "-1"))
+                    if minute != 0 and minute != 30 and minute != -1:
                         record_status = "speci"
                 except:
                     pass
