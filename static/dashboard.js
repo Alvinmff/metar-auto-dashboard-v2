@@ -1860,8 +1860,8 @@ function renderWindRose(containerId, dataObj, options) {
             '#FDBA74', '#F97316', '#DC2626'
         ];
         
-        const sectors = binned.sectors; // 16 sectors
-        const theta = sectors.map(s => s.sector);
+        const sectors = binned.sectors; // 8 sectors
+        const theta = sectors.map(s => s.angle); // Use numerical angles (0, 45, ...)
         
         // Create 7 traces (one for each speed bin) for STACKED BAR POLAR
         const traces = labels.map((label, i) => {
@@ -1871,7 +1871,7 @@ function renderWindRose(containerId, dataObj, options) {
                 r: sectors.map(s => s.bins[i].percentage),
                 theta: theta,
                 marker: { color: colors[i] },
-                hovertemplate: `<b>Dir: %{theta}</b><br>Speed: ${label} KT<br>Freq: %{r}%<extra></extra>`
+                hovertemplate: `<b>Dir: %{theta}°</b><br>Speed: ${label} KT<br>Freq: %{r}%<extra></extra>`
             };
         });
 
@@ -1884,17 +1884,17 @@ function renderWindRose(containerId, dataObj, options) {
                     direction: 'clockwise',
                     rotation: 90,
                     showgrid: true,
-                    gridcolor: isDark ? 'rgba(255, 255, 255, 0.35)' : 'rgba(30, 58, 95, 0.3)',
-                    gridwidth: 1.5,
+                    gridcolor: isDark ? 'rgba(255, 255, 255, 0.25)' : 'rgba(30, 58, 95, 0.2)',
+                    gridwidth: 1,
                     tickmode: 'array',
                     tickvals: [0, 45, 90, 135, 180, 225, 270, 315],
                     ticktext: ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'],
-                    tickfont: { size: 10, color: isDark ? '#E2E8F0' : '#1E293B', family: 'Inter', weight: 'bold' }
+                    tickfont: { size: 10, color: isDark ? '#F1F5F9' : '#1E3A5F', family: 'Inter', weight: 'bold' }
                 },
                 radialaxis: {
                     showgrid: true,
-                    gridcolor: isDark ? 'rgba(255, 255, 255, 0.35)' : 'rgba(30, 58, 95, 0.3)',
-                    gridwidth: 1.5,
+                    gridcolor: isDark ? 'rgba(255, 255, 255, 0.25)' : 'rgba(30, 58, 95, 0.2)',
+                    gridwidth: 1,
                     ticksuffix: '%',
                     tickfont: { size: 9, color: isDark ? '#94A3B8' : '#64748B', weight: 'bold' }
                 }
