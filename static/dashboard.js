@@ -1800,8 +1800,9 @@ async function loadWindRose(station = STATION) {
             const data24h = await res24h.json();
 
             // 🔥 Passing the whole data object for binned visualization
+            const yesterdayTitle = data24h.date_info || 'Yesterday (UTC)';
             renderWindRose('windRose24h', data24h, {
-                title: 'Today (UTC)',
+                title: yesterdayTitle,
                 isBinned: true
             });
 
@@ -1811,8 +1812,14 @@ async function loadWindRose(station = STATION) {
                 badge24h.textContent = `${data24h.count} records`;
             }
             if (info24h && data24h.range) {
-                // 🔥 Display: "Hari, Tanggal • 00:00 UTC to 23:59 UTC • count records"
-                info24h.textContent = `${data24h.range.start} to ${data24h.range.end} • ${data24h.count} records (from ${data24h.source || 'Sheets'})`;
+                const subLabel = `${data24h.range.start} to ${data24h.range.end} • ${data24h.count} records (from ${data24h.source || 'Sheets'})`;
+                info24h.textContent = subLabel;
+                // 🔥 Re-render with subLabel for export inclusion
+                renderWindRose('windRose24h', data24h, {
+                    title: yesterdayTitle,
+                    isBinned: true,
+                    subLabel: subLabel
+                });
             }
         }
 
@@ -1821,9 +1828,11 @@ async function loadWindRose(station = STATION) {
             const resMonth = await fetch(`/api/windrose-monthly/${station}`);
             const dataMonth = await resMonth.json();
 
+            const subLabel = `${dataMonth.range.start} to ${dataMonth.range.end} • ${dataMonth.count} records (from Sheets)`;
             renderWindRose('windRoseMonth', dataMonth, {
                 title: `${dataMonth.month_name} ${dataMonth.year}`,
-                isBinned: true
+                isBinned: true,
+                subLabel: subLabel
             });
 
             const badgeMonth = document.getElementById('windroseMonth-badge');
@@ -1870,48 +1879,58 @@ function renderWindRose(containerId, dataObj, options) {
                 name: label + ' kt',
                 r: sectors.map(s => s.bins[i].percentage),
                 theta: theta,
-                marker: { color: colors[i] },
+                marker: { 
+                    color: colors[i],
+                    line: { color: isDark ? 'rgba(0,0,0,0.3)' : 'rgba(255,255,255,0.4)', width: 1.2 } 
+                },
                 hovertemplate: `<b>Dir: %{theta}°</b><br>Speed: ${label} KT<br>Freq: %{r}%<extra></extra>`
             };
         });
 
         const layout = {
             polar: {
-                barmode: 'overlay', // Using individual percentages for stacking effect if needed, but 'stack' is supported in barpolar
                 barmode: 'stack',
                 bgcolor: 'rgba(0,0,0,0)',
                 angularaxis: {
                     direction: 'clockwise',
                     rotation: 90,
                     showgrid: true,
-                    gridcolor: isDark ? 'rgba(255, 255, 255, 0.25)' : 'rgba(30, 58, 95, 0.2)',
+                    showline: true,
+                    linecolor: isDark ? 'rgba(255, 255, 255, 0.4)' : 'rgba(0, 0, 0, 0.3)',
+                    linewidth: 1,
+                    gridcolor: isDark ? 'rgba(255, 255, 255, 0.3)' : 'rgba(0, 0, 0, 0.2)',
                     gridwidth: 1,
                     tickmode: 'array',
                     tickvals: [0, 45, 90, 135, 180, 225, 270, 315],
-                    ticktext: ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'],
-                    tickfont: { size: 10, color: isDark ? '#F1F5F9' : '#1E3A5F', family: 'Inter', weight: 'bold' }
+                    ticktext: ['N', 'N-E', 'E', 'S-E', 'S', 'S-W', 'W', 'N-W'],
+                    tickfont: { size: 14, color: isDark ? '#F1F5F9' : '#1E3A5F', family: 'Inter', weight: 'bold' }
                 },
                 radialaxis: {
                     showgrid: true,
-                    gridcolor: isDark ? 'rgba(255, 255, 255, 0.25)' : 'rgba(30, 58, 95, 0.2)',
+                    showline: true,
+                    linecolor: isDark ? 'rgba(255, 255, 255, 0.4)' : 'rgba(0, 0, 0, 0.3)',
+                    linewidth: 1,
+                    gridcolor: isDark ? 'rgba(255, 255, 255, 0.3)' : 'rgba(0, 0, 0, 0.2)',
                     gridwidth: 1,
                     ticksuffix: '%',
-                    tickfont: { size: 9, color: isDark ? '#94A3B8' : '#64748B', weight: 'bold' }
+                    angle: 45,
+                    tickangle: 45,
+                    tickfont: { size: 12, color: isDark ? '#94A3B8' : '#475569', weight: 'bold' }
                 }
             },
             showlegend: true,
             legend: {
-                title: { text: 'Kecepatan (Knot)', font: { size: 10, family: 'Inter' } },
-                font: { size: 9, family: 'Inter', color: isDark ? '#E2E8F0' : '#1E293B' },
-                x: 1,
+                title: { text: 'Kecepatan (Knot)', font: { size: 14, family: 'Inter', weight: 'bold' } },
+                font: { size: 12, family: 'Inter', color: isDark ? '#E2E8F0' : '#1E293B' },
+                x: 1.15,
                 y: 0.5
             },
-            margin: { t: 50, b: 50, l: 40, r: 100 },
+            margin: { t: 80, b: 80, l: 60, r: 160 },
             paper_bgcolor: 'rgba(0,0,0,0)',
             plot_bgcolor: 'rgba(0,0,0,0)',
             title: {
                 text: options.title || '',
-                font: { family: 'Inter', size: 16, color: isDark ? '#F1F5F9' : '#1E3A5F', weight: 'bold' },
+                font: { family: 'Inter', size: 24, color: isDark ? '#F1F5F9' : '#1E3A5F', weight: 'bold' },
                 y: 0.98
             },
             annotations: [
@@ -1921,9 +1940,19 @@ function renderWindRose(containerId, dataObj, options) {
                     xref: 'paper',
                     yref: 'paper',
                     x: 0,
-                    y: -0.1,
+                    y: -0.05,
                     xanchor: 'left',
-                    font: { size: 11, family: 'Inter' }
+                    font: { size: 18, family: 'Inter' }
+                },
+                {
+                    text: options.subLabel || '',
+                    showarrow: false,
+                    xref: 'paper',
+                    yref: 'paper',
+                    x: 0,
+                    y: -0.12,
+                    xanchor: 'left',
+                    font: { size: 14, family: 'Inter', color: isDark ? '#94A3B8' : '#64748B' }
                 }
             ]
         };
