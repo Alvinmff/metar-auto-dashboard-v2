@@ -34,12 +34,11 @@ def bin_wind_data(records):
     """
     Bin raw wind records into 16 sectors and 7 speed categories.
     Berdasarkan standar BMKG/WRPlot.
-    Sectors: N, NNE, NE, ENE, E, ESE, SE, SSE, S, SSW, SW, WSW, W, WNW, NW, NNW
+    Sectors: N, NE, E, SE, S, SW, W, NW (8 Sectors)
     Bins: 0-5, 5-10, 10-15, 15-20, 20-25, 25-30, >30 (knots)
     """
     sectors_list = [
-        "N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", 
-        "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"
+        "N", "NE", "E", "SE", "S", "SW", "W", "NW"
     ]
     # Speed bins (upper limits)
     bins = [5, 10, 15, 20, 25, 30, float('inf')]
@@ -65,9 +64,9 @@ def bin_wind_data(records):
                 continue
                 
             direction = float(direction_raw)
-            # Map direction (0-360) to sector index (0-15)
-            # North (0) is centered at -11.25 to 11.25.
-            idx = int(((direction + 11.25) % 360) / 22.5)
+            # Map direction (0-360) to sector index (0-7)
+            # North (0) is centered at -22.5 to 22.5.
+            idx = int(((direction + 22.5) % 360) / 45)
             
             # Map speed to bin index
             bin_idx = 0
@@ -97,7 +96,7 @@ def bin_wind_data(records):
             })
         binned_results.append({
             "sector": sector,
-            "angle": i * 22.5,
+            "angle": i * 45,
             "bins": sector_bins
         })
         
@@ -1118,10 +1117,11 @@ def windrose_api(station):
     source_info = "Sheets" if IS_VERCEL else "Local CSV"
     total_found = len(station_df)
     
-    # Use UTC boundaries for range labels
-    start_range = cutoff_time.strftime("%H:%M UTC")
-    end_range = end_cutoff_time.strftime("%H:%M UTC")
-
+    # Use UTC boundaries for range labels (Include Indonesian Date)
+    date_display = format_indonesian_date(cutoff_time)
+    start_range = f"{date_display} • 00:00 UTC"
+    end_range = "23:59 UTC"
+    
     print(f"[WINDROSE 24H] Returning binned data with {len(filtered_data)} points", file=sys.stderr)
 
     return jsonify({
@@ -1129,6 +1129,7 @@ def windrose_api(station):
         "data": filtered_data,
         "binned": binned_data,
         "count": total_found,
+        "date_info": date_display,
         "range": {
             "start": start_range,
             "end": end_range

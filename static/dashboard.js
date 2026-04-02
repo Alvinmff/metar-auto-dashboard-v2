@@ -1811,6 +1811,7 @@ async function loadWindRose(station = STATION) {
                 badge24h.textContent = `${data24h.count} records`;
             }
             if (info24h && data24h.range) {
+                // 🔥 Display: "Hari, Tanggal • 00:00 UTC to 23:59 UTC • count records"
                 info24h.textContent = `${data24h.range.start} to ${data24h.range.end} • ${data24h.count} records (from ${data24h.source || 'Sheets'})`;
             }
         }
@@ -1883,14 +1884,19 @@ function renderWindRose(containerId, dataObj, options) {
                     direction: 'clockwise',
                     rotation: 90,
                     showgrid: true,
-                    gridcolor: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)',
-                    tickfont: { size: 10, color: isDark ? '#E2E8F0' : '#1E293B', family: 'Inter' }
+                    gridcolor: isDark ? 'rgba(255, 255, 255, 0.35)' : 'rgba(30, 58, 95, 0.3)',
+                    gridwidth: 1.5,
+                    tickmode: 'array',
+                    tickvals: [0, 45, 90, 135, 180, 225, 270, 315],
+                    ticktext: ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'],
+                    tickfont: { size: 10, color: isDark ? '#E2E8F0' : '#1E293B', family: 'Inter', weight: 'bold' }
                 },
                 radialaxis: {
                     showgrid: true,
-                    gridcolor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
+                    gridcolor: isDark ? 'rgba(255, 255, 255, 0.35)' : 'rgba(30, 58, 95, 0.3)',
+                    gridwidth: 1.5,
                     ticksuffix: '%',
-                    tickfont: { size: 9, color: isDark ? '#94A3B8' : '#64748B' }
+                    tickfont: { size: 9, color: isDark ? '#94A3B8' : '#64748B', weight: 'bold' }
                 }
             },
             showlegend: true,
