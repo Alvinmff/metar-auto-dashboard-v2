@@ -1499,10 +1499,10 @@ function getMetarStatus(rawMetar, fullTime, validationResults) {
 
         return {
             type: 'invalid',
-            label: 'ERROR',
+            label: 'INVALID',
             pillIcon: '🔴',
             icon: '⚠️',
-            title: 'Data Anomali / Tidak Valid',
+            title: 'Data Invalid',
             description: hasComma ? 'Data METAR mengandung karakter tidak valid (koma).' : 'Data METAR gagal divalidasi.',
             errorDetail: errorDetail
         };
@@ -1632,6 +1632,8 @@ async function updateHistoryTable() {
 
                 if (status.type === 'speci') {
                     row.classList.add('metar-row-speci');
+                } else if (status.type === 'invalid') {
+                    row.classList.add('metar-row-invalid');
                 }
 
                 const metarWithEqual = item.metar.trim().endsWith('=') ? item.metar : item.metar + '=';
@@ -2805,7 +2807,12 @@ async function loadView(viewType) {
             data.records.forEach(record => {
                 const status = getMetarStatus(record.metar, record.time, record.validation_results);
                 const statusHtml = createStatusIndicatorHTML(status);
-                let rowClass = status.type === "speci" ? "metar-row-speci" : "";
+                let rowClass = "";
+                if (status.type === "speci") {
+                    rowClass = "metar-row-speci";
+                } else if (status.type === "invalid") {
+                    rowClass = "metar-row-invalid";
+                }
 
                 let metarDisplay = record.metar;
                 if (!metarDisplay.endsWith('=')) metarDisplay += '=';

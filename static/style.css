@@ -1600,16 +1600,16 @@ button.sidebar-link {
 
 /* Status: Invalid/Error */
 .metar-status-invalid {
-  background: #FEE2E2;
-  color: #991B1B;
-  border: 1px solid #FECACA;
+  background: #fef2f2;
+  color: #e11d48;
+  border: 1px solid #fda4af;
   animation: shake 0.5s ease-in-out;
 }
 
 [data-theme="dark"] .metar-status-invalid {
-  background: rgba(220, 38, 38, 0.2);
-  color: #F87171;
-  border-color: rgba(220, 38, 38, 0.4);
+  background: rgba(225, 29, 72, 0.2);
+  color: #fb7185;
+  border-color: rgba(225, 29, 72, 0.4);
 }
 
 @keyframes shake {
@@ -1652,7 +1652,7 @@ button.sidebar-link {
   pointer-events: none;
 }
 
- /* SPECI Row Highlighting */
+/* SPECI Row Highlighting */
 .metar-row-speci td:not(.col-status) {
     color: #ce9b00 !important; /* Force amber for better contrast on light bg */
     font-weight: 600;
@@ -1661,6 +1661,17 @@ button.sidebar-link {
 [data-theme="dark"] .metar-row-speci td:not(.col-status) {
     color: #fbbf24 !important; /* Force brighter gold for dark theme */
     text-shadow: 0 0 8px rgba(251, 191, 36, 0.2);
+}
+
+/* INVALID Row Highlighting */
+.metar-row-invalid td:not(.col-status) {
+    color: #e11d48 !important; /* Brighter, vibrant red */
+    font-weight: 600;
+}
+
+[data-theme="dark"] .metar-row-invalid td:not(.col-status) {
+    color: #fb7185 !important; /* Brighter rose/red for dark theme */
+    text-shadow: 0 0 10px rgba(225, 29, 72, 0.3);
 }
 
 /* Tooltip arrow - shared across themes */
