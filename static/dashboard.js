@@ -1879,11 +1879,21 @@ function renderWindRose(containerId, dataObj, options) {
                 name: label + ' kt',
                 r: sectors.map(s => s.bins[i].percentage),
                 theta: theta,
+                customdata: sectors.map(s => ({
+                    count: s.bins[i].count,
+                    times: s.bins[i].times || ''
+                })),
                 marker: { 
                     color: colors[i],
                     line: { color: isDark ? 'rgba(0,0,0,0.3)' : 'rgba(255,255,255,0.4)', width: 1.2 } 
                 },
-                hovertemplate: `<b>Dir: %{theta}°</b><br>Speed: ${label} KT<br>Freq: %{r}%<extra></extra>`
+                hovertemplate: 
+                    '<b>Arah: %{theta}°</b><br>' +
+                    `Kecepatan: ${label} KT<br>` +
+                    'Frekuensi: %{r}%<br>' +
+                    'Jumlah: %{customdata.count} record<br>' +
+                    '%{customdata.times}' +
+                    '<extra></extra>'
             };
         });
 

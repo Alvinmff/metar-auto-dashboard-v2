@@ -46,6 +46,8 @@ def bin_wind_data(records):
     
     # Initialize counts: matrix[sector_idx][bin_idx]
     matrix = [[0 for _ in range(len(bins))] for _ in range(len(sectors_list))]
+    # Track times per sector/bin for hover
+    time_matrix = [[[] for _ in range(len(bins))] for _ in range(len(sectors_list))]
     calm_count = 0
     total_valid = 0
     
@@ -77,6 +79,11 @@ def bin_wind_data(records):
             
             if idx < len(sectors_list):
                 matrix[idx][bin_idx] += 1
+                # Store time info for hover
+                utc_t = r.get("utc_time", "")
+                wib_t = r.get("wib_time", "")
+                if utc_t:
+                    time_matrix[idx][bin_idx].append({"utc": utc_t, "wib": wib_t})
         except:
             continue
             
@@ -89,10 +96,19 @@ def bin_wind_data(records):
         for j, label in enumerate(bin_labels):
             count = matrix[i][j]
             percent = (count / total_valid * 100) if total_valid > 0 else 0
+            # Build compact time summary for hover
+            times = time_matrix[i][j]
+            time_summary = ""
+            if times:
+                # Show full date+time, remove "UTC"/"WIB" suffix for compactness
+                utc_list = sorted(set(t["utc"].replace(" UTC", "") for t in times))
+                wib_list = sorted(set(t["wib"].replace(" WIB", "") for t in times))
+                time_summary = "UTC: " + ", ".join(utc_list) + " | WIB: " + ", ".join(wib_list)
             sector_bins.append({
                 "label": label,
                 "count": count,
-                "percentage": round(percent, 2)
+                "percentage": round(percent, 2),
+                "times": time_summary
             })
         binned_results.append({
             "sector": sector,
@@ -1074,9 +1090,13 @@ def windrose_api(station):
                     try:
                         wind_dir = wind_match.group(1)
                         if wind_dir != "VRB":
+                            utc_str = row['time'].strftime('%Y-%m-%d %H:%M UTC')
+                            wib_time = row['time'] + timedelta(hours=7)
+                            wib_str = wib_time.strftime('%Y-%m-%d %H:%M WIB')
                             filtered_data.append({
                                 "time": row["time"].strftime("%Y-%m-%d %H:%M:%S"),
-                                "utc_time": f"{row['time'].strftime('%Y-%m-%d %H:%M UTC')}",
+                                "utc_time": utc_str,
+                                "wib_time": wib_str,
                                 "station": station,
                                 "dir": int(wind_dir),
                                 "speed": float(wind_match.group(2))
@@ -1207,9 +1227,13 @@ def windrose_monthly_api(station):
                     try:
                         wind_dir = wind_match.group(1)
                         if wind_dir != "VRB":
+                            utc_str = row['time'].strftime('%Y-%m-%d %H:%M UTC')
+                            wib_time = row['time'] + timedelta(hours=7)
+                            wib_str = wib_time.strftime('%Y-%m-%d %H:%M WIB')
                             monthly_data.append({
                                 "time": row["time"].strftime("%Y-%m-%d %H:%M:%S"),
-                                "utc_time": f"{row['time'].strftime('%Y-%m-%d %H:%M UTC')}",
+                                "utc_time": utc_str,
+                                "wib_time": wib_str,
                                 "station": station,
                                 "dir": int(wind_dir),
                                 "speed": float(wind_match.group(2))
