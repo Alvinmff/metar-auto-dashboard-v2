@@ -2671,16 +2671,75 @@ async function loadView(viewType) {
         tbody.innerHTML = '';
 
         if (!data.records || data.records.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="5" class="empty" style="text-align: center; padding: 20px;">Tidak ada data untuk periode ini.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="4" class="empty" style="text-align: center; padding: 20px;">Tidak ada records tersedia</td></tr>`;
         } else {
             data.records.forEach(record => {
+                let rowClass = "";
+                let statusHtml = "";
+
+                if (record.record_status === "invalid") {
+                    statusHtml = `
+                    <div class="metar-status-indicator metar-status-invalid">
+                        <span class="metar-status-icon">🔴</span>
+                        <span>ERROR</span>
+                        <div class="metar-status-tooltip">
+                            <div class="tooltip-title"><span>⚠️</span><span>Data Anomali Terdeteksi</span></div>
+                            <div class="tooltip-desc">Data METAR mengandung karakter tidak valid (koma).</div>
+                            <div class="tooltip-error">Anomali ditemukan dalam string data</div>
+                        </div>
+                    </div>`;
+                } else if (record.record_status === "speci") {
+                    rowClass = "metar-row-speci";
+                    statusHtml = `
+                    <div class="metar-status-indicator metar-status-speci">
+                        <span class="metar-status-icon">🟡</span>
+                        <span>SPECI</span>
+                        <div class="metar-status-tooltip">
+                            <div class="tooltip-title"><span>📡</span><span>Laporan Khusus (SPECI)</span></div>
+                            <div class="tooltip-desc">Data masuk pada jadwal di luar kelipatan 30 menit.</div>
+                        </div>
+                    </div>`;
+                } else if (record.record_status === "cor") {
+                    statusHtml = `
+                    <div class="metar-status-indicator metar-status-cor">
+                        <span class="metar-status-icon">🟠</span>
+                        <span>COR</span>
+                        <div class="metar-status-tooltip">
+                            <div class="tooltip-title"><span>🔄</span><span>Koreksi (COR)</span></div>
+                            <div class="tooltip-desc">Laporan koreksi terhadap METAR sebelumnya.</div>
+                        </div>
+                    </div>`;
+                } else if (record.record_status === "amd") {
+                    statusHtml = `
+                    <div class="metar-status-indicator metar-status-amd">
+                        <span class="metar-status-icon">🔵</span>
+                        <span>AMD</span>
+                        <div class="metar-status-tooltip">
+                            <div class="tooltip-title"><span>📝</span><span>Amandemen (AMD)</span></div>
+                            <div class="tooltip-desc">Perubahan/amandemen terhadap laporan sebelumnya.</div>
+                        </div>
+                    </div>`;
+                } else {
+                    statusHtml = `
+                    <div class="metar-status-indicator metar-status-normal">
+                        <span class="metar-status-icon">🟢</span>
+                        <span>METAR</span>
+                        <div class="metar-status-tooltip">
+                            <div class="tooltip-title"><span>✓</span><span>Data Normal</span></div>
+                            <div class="tooltip-desc">Laporan cuaca rutin sesuai jadwal standar (kelipatan 30 menit).</div>
+                        </div>
+                    </div>`;
+                }
+
+                let metarDisplay = record.metar;
+                if (!metarDisplay.endsWith('=')) metarDisplay += '=';
+
                 const row = `
-                    <tr class="status-${record.status}">
-                        <td class="time-cell">${record.time}</td>
-                        <td><strong>${record.station}</strong></td>
-                        <td class="metar-cell">${record.metar}</td>
-                        <td>${record.wind}</td>
-                        <td><span class="status-pill">${record.status.toUpperCase()}</span></td>
+                    <tr class="${rowClass}">
+                        <td class="col-time">${record.time}</td>
+                        <td class="col-station">${record.station}</td>
+                        <td class="metar-cell col-metar">${metarDisplay}</td>
+                        <td class="col-status">${statusHtml}</td>
                     </tr>
                 `;
                 tbody.insertAdjacentHTML('beforeend', row);

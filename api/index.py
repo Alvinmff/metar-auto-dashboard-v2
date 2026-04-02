@@ -2429,12 +2429,29 @@ def get_today_records():
         for _, row in today_df.iterrows():
             metar = str(row["metar"])
             parsed = parse_metar(metar)
+            
+            record_status = "normal"
+            if ',' in metar:
+                record_status = "invalid"
+            elif ' COR ' in metar or 'CCA' in metar:
+                record_status = "cor"
+            elif ' AMD ' in metar:
+                record_status = "amd"
+            elif 'SPECI' in metar:
+                record_status = "speci"
+            else:
+                try:
+                    minute = pd.to_datetime(row["time"]).minute
+                    if minute != 0 and minute != 30:
+                        record_status = "speci"
+                except:
+                    pass
+                    
             records.append({
-                "time": row["time"].strftime("%H:%M UTC"),
+                "time": pd.to_datetime(row["time"]).strftime("%Y-%m-%d %H:%M UTC"),
                 "station": row["station"],
                 "metar": metar,
-                "status": parsed.get("status", "normal"),
-                "wind": f"{parsed.get('wind_dir')}°/{parsed.get('wind_speed_kt')}KT" if parsed.get('wind_dir') else "-"
+                "record_status": record_status
             })
             
         return jsonify({
@@ -2465,12 +2482,29 @@ def get_yesterday_records():
         for _, row in yesterday_df.iterrows():
             metar = str(row["metar"])
             parsed = parse_metar(metar)
+            
+            record_status = "normal"
+            if ',' in metar:
+                record_status = "invalid"
+            elif ' COR ' in metar or 'CCA' in metar:
+                record_status = "cor"
+            elif ' AMD ' in metar:
+                record_status = "amd"
+            elif 'SPECI' in metar:
+                record_status = "speci"
+            else:
+                try:
+                    minute = pd.to_datetime(row["time"]).minute
+                    if minute != 0 and minute != 30:
+                        record_status = "speci"
+                except:
+                    pass
+
             records.append({
-                "time": row["time"].strftime("%H:%M UTC"),
+                "time": pd.to_datetime(row["time"]).strftime("%Y-%m-%d %H:%M UTC"),
                 "station": row["station"],
                 "metar": metar,
-                "status": parsed.get("status", "normal"),
-                "wind": f"{parsed.get('wind_dir')}°/{parsed.get('wind_speed_kt')}KT" if parsed.get('wind_dir') else "-"
+                "record_status": record_status
             })
             
         return jsonify({
