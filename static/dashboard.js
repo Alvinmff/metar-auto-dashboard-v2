@@ -1896,53 +1896,54 @@ function renderWindRose(containerId, dataObj, options) {
                     rotation: 90,
                     showgrid: true,
                     showline: true,
-                    linecolor: isDark ? 'rgba(255, 255, 255, 0.4)' : 'rgba(0, 0, 0, 0.3)',
+                    linecolor: isDark ? 'rgba(255, 255, 255, 0.4)' : 'rgba(0, 0, 0, 0.25)',
                     linewidth: 1,
-                    gridcolor: isDark ? 'rgba(255, 255, 255, 0.3)' : 'rgba(0, 0, 0, 0.2)',
+                    gridcolor: isDark ? 'rgba(255, 255, 255, 0.25)' : 'rgba(0, 0, 0, 0.15)',
                     gridwidth: 1,
                     tickmode: 'array',
                     tickvals: [0, 45, 90, 135, 180, 225, 270, 315],
                     ticktext: ['N', 'N-E', 'E', 'S-E', 'S', 'S-W', 'W', 'N-W'],
-                    tickfont: { size: 14, color: isDark ? '#F1F5F9' : '#1E3A5F', family: 'Inter', weight: 'bold' }
+                    tickfont: { size: 11, color: isDark ? '#F1F5F9' : '#1E3A5F', family: 'Inter', weight: 'bold' }
                 },
                 radialaxis: {
                     showgrid: true,
                     showline: true,
-                    linecolor: isDark ? 'rgba(255, 255, 255, 0.4)' : 'rgba(0, 0, 0, 0.3)',
+                    linecolor: isDark ? 'rgba(255, 255, 255, 0.4)' : 'rgba(0, 0, 0, 0.25)',
                     linewidth: 1,
-                    gridcolor: isDark ? 'rgba(255, 255, 255, 0.3)' : 'rgba(0, 0, 0, 0.2)',
+                    gridcolor: isDark ? 'rgba(255, 255, 255, 0.25)' : 'rgba(0, 0, 0, 0.15)',
                     gridwidth: 1,
+                    nticks: 5,
                     ticksuffix: '%',
                     angle: 45,
                     tickangle: 45,
-                    tickfont: { size: 12, color: isDark ? '#94A3B8' : '#475569', weight: 'bold' }
+                    tickfont: { size: 9, color: isDark ? '#94A3B8' : '#64748B' }
                 }
             },
             showlegend: true,
             legend: {
-                title: { text: 'Kecepatan (Knot)', font: { size: 14, family: 'Inter', weight: 'bold' } },
-                font: { size: 12, family: 'Inter', color: isDark ? '#E2E8F0' : '#1E293B' },
-                x: 1.15,
+                title: { text: 'Kecepatan (Knot)', font: { size: 10, family: 'Inter', weight: 'bold' } },
+                font: { size: 9, family: 'Inter', color: isDark ? '#E2E8F0' : '#1E293B' },
+                x: 1.05,
                 y: 0.5
             },
-            margin: { t: 80, b: 80, l: 60, r: 160 },
+            margin: { t: 60, b: 60, l: 50, r: 120 },
             paper_bgcolor: 'rgba(0,0,0,0)',
             plot_bgcolor: 'rgba(0,0,0,0)',
             title: {
                 text: options.title || '',
-                font: { family: 'Inter', size: 24, color: isDark ? '#F1F5F9' : '#1E3A5F', weight: 'bold' },
+                font: { family: 'Inter', size: 16, color: isDark ? '#F1F5F9' : '#1E3A5F', weight: 'bold' },
                 y: 0.98
             },
             annotations: [
                 {
-                    text: `<b style="color:red">Angin Tenang (Calm): ${binned.calm_percent}%</b>`,
+                    text: `<b style="color:#DC2626">Angin Tenang (Calm): ${binned.calm_percent}%</b>`,
                     showarrow: false,
                     xref: 'paper',
                     yref: 'paper',
                     x: 0,
-                    y: -0.05,
+                    y: -0.08,
                     xanchor: 'left',
-                    font: { size: 18, family: 'Inter' }
+                    font: { size: 12, family: 'Inter', color: '#DC2626' }
                 },
                 {
                     text: options.subLabel || '',
@@ -1950,9 +1951,9 @@ function renderWindRose(containerId, dataObj, options) {
                     xref: 'paper',
                     yref: 'paper',
                     x: 0,
-                    y: -0.12,
+                    y: -0.14,
                     xanchor: 'left',
-                    font: { size: 14, family: 'Inter', color: isDark ? '#94A3B8' : '#64748B' }
+                    font: { size: 10, family: 'Inter', color: isDark ? '#94A3B8' : '#64748B' }
                 }
             ]
         };
