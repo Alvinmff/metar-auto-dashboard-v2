@@ -1879,16 +1879,20 @@ function renderWindRose(containerId, data, options) {
             angularaxis: {
                 direction: 'clockwise',
                 rotation: 90,
+                showgrid: true,
+                gridcolor: isDark ? 'rgba(255, 255, 255, 0.25)' : 'rgba(30, 58, 95, 0.2)',
+                gridwidth: 1,
                 tickmode: 'array',
                 tickvals: [0, 45, 90, 135, 180, 225, 270, 315],
                 ticktext: ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'],
-                tickfont: { size: 12, color: gridColor, family: 'Inter', weight: isDark ? 'bold' : 'normal' }
+                tickfont: { size: 12, color: isDark ? '#F1F5F9' : '#1E3A5F', family: 'Inter', weight: 'bold' }
             },
             radialaxis: {
                 showgrid: true,
-                gridcolor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)',
+                gridcolor: isDark ? 'rgba(255, 255, 255, 0.25)' : 'rgba(30, 58, 95, 0.2)',
+                gridwidth: 1,
                 title: 'KT',
-                tickfont: { color: isDark ? '#94A3B8' : '#64748B' }
+                tickfont: { color: isDark ? '#94A3B8' : '#64748B', weight: 'bold' }
             }
         },
         showlegend: false,
@@ -1925,9 +1929,11 @@ function downloadChart(chartId) {
             const filename = chartId.replace(/([A-Z])/g, '_$1').replace(/^./, str => str.toUpperCase());
             Plotly.downloadImage(chartId, {
                 format: 'png',
-                width: 1000,
-                height: 800,
-                filename: `${filename}_${STATION}`
+                width: 1200,
+                height: 900,
+                filename: `${filename}_${STATION}`,
+                // 🔥 Memastikan background putih dan grid terlihat saat ekspor
+                setBackground: isDark ? '#0f172a' : '#ffffff'
             });
         }
         return;

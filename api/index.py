@@ -942,20 +942,12 @@ def windrose_api(station):
     """API endpoint untuk Wind Rose 24 jam terakhir - FETCH FROM SHEETS for Real-time Sync"""
     global CSV_FILE
     
-    # 00.00 WIB Kemarin sampai 00.00 WIB Hari Ini (Yesterday's Full Day)
+    # 🔥 UTC-ONLY: Last 24 Hours window
     now_utc = datetime.utcnow()
-    # Manual WIB offset (UTC+7)
-    now_wib = now_utc + timedelta(hours=7)
-    # Start of today WIB
-    start_today_wib = now_wib.replace(hour=0, minute=0, second=0, microsecond=0)
-    # Start of yesterday WIB
-    start_yesterday_wib = start_today_wib - timedelta(days=1)
+    cutoff_time = now_utc - timedelta(hours=24)
+    end_cutoff_time = now_utc
     
-    # Convert ranges back to UTC for filtering
-    cutoff_time = start_yesterday_wib - timedelta(hours=7)
-    end_cutoff_time = start_today_wib - timedelta(hours=7)
-    
-    print(f"[WINDROSE 24H] {station}: Yesterday's range UTC {cutoff_time} to {end_cutoff_time}", file=sys.stderr)
+    print(f"[WINDROSE 24H] {station}: UTC Range {cutoff_time} to {end_cutoff_time}", file=sys.stderr)
     
     filtered_data = []
     # 🔥 FETCH DIRECTLY FROM GOOGLE SHEETS for consistent sync
@@ -1002,10 +994,9 @@ def windrose_api(station):
                     try:
                         wind_dir = wind_match.group(1)
                         if wind_dir != "VRB":
-                            wib_time = row["time"] + timedelta(hours=7)
                             filtered_data.append({
-                                "time": wib_time.strftime("%Y-%m-%d %H:%M:%S"),
-                                "utc_time": f"{row['time'].strftime('%Y-%m-%d %H:%M UTC')} | {wib_time.strftime('%Y-%m-%d %H:%M WIB')}",
+                                "time": row["time"].strftime("%Y-%m-%d %H:%M:%S"),
+                                "utc_time": f"{row['time'].strftime('%Y-%m-%d %H:%M UTC')}",
                                 "station": station,
                                 "dir": int(wind_dir),
                                 "speed": float(wind_match.group(2))
@@ -1030,10 +1021,9 @@ def windrose_api(station):
                     metar = str(row["metar"])
                     wind_match = re.search(r'\b(\d{3}|VRB)(\d{2,3})(G\d{2,3})?KT\b', metar)
                     if wind_match and wind_match.group(1) != "VRB":
-                        wib_time = row["time"] + timedelta(hours=7)
                         filtered_data.append({
-                            "time": wib_time.strftime("%Y-%m-%d %H:%M:%S"),
-                            "utc_time": f"{row['time'].strftime('%Y-%m-%d %H:%M UTC')} | {wib_time.strftime('%Y-%m-%d %H:%M WIB')}",
+                            "time": row["time"].strftime("%Y-%m-%d %H:%M:%S"),
+                            "utc_time": f"{row['time'].strftime('%Y-%m-%d %H:%M UTC')}",
                             "station": station,
                             "dir": int(wind_match.group(1)),
                             "speed": float(wind_match.group(2))
@@ -1043,9 +1033,9 @@ def windrose_api(station):
     # Determine source (logic matches implementation above)
     source_info = "Sheets" if IS_VERCEL else "Local CSV"
     
-    # Use fixed WIB boundaries for the range labels
-    start_range = start_yesterday_wib.strftime("%Y-%m-%d %H:%M")
-    end_range = start_today_wib.strftime("%Y-%m-%d %H:%M")
+    # Use UTC boundaries for range labels
+    start_range = cutoff_time.strftime("%Y-%m-%d %H:%M UTC")
+    end_range = end_cutoff_time.strftime("%Y-%m-%d %H:%M UTC")
 
     print(f"[WINDROSE 24H] Returning {len(filtered_data)} wind data points", file=sys.stderr)
 
@@ -1130,10 +1120,9 @@ def windrose_monthly_api(station):
                     try:
                         wind_dir = wind_match.group(1)
                         if wind_dir != "VRB":
-                            wib_time = row["time"] + timedelta(hours=7)
-                            monthly_data.append({
+                            filtered_data.append({
                                 "time": row["time"].strftime("%Y-%m-%d %H:%M:%S"),
-                                "utc_time": f"{row['time'].strftime('%Y-%m-%d %H:%M UTC')} | {wib_time.strftime('%Y-%m-%d %H:%M WIB')}",
+                                "utc_time": f"{row['time'].strftime('%Y-%m-%d %H:%M UTC')}",
                                 "station": station,
                                 "dir": int(wind_dir),
                                 "speed": float(wind_match.group(2))
