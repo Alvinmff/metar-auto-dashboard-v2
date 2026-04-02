@@ -942,9 +942,9 @@ def windrose_api(station):
     """API endpoint untuk Wind Rose 24 jam terakhir - FETCH FROM SHEETS for Real-time Sync"""
     global CSV_FILE
     
-    # 🔥 UTC-ONLY: Last 24 Hours window
+    # 🔥 UTC-ONLY: Fixed Day window (00:00 to current time)
     now_utc = datetime.utcnow()
-    cutoff_time = now_utc - timedelta(hours=24)
+    cutoff_time = now_utc.replace(hour=0, minute=0, second=0, microsecond=0)
     end_cutoff_time = now_utc
     
     print(f"[WINDROSE 24H] {station}: UTC Range {cutoff_time} to {end_cutoff_time}", file=sys.stderr)
