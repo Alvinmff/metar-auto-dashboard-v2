@@ -2454,10 +2454,33 @@ def get_today_records():
                 "record_status": record_status
             })
             
+        # Chart Data extraction (Ascending order)
+        chart_df = today_df.sort_values("time", ascending=True)
+        chart_labels = []
+        chart_temps = []
+        chart_pressures = []
+        chart_winds = []
+        chart_gusts = []
+        
+        for _, row in chart_df.iterrows():
+            p = parse_metar(str(row["metar"]))
+            chart_labels.append(row["time"].strftime("%H:%M"))
+            chart_temps.append(float(p.get("temperature_c")) if p.get("temperature_c") else None)
+            chart_pressures.append(float(p.get("pressure_hpa")) if p.get("pressure_hpa") else None)
+            chart_winds.append(float(p.get("wind_speed_kt")) if p.get("wind_speed_kt") else None)
+            chart_gusts.append(float(p.get("wind_gust_kt")) if p.get("wind_gust_kt") else None)
+
         return jsonify({
             "date": now_utc.strftime("%d %B %Y"),
             "records": records,
-            "count": len(records)
+            "count": len(records),
+            "chart_data": {
+                "labels": chart_labels,
+                "temps": chart_temps,
+                "pressures": chart_pressures,
+                "winds": chart_winds,
+                "gusts": chart_gusts
+            }
         })
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -2507,10 +2530,33 @@ def get_yesterday_records():
                 "record_status": record_status
             })
             
+        # Chart Data extraction (Ascending order)
+        chart_df = yesterday_df.sort_values("time", ascending=True)
+        chart_labels = []
+        chart_temps = []
+        chart_pressures = []
+        chart_winds = []
+        chart_gusts = []
+        
+        for _, row in chart_df.iterrows():
+            p = parse_metar(str(row["metar"]))
+            chart_labels.append(row["time"].strftime("%H:%M"))
+            chart_temps.append(float(p.get("temperature_c")) if p.get("temperature_c") else None)
+            chart_pressures.append(float(p.get("pressure_hpa")) if p.get("pressure_hpa") else None)
+            chart_winds.append(float(p.get("wind_speed_kt")) if p.get("wind_speed_kt") else None)
+            chart_gusts.append(float(p.get("wind_gust_kt")) if p.get("wind_gust_kt") else None)
+
         return jsonify({
             "date": yesterday.strftime("%d %B %Y"),
             "records": records,
-            "count": len(records)
+            "count": len(records),
+            "chart_data": {
+                "labels": chart_labels,
+                "temps": chart_temps,
+                "pressures": chart_pressures,
+                "winds": chart_winds,
+                "gusts": chart_gusts
+            }
         })
     except Exception as e:
         return jsonify({"error": str(e)}), 500

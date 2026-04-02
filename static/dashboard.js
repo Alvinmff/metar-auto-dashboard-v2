@@ -1372,6 +1372,12 @@ function createWindChart() {
 // FETCH & UPDATE CHARTS
 // =======================
 async function loadHistory() {
+    // 🔥 Jika sedang melihat data 'yesterday', jangan timpa grafik dengan data polling terbaru
+    if (typeof currentView !== 'undefined' && currentView !== 'today') {
+        console.log('[CHART] Skipping history update - current view is not "today"');
+        return;
+    }
+
     console.log('[CHART] Requesting history update...');
     try {
         const res = await fetch('/api/metar/history');
@@ -2666,6 +2672,25 @@ async function loadView(viewType) {
         const displayDate = document.getElementById('display-date');
         if(displayDate) displayDate.textContent = data.date;
         
+        // 🔥 UPDATE CHARTS SYNC WITH VIEW
+        if (data.chart_data && typeof updateCharts === 'function') {
+            console.log(`[CHART] Syncing charts with ${viewType} data...`);
+            updateCharts(
+                data.chart_data.labels,
+                data.chart_data.temps,
+                data.chart_data.pressures,
+                data.chart_data.winds,
+                data.chart_data.gusts
+            );
+            
+            // Update info text for charts
+            const infoText = `${data.date} • ${data.count} records (View: ${viewType})`;
+            ['tempChart-info', 'pressureChart-info', 'windChart-info'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.textContent = infoText;
+            });
+        }
+
         const tbody = document.getElementById('table-body');
         if (!tbody) return;
         tbody.innerHTML = '';
