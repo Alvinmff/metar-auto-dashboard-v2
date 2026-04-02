@@ -187,9 +187,58 @@
     </div>
 </div>
 
-<!-- ========== HISTORICAL TRENDS ==========
-<div class="card fade-in" style="animation-delay:0.16s">
+<!-- Wind Compass (Full Width) -->
+<div class="card fade-in" style="animation-delay:0.21s">
     <div class="card-header">
+        <h3 class="card-title"><span class="icon">🧭</span> Real-time Wind Compass</h3>
+        <button class="btn btn-sm btn-outline" onclick="downloadChart('windCompassChart')">📥 Download</button>
+    </div>
+    <div id="windCompassChart" style="height:400px; max-width: 600px; margin: 0 auto;"></div>
+    <!-- Data store for compass -->
+    <div id="wind-data-store" style="display: none;" data-latest='{{ latest_wind | default("{}") | safe }}'
+        data-recent='{{ recent_winds | default("[]") | safe }}'></div>
+</div>
+
+<!-- Wind Roses (Grid) -->
+<div class="grid-2 fade-in" style="animation-delay:0.22s">
+    <!-- 24H Wind Rose -->
+    <div class="card flex flex-col">
+        <div class="card-header">
+            <h3 class="card-title"><span class="icon">🧭</span> Wind Rose (24 Hours)</h3>
+            <div class="flex items-center gap-sm">
+                <span id="windrose24h-badge" class="badge"
+                    style="background-color: #3b82f6; color: white;">Loading...</span>
+                <button class="btn btn-sm btn-outline" onclick="downloadChart('windRose24h')">📥 Download</button>
+            </div>
+        </div>
+        <div id="windRose24h" style="height:400px;"></div>
+        <div id="windrose24h-info"
+            style="padding: 10px 16px; font-size: 0.85rem; color: var(--text-secondary); border-top: 1px solid var(--border-color);">
+            Fetching 24h wind data from Sheets...
+        </div>
+    </div>
+
+    <!-- Monthly Wind Rose -->
+    <div class="card flex flex-col">
+        <div class="card-header">
+            <h3 class="card-title"><span class="icon">🧭</span> Wind Rose (Previous Month)</h3>
+            <div class="flex items-center gap-sm">
+                <span id="windroseMonth-badge" class="badge"
+                    style="background-color: #059669; color: white;">Loading...</span>
+                <button class="btn btn-sm btn-outline" onclick="downloadChart('windRoseMonth')">📥 Download</button>
+            </div>
+        </div>
+        <div id="windRoseMonth" style="height:400px;"></div>
+        <div id="windroseMonth-info"
+            style="padding: 10px 16px; font-size: 0.85rem; color: var(--text-secondary); border-top: 1px solid var(--border-color);">
+            Fetching monthly data from Google Sheets...
+        </div>
+    </div>
+</div>
+
+<!-- ========== HISTORICAL TRENDS ==========
+    <div class="card fade-in" style="animation-delay:0.16s">
+        <div class="card-header">
         <h3 class="card-title"><span class="icon">📈</span> Historical Charts & Trends</h3>
         <span class="text-muted" style="font-size:0.8rem">Station: {{ station }}</span>
     </div>
@@ -256,54 +305,6 @@
     </div>
 </div> -->
 
-<!-- Wind Compass (Full Width) -->
-<div class="card fade-in" style="animation-delay:0.21s">
-    <div class="card-header">
-        <h3 class="card-title"><span class="icon">🧭</span> Real-time Wind Compass</h3>
-        <button class="btn btn-sm btn-outline" onclick="downloadChart('windCompassChart')">📥 Download</button>
-    </div>
-    <div id="windCompassChart" style="height:400px; max-width: 600px; margin: 0 auto;"></div>
-    <!-- Data store for compass -->
-    <div id="wind-data-store" style="display: none;" data-latest='{{ latest_wind | default("{}") | safe }}'
-        data-recent='{{ recent_winds | default("[]") | safe }}'></div>
-</div>
-
-<!-- Wind Roses (Grid) -->
-<div class="grid-2 fade-in" style="animation-delay:0.22s">
-    <!-- 24H Wind Rose -->
-    <div class="card flex flex-col">
-        <div class="card-header">
-            <h3 class="card-title"><span class="icon">🧭</span> Wind Rose (24 Hours)</h3>
-            <div class="flex items-center gap-sm">
-                <span id="windrose24h-badge" class="badge"
-                    style="background-color: #3b82f6; color: white;">Loading...</span>
-                <button class="btn btn-sm btn-outline" onclick="downloadChart('windRose24h')">📥 Download</button>
-            </div>
-        </div>
-        <div id="windRose24h" style="height:400px;"></div>
-        <div id="windrose24h-info"
-            style="padding: 10px 16px; font-size: 0.85rem; color: var(--text-secondary); border-top: 1px solid var(--border-color);">
-            Fetching 24h wind data from Sheets...
-        </div>
-    </div>
-
-    <!-- Monthly Wind Rose -->
-    <div class="card flex flex-col">
-        <div class="card-header">
-            <h3 class="card-title"><span class="icon">🧭</span> Wind Rose (Previous Month)</h3>
-            <div class="flex items-center gap-sm">
-                <span id="windroseMonth-badge" class="badge"
-                    style="background-color: #059669; color: white;">Loading...</span>
-                <button class="btn btn-sm btn-outline" onclick="downloadChart('windRoseMonth')">📥 Download</button>
-            </div>
-        </div>
-        <div id="windRoseMonth" style="height:400px;"></div>
-        <div id="windroseMonth-info"
-            style="padding: 10px 16px; font-size: 0.85rem; color: var(--text-secondary); border-top: 1px solid var(--border-color);">
-            Fetching monthly data from Google Sheets...
-        </div>
-    </div>
-</div>
 
 <!-- ========== THUNDERSTORM DETECTION ========== -->
 <!-- (Internal module or currently hidden) -->
@@ -313,10 +314,10 @@
     <div class="manager-controls">
         <div class="button-group">
             <button id="btn-today" class="toggle-btn active" onclick="loadView('today')">
-                Hari Ini <span id="count-today" class="badge">0</span>
+                Today <span id="count-today" class="badge">0</span>
             </button>
             <button id="btn-yesterday" class="toggle-btn" onclick="loadView('yesterday')">
-                Hari Kemarin <span id="count-yesterday" class="badge">0</span>
+                Yesterday <span id="count-yesterday" class="badge">0</span>
             </button>
         </div>
         <div class="view-info">
@@ -336,7 +337,7 @@
                 </tr>
             </thead>
             <tbody id="table-body">
-                </tbody>
+            </tbody>
         </table>
     </div>
 </div>

@@ -3925,10 +3925,12 @@ body.fog-active .rain-indicator.active {
 
 .modern-table th {
     text-align: left;
-    padding: 12px;
+    padding: 8px 12px;
     background: #1e3a5f;
     border-bottom: 2px solid #e2e8f0;
     color: #eab308;
+    font-size: 0.75rem;
+    font-weight: 700;
 }
 
 [data-theme="dark"] .modern-table th {
@@ -3938,9 +3940,11 @@ body.fog-active .rain-indicator.active {
 }
 
 .modern-table td {
-    padding: 12px;
+    padding: 6px 12px;
     border-bottom: 1px solid #f1f5f9;
     color: var(--text-primary);
+    font-size: 0.8rem;
+    vertical-align: middle;
 }
 
 [data-theme="dark"] .modern-table td {
@@ -3948,7 +3952,7 @@ body.fog-active .rain-indicator.active {
 }
 
 .time-cell { font-family: monospace; font-weight: bold; color: var(--text-primary); }
-.metar-cell { font-family: monospace; color: #334155; font-size: 0.9rem; }
+.metar-cell { font-family: monospace; color: #334155; font-size: 0.85rem; }
 
 [data-theme="dark"] .metar-cell { color: #cbd5e1; }
 
