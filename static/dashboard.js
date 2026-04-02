@@ -1484,19 +1484,27 @@ window.updateCharts = updateCharts;
  *   - Minute not on :00 or :30 → SPECI (intermediate)
  *   - Otherwise → Normal METAR
  */
-function getMetarStatus(rawMetar, fullTime) {
+function getMetarStatus(rawMetar, fullTime, validationResults) {
     const raw = rawMetar || '';
+    const hasComma = raw.includes(',');
+    const hasValidationError = validationResults && validationResults.length > 0 && !validationResults[0].startsWith('✅');
 
-    // 1. Check for anomaly (contains comma)
-    if (raw.includes(',')) {
+    // 1. Check for anomaly (contains comma or has validation errors)
+    if (hasComma || hasValidationError) {
+        let errorDetail = hasComma ? 'Anomali ditemukan dalam string data (koma)' : '';
+        if (hasValidationError) {
+            const errorList = validationResults.filter(err => !err.startsWith('✅')).join('; ');
+            errorDetail = errorDetail ? `${errorDetail}. ${errorList}` : errorList;
+        }
+
         return {
             type: 'invalid',
             label: 'ERROR',
             pillIcon: '🔴',
             icon: '⚠️',
-            title: 'Data Anomali Terdeteksi',
-            description: 'Data METAR mengandung karakter tidak valid (koma).',
-            errorDetail: `Anomali ditemukan dalam string data`
+            title: 'Data Anomali / Tidak Valid',
+            description: hasComma ? 'Data METAR mengandung karakter tidak valid (koma).' : 'Data METAR gagal divalidasi.',
+            errorDetail: errorDetail
         };
     }
 
@@ -1619,7 +1627,7 @@ async function updateHistoryTable() {
                 const row = document.createElement('tr');
                 row.style.animation = `fadeIn 0.3s ease-out ${i * 0.03}s both`;
 
-                const status = getMetarStatus(item.metar, item.full_time);
+                const status = getMetarStatus(item.metar, item.full_time, item.validation_results);
                 const statusHtml = createStatusIndicatorHTML(status);
 
                 if (status.type === 'speci') {
@@ -2795,62 +2803,9 @@ async function loadView(viewType) {
             tbody.innerHTML = `<tr><td colspan="4" class="empty" style="text-align: center; padding: 20px;">Tidak ada records tersedia</td></tr>`;
         } else {
             data.records.forEach(record => {
-                let rowClass = "";
-                let statusHtml = "";
-
-                if (record.record_status === "invalid") {
-                    statusHtml = `
-                    <div class="metar-status-indicator metar-status-invalid">
-                        <span class="metar-status-icon">🔴</span>
-                        <span>ERROR</span>
-                        <div class="metar-status-tooltip">
-                            <div class="tooltip-title"><span>⚠️</span><span>Data Anomali Terdeteksi</span></div>
-                            <div class="tooltip-desc">Data METAR mengandung karakter tidak valid (koma).</div>
-                            <div class="tooltip-error">Anomali ditemukan dalam string data</div>
-                        </div>
-                    </div>`;
-                } else if (record.record_status === "speci") {
-                    rowClass = "metar-row-speci";
-                    statusHtml = `
-                    <div class="metar-status-indicator metar-status-speci">
-                        <span class="metar-status-icon">🟡</span>
-                        <span>SPECI</span>
-                        <div class="metar-status-tooltip">
-                            <div class="tooltip-title"><span>📡</span><span>Laporan Khusus (SPECI)</span></div>
-                            <div class="tooltip-desc">Data masuk pada jadwal di luar kelipatan 30 menit.</div>
-                        </div>
-                    </div>`;
-                } else if (record.record_status === "cor") {
-                    statusHtml = `
-                    <div class="metar-status-indicator metar-status-cor">
-                        <span class="metar-status-icon">🟠</span>
-                        <span>COR</span>
-                        <div class="metar-status-tooltip">
-                            <div class="tooltip-title"><span>🔄</span><span>Koreksi (COR)</span></div>
-                            <div class="tooltip-desc">Laporan koreksi terhadap METAR sebelumnya.</div>
-                        </div>
-                    </div>`;
-                } else if (record.record_status === "amd") {
-                    statusHtml = `
-                    <div class="metar-status-indicator metar-status-amd">
-                        <span class="metar-status-icon">🔵</span>
-                        <span>AMD</span>
-                        <div class="metar-status-tooltip">
-                            <div class="tooltip-title"><span>📝</span><span>Amandemen (AMD)</span></div>
-                            <div class="tooltip-desc">Perubahan/amandemen terhadap laporan sebelumnya.</div>
-                        </div>
-                    </div>`;
-                } else {
-                    statusHtml = `
-                    <div class="metar-status-indicator metar-status-normal">
-                        <span class="metar-status-icon">🟢</span>
-                        <span>METAR</span>
-                        <div class="metar-status-tooltip">
-                            <div class="tooltip-title"><span>✓</span><span>Data Normal</span></div>
-                            <div class="tooltip-desc">Laporan cuaca rutin sesuai jadwal standar (kelipatan 30 menit).</div>
-                        </div>
-                    </div>`;
-                }
+                const status = getMetarStatus(record.metar, record.time, record.validation_results);
+                const statusHtml = createStatusIndicatorHTML(status);
+                let rowClass = status.type === "speci" ? "metar-row-speci" : "";
 
                 let metarDisplay = record.metar;
                 if (!metarDisplay.endsWith('=')) metarDisplay += '=';

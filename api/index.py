@@ -1338,7 +1338,8 @@ def get_history_api():
                 "temp": extract_temp(str(row["metar"])),
                 "pressure": extract_pressure(str(row["metar"])),
                 "wind": parsed.get("wind_speed_kt"),
-                "gust": parsed.get("wind_gust_kt")
+                "gust": parsed.get("wind_gust_kt"),
+                "validation_results": validate_metar(str(row["metar"]))
             })
 
         # Format for charts (oldest to newest)
@@ -2549,9 +2550,12 @@ def get_today_records():
         for _, row in today_df.iterrows():
             metar = str(row["metar"])
             parsed = parse_metar(metar)
+            validation_results = validate_metar(metar)
             
             record_status = "normal"
-            if ',' in metar:
+            is_valid = validation_results and validation_results[0].startswith('✅')
+            
+            if ',' in metar or not is_valid:
                 record_status = "invalid"
             elif ' COR ' in metar or 'CCA' in metar:
                 record_status = "cor"
@@ -2571,7 +2575,8 @@ def get_today_records():
                 "time": pd.to_datetime(row["time"]).strftime("%Y-%m-%d %H:%M UTC"),
                 "station": row["station"],
                 "metar": metar,
-                "record_status": record_status
+                "record_status": record_status,
+                "validation_results": validation_results
             })
             
         # Chart Data extraction (Ascending order)
@@ -2625,9 +2630,12 @@ def get_yesterday_records():
         for _, row in yesterday_df.iterrows():
             metar = str(row["metar"])
             parsed = parse_metar(metar)
+            validation_results = validate_metar(metar)
             
             record_status = "normal"
-            if ',' in metar:
+            is_valid = validation_results and validation_results[0].startswith('✅')
+            
+            if ',' in metar or not is_valid:
                 record_status = "invalid"
             elif ' COR ' in metar or 'CCA' in metar:
                 record_status = "cor"
@@ -2647,7 +2655,8 @@ def get_yesterday_records():
                 "time": pd.to_datetime(row["time"]).strftime("%Y-%m-%d %H:%M UTC"),
                 "station": row["station"],
                 "metar": metar,
-                "record_status": record_status
+                "record_status": record_status,
+                "validation_results": validation_results
             })
             
         # Chart Data extraction (Ascending order)
