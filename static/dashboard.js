@@ -1892,6 +1892,7 @@ function renderWindRose(containerId, dataObj, options) {
                     `Kecepatan: ${label} KT<br>` +
                     'Frekuensi: %{r}%<br>' +
                     'Jumlah: %{customdata.count} record<br>' +
+                    '<b>Waktu (UTC):</b><br>' +
                     '%{customdata.times}' +
                     '<extra></extra>'
             };

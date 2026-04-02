@@ -96,14 +96,19 @@ def bin_wind_data(records):
         for j, label in enumerate(bin_labels):
             count = matrix[i][j]
             percent = (count / total_valid * 100) if total_valid > 0 else 0
-            # Build compact time summary for hover
+            # Build compact time summary for hover (each record on its own line)
             times = time_matrix[i][j]
             time_summary = ""
             if times:
-                # Show full date+time, remove "UTC"/"WIB" suffix for compactness
-                utc_list = sorted(set(t["utc"].replace(" UTC", "") for t in times))
-                wib_list = sorted(set(t["wib"].replace(" WIB", "") for t in times))
-                time_summary = "UTC: " + ", ".join(utc_list) + " | WIB: " + ", ".join(wib_list)
+                # Pair UTC only, one per line
+                lines = []
+                seen = set()
+                for t in sorted(times, key=lambda x: x["utc"]):
+                    utc_val = t["utc"]
+                    if utc_val not in seen:
+                        seen.add(utc_val)
+                        lines.append(utc_val)
+                time_summary = "<br>".join(lines)
             sector_bins.append({
                 "label": label,
                 "count": count,
