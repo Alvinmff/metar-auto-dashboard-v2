@@ -942,12 +942,13 @@ def windrose_api(station):
     """API endpoint untuk Wind Rose 24 jam terakhir - FETCH FROM SHEETS for Real-time Sync"""
     global CSV_FILE
     
-    # 🔥 UTC-ONLY: Fixed Day window (00:00 to current time)
+    # 🔥 UTC-ONLY: Yesterday's Full Day window (00:00 to 23:59 UTC)
     now_utc = datetime.utcnow()
-    cutoff_time = now_utc.replace(hour=0, minute=0, second=0, microsecond=0)
-    end_cutoff_time = now_utc
+    yesterday = now_utc - timedelta(days=1)
+    cutoff_time = yesterday.replace(hour=0, minute=0, second=0, microsecond=0)
+    end_cutoff_time = yesterday.replace(hour=23, minute=59, second=59, microsecond=999999)
     
-    print(f"[WINDROSE 24H] {station}: UTC Range {cutoff_time} to {end_cutoff_time}", file=sys.stderr)
+    print(f"[WINDROSE 24H] {station}: Yesterday UTC Range {cutoff_time} to {end_cutoff_time}", file=sys.stderr)
     
     filtered_data = []
     # 🔥 FETCH DIRECTLY FROM GOOGLE SHEETS for consistent sync
@@ -1120,7 +1121,7 @@ def windrose_monthly_api(station):
                     try:
                         wind_dir = wind_match.group(1)
                         if wind_dir != "VRB":
-                            filtered_data.append({
+                            monthly_data.append({
                                 "time": row["time"].strftime("%Y-%m-%d %H:%M:%S"),
                                 "utc_time": f"{row['time'].strftime('%Y-%m-%d %H:%M UTC')}",
                                 "station": station,

@@ -1800,7 +1800,7 @@ async function loadWindRose(station = STATION) {
             const data24h = await res24h.json();
 
             renderWindRose('windRose24h', data24h.data, {
-                title: 'Today (UTC)',
+                title: 'Yesterday (UTC)',
                 colorScale: currentTheme === 'dark'
                     ? [[0, '#4ade80'], [0.5, '#facc15'], [1, '#f87171']]
                     : [[0, '#2E5C8A'], [0.5, '#E8B339'], [1, '#DC2626']]
