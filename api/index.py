@@ -18,7 +18,11 @@ try:
     from .sheets_handler import sheets_handler  # type: ignore
 except (ImportError, ValueError):
     from sheets_handler import sheets_handler  # type: ignore
- 
+# Global Caching for Polling Efficiency
+_last_fetch_time = 0
+_cached_metar = None
+CACHE_TTL = 60  # seconds
+
 def format_indonesian_date(dt):
     """Format datetime ke format Indonesia: Kamis, 02 April 2026"""
     days = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"]
@@ -2028,7 +2032,18 @@ def favicon():
 @app.route("/api/latest-data")
 def latest_data():
     """Endpoint for frontend polling — returns latest METAR + system status"""
-    global last_metar_update, auto_fetch, latest_metar_data
+    global last_metar_update, auto_fetch, latest_metar_data, _last_fetch_time, _cached_metar
+    
+    # 🔥 CACHE LAYER: Check if we have fresh data in memory (60s TTL)
+    now_ts = time.time()
+    if _cached_metar and (now_ts - _last_fetch_time < CACHE_TTL):
+        # Return cached copy with real-time fetch status
+        data = _cached_metar.copy()
+        data.update({
+            "auto_fetch": auto_fetch,
+            "cached": True
+        })
+        return jsonify(data)
     
     # 🔥 VERCEL SYNC TRIGGER:
     # If auto_fetch is on, check if we need to fetch fresh data
@@ -2097,6 +2112,11 @@ def latest_data():
         "last_update": last_metar_update,
         "server": "online"
     })
+    
+    # Update cache
+    _cached_metar = data
+    _last_fetch_time = now_ts
+    
     # Return with Edge Cache headers for Vercel optimization
     response = make_response(jsonify(data))
     response.headers['Cache-Control'] = 's-maxage=20, stale-while-revalidate=40'

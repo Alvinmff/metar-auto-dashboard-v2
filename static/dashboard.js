@@ -127,12 +127,27 @@ async function pollLatestData() {
 }
 
 // =======================
-// KEEP-ALIVE PING
+// ADAPTIVE POLLING SYSTEM
 // =======================
-// Start polling every 20 seconds (Optimized for Vercel CPU + SPECI detection)
-if (typeof pollLatestData === 'function') {
-    setInterval(pollLatestData, 20000);
+// Optimized for Vercel CPU + SPECI detection
+let currentPollTimeout = null;
+
+async function adaptivePoll() {
+    await pollLatestData();
+    
+    // Jika data baru saja berubah (dalam 5 detik terakhir), poll cepat (30s)
+    // Jika tidak ada perubahan, poll lambat (90s) untuk hemat resource
+    const isNewData = alarmState.lastUpdateTime > (Date.now() - 10000);
+    const nextInterval = isNewData ? 30000 : 90000;
+    
+    console.log(`[POLL] Next poll in ${nextInterval/1000}s${isNewData ? ' (Active)' : ' (Idle)'}`);
+    
+    if (currentPollTimeout) clearTimeout(currentPollTimeout);
+    currentPollTimeout = setTimeout(adaptivePoll, nextInterval);
 }
+
+// Start adaptive polling
+adaptivePoll();
 
 // =======================
 // CLOCKS (UTC & WIB)
@@ -825,7 +840,8 @@ function handleMetarUpdate(data) {
         if (data.last_update) alarmState.lastProcessedServerTime = data.last_update;
         saveAlarmState();
 
-        // Skip alarm logic but proceed to UI updates below
+        // 🔥 SKIP ALARM LOGIC FOR DUPLICATES
+        return;
     }
 
     // ============================================================
