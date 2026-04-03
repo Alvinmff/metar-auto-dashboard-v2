@@ -398,6 +398,17 @@
             }
         });
 
+        const validWind = wind_dirs.map((dir, i) => {
+            if (dir !== null && winds[i] !== null) {
+                return { 
+                    dir: parseInt(dir), 
+                    speed: winds[i],
+                    timeLabel: utc_wib_labels[i] || labels[i]
+                };
+            }
+            return null;
+        }).filter(x => x);
+
         // --- BMKG STANDARD BINNED WIND ROSE ---
         function binWindData(rawPoints) {
             const sectors_list = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];

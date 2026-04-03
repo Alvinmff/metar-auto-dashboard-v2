@@ -1388,6 +1388,9 @@ function createWindChart() {
 // FETCH & UPDATE CHARTS
 // =======================
 async function loadHistory() {
+    // Only run on main dashboard
+    if (window.location.pathname !== '/') return;
+
     // 🔥 Jika sedang melihat data 'yesterday', jangan timpa grafik dengan data polling terbaru
     if (typeof currentView !== 'undefined' && currentView !== 'today') {
         console.log('[CHART] Skipping history update - current view is not "today"');
@@ -2780,6 +2783,7 @@ document.addEventListener('click', () => {
 let currentView = 'today';
 
 async function loadView(viewType) {
+    if (window.location.pathname !== '/') return;
     currentView = viewType;
     
     // Update Button UI
