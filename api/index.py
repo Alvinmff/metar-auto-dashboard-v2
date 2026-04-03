@@ -1926,6 +1926,12 @@ def history_by_date():
                             wib_time_row = row["time"] + timedelta(hours=7)
                             utc_wib_labels.append(f"{row['time'].strftime('%Y-%m-%d %H:%M UTC')} | {wib_time_row.strftime('%Y-%m-%d %H:%M WIB')}")
                         
+                        # Pre-calculate validation for table display (allows for status badges/row colors)
+                        if results is not None and not results.empty:
+                            # We'll add this column so the template can access it
+                            results = results.copy() # Avoid SettingWithCopyWarning
+                            results["validation_json"] = results["metar"].apply(lambda x: json.dumps(validate_metar(str(x))))
+                        
                         print(f"[HISTORY] Chart data extracted: {len(labels)} points")
                         
                         # Reverse results for table display (newest first)

@@ -93,17 +93,25 @@
 </div>
 
 
-<div class="card fade-in">
-    <div class="card-header">
-        <h3 class="card-title"><span class="icon">🧭</span> Wind Rose (Filtered Period)</h3>
-        <button class="btn btn-sm btn-outline" onclick="downloadChart('windRoseChart')">📥 Download</button>
+    <!-- Filtered Wind Rose -->
+    <div class="card flex flex-col fade-in">
+        <div class="card-header">
+            <h3 class="card-title"><span class="icon">🧭</span> Wind Rose (Filtered Period)</h3>
+            <div class="flex items-center gap-sm">
+                <span class="badge" style="background-color: #3b82f6; color: white;">Filtered</span>
+                <button class="btn btn-sm btn-outline" onclick="downloadChart('windRoseChart')">📥 Download</button>
+            </div>
+        </div>
+        <div id="windRoseHistory" style="height:400px;"></div>
+        <div id="windroseHistory-info"
+            style="padding: 10px 16px; font-size: 0.85rem; color: var(--text-secondary); border-top: 1px solid var(--border-color);">
+            Showing wind distribution for the selected date range.
+        </div>
     </div>
-    <div id="windRoseHistory" style="height:500px;"></div>
-</div>
 {% endif %}
 
 <!-- Table -->
-<div class="card fade-in">
+<div class="card fade-in" style="margin-top: 20px;">
     <div class="card-header">
         <h3 class="card-title"><span class="icon">📋</span> History Results — {{ station }}</h3>
         <form method="post" action="/download_history" style="margin:0;">
@@ -113,40 +121,28 @@
             <button class="btn btn-sm btn-outline">📥 Download CSV</button>
         </form>
     </div>
-    <div class="data-table-container">
-        <table class="data-table">
+    <div class="table-responsive">
+        <table class="data-table modern-table" id="history-results-table">
             <thead>
                 <tr>
-                    <th>Station</th>
-                    <th>Time</th>
-                    <th>METAR</th>
+                    <th class="col-time" style="text-transform: uppercase;">TIME</th>
+                    <th class="col-station" style="text-transform: uppercase;">STATION</th>
+                    <th class="col-metar" style="text-transform: uppercase;">METAR DATA</th>
+                    <th class="col-status" style="text-transform: uppercase;">STATUS</th>
                 </tr>
             </thead>
             <tbody>
                 {% for row in results.itertuples() %}
-                <tr>
-                    <td>{{ row.station }}</td>
-                    <td>{{ row.time }}</td>
-                    <td class="metar-cell">
-                        {{ row.metar }}
-                        {% if " COR " in row.metar or row.metar.startswith("METAR COR") or " CCA " in
-                        row.metar or "CCA" in row.metar %}
-                        <span class="badge badge-cor"
-                            style="background-color: #f59e0b; color: #1e293b; margin-left: 6px; font-size: 0.70rem; padding: 2px 6px; vertical-align: middle;">🟡
-                            COR</span>
-                        {% elif " AMD " in row.metar or row.metar.startswith("METAR AMD") %}
-                        <span class="badge badge-amd"
-                            style="background-color: #3b82f6; color: #ffffff; margin-left: 6px; font-size: 0.70rem; padding: 2px 6px; vertical-align: middle;">🔵
-                            AMD</span>
-                        {% elif " SPECI " in row.metar or row.metar.startswith("SPECI ") %}
-                        <span class="badge badge-speci"
-                            style="background-color: #ef4444; color: #ffffff; margin-left: 6px; font-size: 0.70rem; padding: 2px 6px; vertical-align: middle;">🔴
-                            SPECI</span>
-                        {% else %}
-                        <span class="badge badge-metar"
-                            style="background-color: #059669; color: #ffffff; margin-left: 6px; font-size: 0.70rem; padding: 2px 6px; vertical-align: middle;">🟢
-                            METAR</span>
-                        {% endif %}
+                <tr class="history-row" 
+                    data-metar="{{ row.metar }}" 
+                    data-time="{{ row.time }}" 
+                    data-validation='{{ row.validation_json | safe }}'>
+                    <td class="col-time">{{ row.time }}</td>
+                    <td class="col-station">{{ row.station }}</td>
+                    <td class="metar-cell col-metar">{{ row.metar }}{% if not row.metar.endswith('=') %}={% endif %}</td>
+                    <td class="col-status">
+                        <!-- Status will be injected by JS for consistency -->
+                        <span class="loading-status">...</span>
                     </td>
                 </tr>
                 {% endfor %}
@@ -154,6 +150,39 @@
         </table>
     </div>
 </div>
+
+<script>
+    // Process History Table Status & Highlighting
+    document.addEventListener('DOMContentLoaded', function() {
+        const rows = document.querySelectorAll('.history-row');
+        rows.forEach(row => {
+            try {
+                const metar = row.getAttribute('data-metar');
+                const time = row.getAttribute('data-time');
+                const validationJson = row.getAttribute('data-validation');
+                const validationResults = JSON.parse(validationJson);
+                
+                if (typeof getMetarStatus === 'function' && typeof createStatusIndicatorHTML === 'function') {
+                    const status = getMetarStatus(metar, time, validationResults);
+                    const statusHtml = createStatusIndicatorHTML(status);
+                    
+                    // Inject Status Indicator
+                    const statusCell = row.querySelector('.col-status');
+                    if (statusCell) statusCell.innerHTML = statusHtml;
+                    
+                    // Apply Row Highlighting
+                    if (status.type === 'speci') {
+                        row.classList.add('metar-row-speci');
+                    } else if (status.type === 'invalid') {
+                        row.classList.add('metar-row-invalid');
+                    }
+                }
+            } catch (e) {
+                console.error("[HISTORY] Error processing row status:", e);
+            }
+        });
+    });
+</script>
 {% endif %}
 
 {% endblock %}
