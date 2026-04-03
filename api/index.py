@@ -1051,6 +1051,7 @@ def windrose_api(station):
     print(f"[WINDROSE 24H] {station}: Yesterday UTC Range {cutoff_time} to {end_cutoff_time}", file=sys.stderr)
     
     filtered_data = []
+    station_df = pd.DataFrame()
     # 🔥 FETCH DIRECTLY FROM GOOGLE SHEETS for consistent sync
     try:
         all_records = sheets_handler.get_all_data()
@@ -1071,6 +1072,8 @@ def windrose_api(station):
             # If yesterday has no data, try today's range as fallback
             if len(station_df) == 0:
                 print(f"[WINDROSE 24H] No data for yesterday, trying today's range...", file=sys.stderr)
+                now_wib = now_utc + timedelta(hours=7)
+                start_today_wib = now_wib.replace(hour=0, minute=0, second=0, microsecond=0)
                 # Today: start_today_wib (UTC) to now
                 today_cutoff = start_today_wib - timedelta(hours=7)
                 station_df = df[
@@ -1079,9 +1082,6 @@ def windrose_api(station):
                     (df["time"] <= now_utc)
                 ]
                 if len(station_df) > 0:
-                    # Update range labels to reflect today
-                    start_yesterday_wib = start_today_wib  # relabel
-                    start_today_wib = now_wib  # relabel
                     print(f"[WINDROSE 24H] Found {len(station_df)} rows for today's range (fallback)", file=sys.stderr)
             
             for _, row in station_df.iterrows():
@@ -1187,15 +1187,17 @@ def windrose_monthly_api(station):
     
     monthly_data = []
     used_current_month = False
+    station_df = pd.DataFrame()
     # 🔥 FETCH DIRECTLY FROM GOOGLE SHEETS AS REQUESTED
     try:
         all_records = sheets_handler.get_all_data()
         if all_records:
             df = pd.DataFrame(all_records)
-            df["time"] = pd.to_datetime(df["time"], errors='coerce')
-            print(f"[WINDROSE MONTHLY] Total records from Sheets: {len(df)}", file=sys.stderr)
-            
-            # Filter untuk station dan rentang bulan target
+            if "time" in df.columns:
+                df["time"] = pd.to_datetime(df["time"], errors='coerce')
+                print(f"[WINDROSE MONTHLY] Total records from Sheets: {len(df)}", file=sys.stderr)
+                
+                # Filter untuk station dan rentang bulan target
             station_df = df[
                 (df["station"].str.strip().str.upper() == station.upper()) &
                 (df["time"] >= start_date) &
@@ -1270,7 +1272,7 @@ def windrose_monthly_api(station):
         "month_name": month_name,
         "data": monthly_data,
         "binned": binned_data,
-        "count": len(station_df),
+        "count": len(station_df) if isinstance(station_df, pd.DataFrame) else 0,
         "range": {
             "start": start_date.strftime("%Y-%m-%d"),
             "end": end_date.strftime("%Y-%m-%d") if isinstance(end_date, datetime) else str(end_date)
@@ -2627,12 +2629,16 @@ def get_yesterday_records():
     try:
         all_records = sheets_handler.get_all_data()
         df = pd.DataFrame(all_records)
-        df["time"] = pd.to_datetime(df["time"], errors='coerce')
-        
-        # Filter: Rentang waktu penuh hari kemarin (UTC)
-        yesterday_df = df[(df["time"] >= y_start) & (df["time"] <= y_end)].sort_values("time", ascending=False)
         
         records = []
+        yesterday_df = pd.DataFrame()
+        
+        if not df.empty and "time" in df.columns:
+            df["time"] = pd.to_datetime(df["time"], errors='coerce')
+            
+            # Filter: Rentang waktu penuh hari kemarin (UTC)
+            yesterday_df = df[(df["time"] >= y_start) & (df["time"] <= y_end)].sort_values("time", ascending=False)
+        
         for _, row in yesterday_df.iterrows():
             metar = str(row["metar"])
             parsed = parse_metar(metar)
