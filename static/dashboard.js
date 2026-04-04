@@ -134,14 +134,14 @@ let currentPollTimeout = null;
 
 async function adaptivePoll() {
     await pollLatestData();
-    
+
     // Jika data baru saja berubah (dalam 5 detik terakhir), poll cepat (30s)
     // Jika tidak ada perubahan, poll lambat (90s) untuk hemat resource
     const isNewData = alarmState.lastUpdateTime > (Date.now() - 10000);
     const nextInterval = isNewData ? 30000 : 90000;
-    
-    console.log(`[POLL] Next poll in ${nextInterval/1000}s${isNewData ? ' (Active)' : ' (Idle)'}`);
-    
+
+    console.log(`[POLL] Next poll in ${nextInterval / 1000}s${isNewData ? ' (Active)' : ' (Idle)'}`);
+
     if (currentPollTimeout) clearTimeout(currentPollTimeout);
     currentPollTimeout = setTimeout(adaptivePoll, nextInterval);
 }
@@ -906,15 +906,15 @@ function handleMetarUpdate(data) {
     // 3. Notifikasi suara untuk data baru (mencegah tabrakan alarm & notify)
     // Anti-Duplikasi: Hanya bunyikan alarm/notif jika isi METAR benar-benar berubah
     const isMetarChanged = data.raw && (!window.lastProcessedMetar || normalizeMetar(data.raw) !== normalizeMetar(window.lastProcessedMetar));
-    
-    let allowToastSound = true; 
+
+    let allowToastSound = true;
     if (!isFirstLoad && soundEnabled && data.status === 'new' && isMetarChanged) {
         if (hasTS) {
             if (!alarmPlayedThisCycle) {
                 playAlarm();
                 alarmPlayedThisCycle = true;
             }
-            allowToastSound = false; 
+            allowToastSound = false;
         } else if (alarmPlayedThisCycle) {
             allowToastSound = false;
         }
@@ -931,7 +931,7 @@ function handleMetarUpdate(data) {
     if (!isFirstLoad && data.raw && data.status === 'new' && isMetarChanged) {
         showToast('New METAR Received', `${STATION} — ${new Date().toUTCString().slice(17, 25)} UTC`, 'success', 5000, allowToastSound);
     }
-    
+
     // Simpan data terakhir untuk perbandingan di polling berikutnya
     if (data.raw) {
         window.lastProcessedMetar = data.raw;
@@ -1888,19 +1888,19 @@ function renderWindRose(containerId, dataObj, options) {
     }
 
     const isDark = currentTheme === 'dark';
-    
+
     // 🔥 BMKG STANDARD: BINNING DATA VISUALIZATION
     if (dataObj.binned) {
         const binned = dataObj.binned;
         const labels = binned.bin_labels;
         const colors = [
-            '#1E3A5F', '#2563EB', '#60A5FA', '#94A3B8', 
+            '#1E3A5F', '#2563EB', '#60A5FA', '#94A3B8',
             '#FDBA74', '#F97316', '#DC2626'
         ];
-        
+
         const sectors = binned.sectors; // 8 sectors
         const theta = sectors.map(s => s.angle); // Use numerical angles (0, 45, ...)
-        
+
         // Create 7 traces (one for each speed bin) for STACKED BAR POLAR
         const traces = labels.map((label, i) => {
             return {
@@ -1912,11 +1912,11 @@ function renderWindRose(containerId, dataObj, options) {
                     count: s.bins[i].count,
                     times: s.bins[i].times || ''
                 })),
-                marker: { 
+                marker: {
                     color: colors[i],
-                    line: { color: isDark ? 'rgba(0,0,0,0.3)' : 'rgba(255,255,255,0.4)', width: 1.5 } 
+                    line: { color: isDark ? 'rgba(0,0,0,0.3)' : 'rgba(255,255,255,0.4)', width: 1.5 }
                 },
-                hovertemplate: 
+                hovertemplate:
                     '<b>Arah: %{theta}°</b><br>' +
                     `Kecepatan: ${label} KT<br>` +
                     'Frekuensi: %{r}%<br>' +
@@ -1927,18 +1927,25 @@ function renderWindRose(containerId, dataObj, options) {
             };
         });
 
-        // Calculate a nice rounded max for the radial axis to get exactly 4 circles
+        // Dynamic tickvals: aimed at 3 or 4 circles based on data magnitude
         const maxFreq = Math.max(...sectors.map(s => s.bins.reduce((acc, b) => acc + b.percentage, 0)));
-        // Ensure at least some value if data is 0
         const displayMax = maxFreq > 0 ? maxFreq : 100;
-        // Find a nice multiple of 4 or 20 for the outer ring
-        const outerRing = Math.ceil(displayMax / 4) * 4;
-        const tickvals = [outerRing * 0.25, outerRing * 0.5, outerRing * 0.75, outerRing];
+        
+        let tickvals = [];
+        if (displayMax <= 15) {
+            tickvals = [5, 10, 15];
+        } else if (displayMax <= 30) {
+            tickvals = [10, 20, 30];
+        } else {
+            const outerRing = Math.ceil(displayMax / 4) * 4;
+            tickvals = [outerRing * 0.25, outerRing * 0.5, outerRing * 0.75, outerRing];
+        }
 
         const layout = {
             polar: {
                 barmode: 'stack',
                 bgcolor: 'rgba(0,0,0,0)',
+                domain: { x: [0.05, 0.95], y: [0.1, 1] }, // Enlarge diagram area
                 angularaxis: {
                     direction: 'clockwise',
                     rotation: 90,
@@ -1976,7 +1983,7 @@ function renderWindRose(containerId, dataObj, options) {
                 y: 0.5,
                 itemsizing: 'constant'
             },
-            margin: { t: 60, b: 150, l: 60, r: 140 },
+            margin: { t: 60, b: 180, l: 60, r: 140 }, // Increased bottom margin
             paper_bgcolor: 'rgba(0,0,0,0)',
             plot_bgcolor: 'rgba(0,0,0,0)',
             title: {
@@ -1991,7 +1998,7 @@ function renderWindRose(containerId, dataObj, options) {
                     xref: 'paper',
                     yref: 'paper',
                     x: 0,
-                    y: -0.28,
+                    y: -0.35, // Moved further down
                     xanchor: 'left',
                     font: { size: 15, family: 'Inter', color: '#DC2626' } 
                 },
@@ -2001,7 +2008,7 @@ function renderWindRose(containerId, dataObj, options) {
                     xref: 'paper',
                     yref: 'paper',
                     x: 0,
-                    y: -0.37,
+                    y: -0.45, // Moved below Calm label
                     xanchor: 'left',
                     font: { size: 12, family: 'Inter', color: isDark ? '#94A3B8' : '#64748B' }
                 }
@@ -2485,16 +2492,16 @@ window.updateWindCompass = updateWindCompassDisplay;
 
 class MetarStaleMonitor {
     constructor(options = {}) {
-        this.graceMinutes = options.graceMinutes || 10; 
-        this.checkInterval = options.checkInterval || 30 * 1000; 
-        this.lastMetarTimestamp = null; 
-        this.lastMetarRaw = null; 
-        
+        this.graceMinutes = options.graceMinutes || 10;
+        this.checkInterval = options.checkInterval || 30 * 1000;
+        this.lastMetarTimestamp = null;
+        this.lastMetarRaw = null;
+
         // State management
         this.isAlerting = false;     // Is the popup currently showing?
         this.isDismissed = false;    // Has the user clicked "Dismiss" for the current period?
         this.dismissedObsKey = null; // Which period was dismissed?
-        
+
         this.alarmTimer = null;
         this.timer = null;
     }
@@ -2619,7 +2626,7 @@ class MetarStaleMonitor {
         if (this.isAlerting) {
             // Already showing the popup. No need to re-trigger, 
             // but we could update the "Minutes Late" text if we wanted.
-            return; 
+            return;
         }
 
         // 4. Trigger the Alert
@@ -2641,7 +2648,7 @@ class MetarStaleMonitor {
         const delaySeconds = Math.floor((totalDelay % 60000) / 1000);
 
         console.warn(`[STALE] ⚠️ ALERT: Expected ${expectedTimeStr}Z, current is ${metarTimeStr}Z. Delay: ${delayMinutes}m`);
-        
+
         this.showAlert(metarTimeStr, nowTimeStr, delayMinutes, delaySeconds, expectedTimeStr);
         this.startAlarmLoop();
         this.isAlerting = true;
@@ -2745,7 +2752,7 @@ class MetarStaleMonitor {
         this.isAlerting = false;
         this.isDismissed = true;
         this.dismissedObsKey = expectedObs.toISOString();
-        
+
         this.hideAlert();
         this.stopAlarm();
         console.log(`[STALE] Alert dismissed for period ${this.dismissedObsKey}.`);
@@ -2796,19 +2803,19 @@ let currentView = 'today';
 async function loadView(viewType) {
     if (window.location.pathname !== '/') return;
     currentView = viewType;
-    
+
     // Update Button UI
     document.querySelectorAll('.toggle-btn').forEach(btn => btn.classList.remove('active'));
     const btn = document.getElementById(`btn-${viewType}`);
-    if(btn) btn.classList.add('active');
-    
+    if (btn) btn.classList.add('active');
+
     try {
         const response = await fetch(`/api/records/${viewType}`);
         const data = await response.json();
-        
+
         const displayDate = document.getElementById('display-date');
-        if(displayDate) displayDate.textContent = data.date;
-        
+        if (displayDate) displayDate.textContent = data.date;
+
         // 🔥 UPDATE CHARTS SYNC WITH VIEW
         if (data.chart_data && typeof updateCharts === 'function') {
             console.log(`[CHART] Syncing charts with ${viewType} data...`);
@@ -2819,7 +2826,7 @@ async function loadView(viewType) {
                 data.chart_data.winds,
                 data.chart_data.gusts
             );
-            
+
             // Update info text for charts
             const infoText = `${data.date} • ${data.count} records (View: ${viewType})`;
             ['tempChart-info', 'pressureChart-info', 'windChart-info'].forEach(id => {
@@ -2859,10 +2866,10 @@ async function loadView(viewType) {
                 tbody.insertAdjacentHTML('beforeend', row);
             });
         }
-        
+
         // Update count badge
         const countBadge = document.getElementById(`count-${viewType}`);
-        if(countBadge) countBadge.textContent = data.count || 0;
+        if (countBadge) countBadge.textContent = data.count || 0;
     } catch (e) {
         console.error('Failed to load view:', e);
     }
