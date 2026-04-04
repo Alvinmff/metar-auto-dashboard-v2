@@ -1914,7 +1914,7 @@ function renderWindRose(containerId, dataObj, options) {
                 })),
                 marker: { 
                     color: colors[i],
-                    line: { color: isDark ? 'rgba(0,0,0,0.3)' : 'rgba(255,255,255,0.4)', width: 1.2 } 
+                    line: { color: isDark ? 'rgba(0,0,0,0.3)' : 'rgba(255,255,255,0.4)', width: 1.5 } 
                 },
                 hovertemplate: 
                     '<b>Arah: %{theta}°</b><br>' +
@@ -1936,42 +1936,51 @@ function renderWindRose(containerId, dataObj, options) {
                     rotation: 90,
                     showgrid: true,
                     showline: true,
-                    linecolor: isDark ? 'rgba(255, 255, 255, 0.4)' : 'rgba(0, 0, 0, 0.25)',
-                    linewidth: 1,
-                    gridcolor: isDark ? 'rgba(255, 255, 255, 0.25)' : 'rgba(0, 0, 0, 0.15)',
-                    gridwidth: 1,
+                    // 🔥 Garis luar arah angin dipertebal
+                    linecolor: isDark ? 'rgba(255, 255, 255, 0.6)' : 'rgba(0, 0, 0, 0.4)',
+                    linewidth: 2, 
+                    // 🔥 Garis grid dalam dipertebal
+                    gridcolor: isDark ? 'rgba(255, 255, 255, 0.4)' : 'rgba(0, 0, 0, 0.25)',
+                    gridwidth: 1.5,
                     tickmode: 'array',
                     tickvals: [0, 45, 90, 135, 180, 225, 270, 315],
                     ticktext: ['N', 'N-E', 'E', 'S-E', 'S', 'S-W', 'W', 'N-W'],
-                    tickfont: { size: 11, color: isDark ? '#F1F5F9' : '#1E3A5F', family: 'Inter', weight: 'bold' }
+                    // 🔥 Font arah angin diperbesar jadi 14
+                    tickfont: { size: 14, color: isDark ? '#F1F5F9' : '#1E3A5F', family: 'Inter', weight: 'bold' }
                 },
                 radialaxis: {
                     showgrid: true,
                     showline: true,
-                    linecolor: isDark ? 'rgba(255, 255, 255, 0.4)' : 'rgba(0, 0, 0, 0.25)',
-                    linewidth: 1,
-                    gridcolor: isDark ? 'rgba(255, 255, 255, 0.25)' : 'rgba(0, 0, 0, 0.15)',
-                    gridwidth: 1,
+                    linecolor: isDark ? 'rgba(255, 255, 255, 0.6)' : 'rgba(0, 0, 0, 0.4)',
+                    linewidth: 2,
+                    gridcolor: isDark ? 'rgba(255, 255, 255, 0.4)' : 'rgba(0, 0, 0, 0.25)',
+                    gridwidth: 1.5,
                     nticks: 5,
                     ticksuffix: '%',
                     angle: 45,
                     tickangle: 45,
-                    tickfont: { size: 9, color: isDark ? '#94A3B8' : '#64748B' }
+                    // 🔥 Font persentase grid diperbesar jadi 12
+                    tickfont: { size: 12, color: isDark ? '#94A3B8' : '#64748B', weight: 'bold' }
                 }
             },
             showlegend: true,
             legend: {
-                title: { text: 'Kecepatan (Knot)', font: { size: 10, family: 'Inter', weight: 'bold' } },
-                font: { size: 9, family: 'Inter', color: isDark ? '#E2E8F0' : '#1E293B' },
+                // 🔥 Judul legend diperbesar jadi 14
+                title: { text: 'Kecepatan (Knot)', font: { size: 14, family: 'Inter', weight: 'bold' } },
+                // 🔥 Item legend diperbesar jadi 12
+                font: { size: 12, family: 'Inter', color: isDark ? '#E2E8F0' : '#1E293B' },
                 x: 1.05,
-                y: 0.5
+                y: 0.5,
+                itemsizing: 'constant'
             },
-            margin: { t: 60, b: 60, l: 50, r: 120 },
+            // 🔥 Margin diatur ulang agar font besar tidak terpotong
+            margin: { t: 60, b: 80, l: 60, r: 140 },
             paper_bgcolor: 'rgba(0,0,0,0)',
             plot_bgcolor: 'rgba(0,0,0,0)',
             title: {
                 text: options.title || '',
-                font: { family: 'Inter', size: 16, color: isDark ? '#F1F5F9' : '#1E3A5F', weight: 'bold' },
+                // 🔥 Font Judul diperbesar jadi 18
+                font: { family: 'Inter', size: 18, color: isDark ? '#F1F5F9' : '#1E3A5F', weight: 'bold' },
                 y: 0.98
             },
             annotations: [
@@ -1981,9 +1990,11 @@ function renderWindRose(containerId, dataObj, options) {
                     xref: 'paper',
                     yref: 'paper',
                     x: 0,
-                    y: -0.08,
+                    // 🔥 Dinaikkan ke atas
+                    y: -0.03, 
                     xanchor: 'left',
-                    font: { size: 12, family: 'Inter', color: '#DC2626' }
+                    // 🔥 Font diperbesar jadi 15
+                    font: { size: 15, family: 'Inter', color: '#DC2626' } 
                 },
                 {
                     text: options.subLabel || '',
@@ -1991,9 +2002,11 @@ function renderWindRose(containerId, dataObj, options) {
                     xref: 'paper',
                     yref: 'paper',
                     x: 0,
-                    y: -0.14,
+                    // 🔥 Mengikuti jarak teks di atasnya
+                    y: -0.09, 
                     xanchor: 'left',
-                    font: { size: 10, family: 'Inter', color: isDark ? '#94A3B8' : '#64748B' }
+                    // 🔥 Font label bawah diperbesar
+                    font: { size: 12, family: 'Inter', color: isDark ? '#94A3B8' : '#64748B' }
                 }
             ]
         };
@@ -2050,6 +2063,7 @@ function downloadChart(chartId) {
                 format: 'png',
                 width: 1200,
                 height: 900,
+                scale: 3, // 🔥 Memperbesar resolusi/DPI gambar 3x lipat agar tidak pecah di Word
                 filename: `${filename}_${STATION}`,
                 // 🔥 Memastikan background putih dan grid terlihat saat ekspor
                 setBackground: isDark ? '#0f172a' : '#ffffff'
