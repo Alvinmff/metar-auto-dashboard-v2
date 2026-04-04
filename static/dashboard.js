@@ -1936,50 +1936,42 @@ function renderWindRose(containerId, dataObj, options) {
                     rotation: 90,
                     showgrid: true,
                     showline: true,
-                    // 🔥 Garis luar arah angin dipertebal
-                    linecolor: isDark ? 'rgba(255, 255, 255, 0.6)' : 'rgba(0, 0, 0, 0.4)',
-                    linewidth: 2, 
-                    // 🔥 Garis grid dalam dipertebal
-                    gridcolor: isDark ? 'rgba(255, 255, 255, 0.4)' : 'rgba(0, 0, 0, 0.25)',
-                    gridwidth: 1.5,
+                    linecolor: isDark ? 'rgba(255, 255, 255, 0.5)' : 'rgba(0, 0, 0, 0.3)',
+                    linewidth: 1,
+                    gridcolor: isDark ? 'rgba(255, 255, 255, 0.5)' : 'rgba(0, 0, 0, 0.3)',
+                    gridwidth: 1,
                     tickmode: 'array',
                     tickvals: [0, 45, 90, 135, 180, 225, 270, 315],
                     ticktext: ['N', 'N-E', 'E', 'S-E', 'S', 'S-W', 'W', 'N-W'],
-                    // 🔥 Font arah angin diperbesar jadi 14
                     tickfont: { size: 14, color: isDark ? '#F1F5F9' : '#1E3A5F', family: 'Inter', weight: 'bold' }
                 },
                 radialaxis: {
                     showgrid: true,
                     showline: true,
-                    linecolor: isDark ? 'rgba(255, 255, 255, 0.6)' : 'rgba(0, 0, 0, 0.4)',
-                    linewidth: 2,
-                    gridcolor: isDark ? 'rgba(255, 255, 255, 0.4)' : 'rgba(0, 0, 0, 0.25)',
-                    gridwidth: 1.5,
-                    nticks: 5,
+                    linecolor: isDark ? 'rgba(255, 255, 255, 0.5)' : 'rgba(0, 0, 0, 0.3)',
+                    linewidth: 1,
+                    gridcolor: isDark ? 'rgba(255, 255, 255, 0.5)' : 'rgba(0, 0, 0, 0.3)',
+                    gridwidth: 1,
+                    nticks: 4,
                     ticksuffix: '%',
                     angle: 45,
                     tickangle: 45,
-                    // 🔥 Font persentase grid diperbesar jadi 12
                     tickfont: { size: 12, color: isDark ? '#94A3B8' : '#64748B', weight: 'bold' }
                 }
             },
             showlegend: true,
             legend: {
-                // 🔥 Judul legend diperbesar jadi 14
                 title: { text: 'Kecepatan (Knot)', font: { size: 14, family: 'Inter', weight: 'bold' } },
-                // 🔥 Item legend diperbesar jadi 12
                 font: { size: 12, family: 'Inter', color: isDark ? '#E2E8F0' : '#1E293B' },
                 x: 1.05,
                 y: 0.5,
                 itemsizing: 'constant'
             },
-            // 🔥 Margin diatur ulang agar font besar tidak terpotong
-            margin: { t: 60, b: 80, l: 60, r: 140 },
+            margin: { t: 60, b: 100, l: 60, r: 140 },
             paper_bgcolor: 'rgba(0,0,0,0)',
             plot_bgcolor: 'rgba(0,0,0,0)',
             title: {
                 text: options.title || '',
-                // 🔥 Font Judul diperbesar jadi 18
                 font: { family: 'Inter', size: 18, color: isDark ? '#F1F5F9' : '#1E3A5F', weight: 'bold' },
                 y: 0.98
             },
@@ -1990,10 +1982,8 @@ function renderWindRose(containerId, dataObj, options) {
                     xref: 'paper',
                     yref: 'paper',
                     x: 0,
-                    // 🔥 Dinaikkan ke atas
-                    y: -0.03, 
+                    y: -0.1,
                     xanchor: 'left',
-                    // 🔥 Font diperbesar jadi 15
                     font: { size: 15, family: 'Inter', color: '#DC2626' } 
                 },
                 {
@@ -2002,10 +1992,8 @@ function renderWindRose(containerId, dataObj, options) {
                     xref: 'paper',
                     yref: 'paper',
                     x: 0,
-                    // 🔥 Mengikuti jarak teks di atasnya
-                    y: -0.09, 
+                    y: -0.17,
                     xanchor: 'left',
-                    // 🔥 Font label bawah diperbesar
                     font: { size: 12, family: 'Inter', color: isDark ? '#94A3B8' : '#64748B' }
                 }
             ]
