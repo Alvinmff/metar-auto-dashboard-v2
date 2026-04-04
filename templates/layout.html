@@ -67,7 +67,10 @@
                         <div class="station-text">
                             <!-- Show station code specifically for history/parser or default name -->
                             {% block header_station_text %}
-                            <span class="station-name">Stasiun Meteorologi Kelas I Juanda</span>
+                            <span class="station-name">
+                                <span class="mobile-hidden">Stasiun Meteorologi Kelas I Juanda</span>
+                                <span class="desktop-hidden">BMKG Juanda</span>
+                            </span>
                             {% endblock %}
                         </div>
                     </div>

@@ -4173,3 +4173,149 @@ body.fog-active .rain-indicator.active {
   border-color: #334155;
   color: #94a3b8;
 }
+
+/* ============================================= */
+/* TABLE RESPONSIVE                              */
+/* ============================================= */
+.table-responsive {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin-bottom: 1rem;
+}
+
+.modern-table th.col-time, .modern-table td.time-cell,
+.modern-table th.col-station, .modern-table td.station-cell,
+.modern-table th.col-status, .modern-table td.status-cell {
+    white-space: nowrap;
+}
+
+.modern-table th.col-metar, .modern-table td.metar-cell {
+    min-width: 350px;
+}
+
+/* ============================================= */
+/* DESKTOP HIDDEN ELEMENTS                       */
+/* ============================================= */
+.desktop-hidden {
+  display: flex !important;
+}
+
+@media (min-width: 769px) {
+  .desktop-hidden {
+    display: none !important;
+  }
+  .sidebar-overlay {
+    display: none !important;
+  }
+}
+
+/* ============================================= */
+/* MOBILE LAYOUT OVERRIDES                       */
+/* ============================================= */
+@media (max-width: 768px) {
+  .app-layout {
+    grid-template-areas:
+      "header"
+      "main";
+    grid-template-columns: 1fr;
+    grid-template-rows: var(--header-height) auto;
+  }
+
+  .app-sidebar {
+    position: fixed;
+    top: var(--header-height);
+    left: calc(-1 * var(--sidebar-width));
+    width: var(--sidebar-width);
+    height: calc(100vh - var(--header-height));
+    z-index: 1000;
+    transition: left var(--transition-smooth);
+    box-shadow: var(--shadow-xl);
+  }
+
+  .app-sidebar.open {
+    left: 0;
+  }
+
+  .sidebar-overlay {
+    display: none;
+    position: fixed;
+    top: var(--header-height);
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 999;
+    backdrop-filter: blur(2px);
+  }
+
+  .sidebar-overlay.active {
+    display: block;
+  }
+
+  body.rain-active .sidebar-overlay {
+      z-index: 1001;
+  }
+
+  /* Hide desktop only elements */
+  .mobile-hidden {
+    display: none !important;
+  }
+
+  /* Make header elements wrap or adjust sizes */
+  .app-header {
+    padding: 0 var(--space-md);
+  }
+
+  .header-left {
+    gap: var(--space-sm);
+  }
+
+  .header-logo {
+    height: 35px;
+  }
+
+  .header-title h1 {
+    font-size: 0.95rem;
+  }
+
+  .station-badge {
+    padding: 2px 8px !important;
+  }
+
+  .utc-clock, .wib-clock {
+    font-size: 0.85rem;
+    padding: 4px 6px;
+  }
+
+  /* Grid conversions */
+  .grid-2, .grid-3, .grid-2-1 {
+    grid-template-columns: 1fr;
+  }
+
+  .status-grid {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .metar-hero {
+    grid-template-columns: 1fr;
+  }
+
+  .crosswind-result {
+    grid-template-columns: 1fr;
+  }
+
+  .help-grid, .help-usage-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .app-main {
+    padding: var(--space-md);
+  }
+
+  span.desktop-hidden {
+    display: inline !important;
+  }
+}
+
