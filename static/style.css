@@ -4335,7 +4335,8 @@ body.fog-active .rain-indicator.active {
   }
 
   span.desktop-hidden {
-    display: inline !important;
+    display: block !important;
+    line-height: 1.1;
   }
 }
 
