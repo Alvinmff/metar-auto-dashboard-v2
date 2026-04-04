@@ -1952,7 +1952,7 @@ function renderWindRose(containerId, dataObj, options) {
                     linewidth: 1,
                     gridcolor: isDark ? 'rgba(255, 255, 255, 0.5)' : 'rgba(0, 0, 0, 0.3)',
                     gridwidth: 1,
-                    nticks: 4,
+                    nticks: 6,
                     ticksuffix: '%',
                     angle: 45,
                     tickangle: 45,
@@ -1967,7 +1967,7 @@ function renderWindRose(containerId, dataObj, options) {
                 y: 0.5,
                 itemsizing: 'constant'
             },
-            margin: { t: 60, b: 100, l: 60, r: 140 },
+            margin: { t: 60, b: 110, l: 60, r: 140 },
             paper_bgcolor: 'rgba(0,0,0,0)',
             plot_bgcolor: 'rgba(0,0,0,0)',
             title: {
@@ -1982,7 +1982,7 @@ function renderWindRose(containerId, dataObj, options) {
                     xref: 'paper',
                     yref: 'paper',
                     x: 0,
-                    y: -0.1,
+                    y: -0.14,
                     xanchor: 'left',
                     font: { size: 15, family: 'Inter', color: '#DC2626' } 
                 },
@@ -1992,7 +1992,7 @@ function renderWindRose(containerId, dataObj, options) {
                     xref: 'paper',
                     yref: 'paper',
                     x: 0,
-                    y: -0.17,
+                    y: -0.21,
                     xanchor: 'left',
                     font: { size: 12, family: 'Inter', color: isDark ? '#94A3B8' : '#64748B' }
                 }
