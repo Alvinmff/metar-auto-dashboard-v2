@@ -4227,7 +4227,10 @@ body.fog-active .rain-indicator.active {
     top: var(--header-height);
     left: calc(-1 * var(--sidebar-width));
     width: var(--sidebar-width);
-    height: calc(100vh - var(--header-height));
+    bottom: 0;
+    height: auto;
+    background: var(--bg-sidebar);
+    overflow-y: auto;
     z-index: 1000;
     transition: left var(--transition-smooth);
     box-shadow: var(--shadow-xl);
@@ -4255,6 +4258,13 @@ body.fog-active .rain-indicator.active {
 
   body.rain-active .sidebar-overlay {
       z-index: 1001;
+  }
+
+  /* Force airplane decor to be visible if hidden by other rules */
+  .airplane-decor-container {
+    display: flex !important;
+    opacity: 1 !important;
+    visibility: visible !important;
   }
 
   /* Hide desktop only elements */
@@ -4286,6 +4296,16 @@ body.fog-active .rain-indicator.active {
   .utc-clock, .wib-clock {
     font-size: 0.85rem;
     padding: 4px 6px;
+  }
+
+  /* Reduce huge paddings on cards */
+  .card, .metar-raw-panel, .ts-module {
+    padding: var(--space-md);
+  }
+
+  /* Make date on record table smaller */
+  #display-date {
+    font-size: 0.8rem;
   }
 
   /* Grid conversions */
