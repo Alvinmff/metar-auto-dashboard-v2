@@ -90,10 +90,15 @@
         <aside class="app-sidebar" id="appSidebar">
             <!-- Airplane & Tower Decoration -->
             <div class="airplane-decor-container fade-in" style="animation-delay:0.08s">
-                <img src="{{ url_for('static', filename='images/pesawat2.png') }}" alt="Airplane Decor"
-                    class="dashboard-airplane-img">
-                <img src="{{ url_for('static', filename='images/tower.png') }}" alt="Tower Decor"
-                    class="dashboard-tower-img">
+                <div class="decor-images-wrapper">
+                    <img src="{{ url_for('static', filename='images/pesawat2.png') }}" alt="Airplane Decor"
+                        class="dashboard-airplane-img">
+                    <img src="{{ url_for('static', filename='images/tower.png') }}" alt="Tower Decor"
+                        class="dashboard-tower-img">
+                </div>
+                <div class="sidebar-station-info">
+                    Stasiun No: 96935<br>ICAO ID: WARR
+                </div>
             </div>
 
             <nav class="sidebar-nav">

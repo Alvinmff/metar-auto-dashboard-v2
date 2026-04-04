@@ -4014,3 +4014,56 @@ body.fog-active .rain-indicator.active {
 [data-theme="dark"] .metar-row-invalid .metar-cell {
     color: #fb7185;
 }
+
+/* Airplane & Tower Decoration Sidebar Styling */
+.airplane-decor-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px 10px;
+    gap: 12px;
+    position: relative;
+    border-bottom: 1px solid var(--border-color);
+    margin-bottom: 10px;
+}
+
+.dashboard-airplane-img {
+    height: 45px;
+    width: auto;
+    filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1));
+}
+
+.dashboard-tower-img {
+    height: 60px;
+    width: auto;
+    filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1));
+}
+
+.decor-images-wrapper {
+    display: flex;
+    flex-direction: row;        /* Put images side-by-side */
+    justify-content: center;
+    align-items: center;
+    gap: 15px;                  /* Space between airplane and tower */
+    width: 100%;
+}
+
+.sidebar-station-info {
+    font-size: 0.65rem;
+    font-weight: 700;
+    color: var(--text-muted);
+    letter-spacing: 0.5px;
+    text-align: center;
+    background: var(--bg-body);
+    padding: 6px 12px;
+    border-radius: 6px;
+    border: 1px solid var(--border-color-light);
+    line-height: 1.4;
+    width: 100%;
+}
+
+[data-theme="dark"] .sidebar-station-info {
+    background: #1e293b;
+    border-color: #334155;
+    color: #94a3b8;
+}
