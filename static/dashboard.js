@@ -1926,6 +1926,10 @@ function renderWindRose(containerId, dataObj, options) {
             dynamicDtick = 2;  // Jika sangat kecil, buat garis tiap 2%
         }
 
+        // 🔥 TAMBAHKAN INI: Menghitung batas luar lingkaran agar selalu pas dengan garis grid terluar
+        let maxRange = Math.ceil(maxPercent / dynamicDtick) * dynamicDtick;
+        if (maxRange === 0) maxRange = dynamicDtick; // Jaga-jaga jika data 0
+
         // Create 7 traces (one for each speed bin) for STACKED BAR POLAR
         const traces = labels.map((label, i) => {
             return {
@@ -1980,6 +1984,8 @@ function renderWindRose(containerId, dataObj, options) {
                     // 🔥 3. GUNAKAN dtick DINAMIS DI SINI
                     tickmode: 'linear',
                     dtick: dynamicDtick,
+                    // 🔥 TAMBAHKAN BARIS INI: Memaksa batas lingkaran penuh sampai maxRange
+                    range: [0, maxRange],
                     tick0: 0,
                     ticksuffix: '%',
                     angle: 45,
