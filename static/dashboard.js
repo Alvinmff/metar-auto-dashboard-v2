@@ -1985,7 +1985,7 @@ function renderWindRose(containerId, dataObj, options) {
                     x: 0,
                     y: -0.2,
                     xanchor: 'left',
-                    font: { size: 15, family: 'Inter', color: '#DC2626' } 
+                    font: { size: 15, family: 'Inter', color: '#DC2626' }
                 },
                 {
                     text: options.subLabel || '',
@@ -1993,7 +1993,7 @@ function renderWindRose(containerId, dataObj, options) {
                     xref: 'paper',
                     yref: 'paper',
                     x: 0,
-                    y: -0.27,
+                    y: -0.50,
                     xanchor: 'left',
                     font: { size: 12, family: 'Inter', color: isDark ? '#94A3B8' : '#64748B' }
                 }
