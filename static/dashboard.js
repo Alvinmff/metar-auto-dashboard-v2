@@ -1927,6 +1927,14 @@ function renderWindRose(containerId, dataObj, options) {
             };
         });
 
+        // Calculate a nice rounded max for the radial axis to get exactly 4 circles
+        const maxFreq = Math.max(...sectors.map(s => s.bins.reduce((acc, b) => acc + b.percentage, 0)));
+        // Ensure at least some value if data is 0
+        const displayMax = maxFreq > 0 ? maxFreq : 100;
+        // Find a nice multiple of 4 or 20 for the outer ring
+        const outerRing = Math.ceil(displayMax / 4) * 4;
+        const tickvals = [outerRing * 0.25, outerRing * 0.5, outerRing * 0.75, outerRing];
+
         const layout = {
             polar: {
                 barmode: 'stack',
@@ -1952,8 +1960,8 @@ function renderWindRose(containerId, dataObj, options) {
                     linewidth: 1,
                     gridcolor: isDark ? 'rgba(255, 255, 255, 0.5)' : 'rgba(0, 0, 0, 0.3)',
                     gridwidth: 1,
-                    nticks: 5,
-                    tick0: 0,
+                    tickmode: 'array',
+                    tickvals: tickvals,
                     ticksuffix: '%',
                     angle: 45,
                     tickangle: 45,
@@ -1968,7 +1976,7 @@ function renderWindRose(containerId, dataObj, options) {
                 y: 0.5,
                 itemsizing: 'constant'
             },
-            margin: { t: 60, b: 130, l: 60, r: 140 },
+            margin: { t: 60, b: 150, l: 60, r: 140 },
             paper_bgcolor: 'rgba(0,0,0,0)',
             plot_bgcolor: 'rgba(0,0,0,0)',
             title: {
@@ -1983,7 +1991,7 @@ function renderWindRose(containerId, dataObj, options) {
                     xref: 'paper',
                     yref: 'paper',
                     x: 0,
-                    y: -0.2,
+                    y: -0.28,
                     xanchor: 'left',
                     font: { size: 15, family: 'Inter', color: '#DC2626' } 
                 },
@@ -1993,7 +2001,7 @@ function renderWindRose(containerId, dataObj, options) {
                     xref: 'paper',
                     yref: 'paper',
                     x: 0,
-                    y: -0.27,
+                    y: -0.37,
                     xanchor: 'left',
                     font: { size: 12, family: 'Inter', color: isDark ? '#94A3B8' : '#64748B' }
                 }
