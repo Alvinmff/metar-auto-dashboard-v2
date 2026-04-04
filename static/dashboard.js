@@ -1901,6 +1901,31 @@ function renderWindRose(containerId, dataObj, options) {
         const sectors = binned.sectors; // 8 sectors
         const theta = sectors.map(s => s.angle); // Use numerical angles (0, 45, ...)
 
+        // 🔥 1. MENGHITUNG PERSENTASE MAKSIMAL UNTUK JARAK LINGKARAN DINAMIS
+        let maxPercent = 0;
+        sectors.forEach(sector => {
+            let sectorTotal = 0;
+            sector.bins.forEach(bin => {
+                // Pastikan nilai persentase valid (angka)
+                if (typeof bin.percentage === 'number') {
+                    sectorTotal += bin.percentage;
+                }
+            });
+            if (sectorTotal > maxPercent) maxPercent = sectorTotal;
+        });
+
+        // 🔥 2. MENENTUKAN JARAK GARIS (dtick) BERDASARKAN NILAI MAKSIMAL
+        let dynamicDtick = 10;
+        if (maxPercent > 60) {
+            dynamicDtick = 20; // Jika tembus 60%+, buat garis tiap 20% (20, 40, 60, 80)
+        } else if (maxPercent >= 30) {
+            dynamicDtick = 10; // Jika 30%-60%, buat garis tiap 10%
+        } else if (maxPercent >= 15) {
+            dynamicDtick = 5;  // Jika 15%-30%, buat garis tiap 5%
+        } else {
+            dynamicDtick = 2;  // Jika sangat kecil, buat garis tiap 2%
+        }
+
         // Create 7 traces (one for each speed bin) for STACKED BAR POLAR
         const traces = labels.map((label, i) => {
             return {
@@ -1952,8 +1977,10 @@ function renderWindRose(containerId, dataObj, options) {
                     linewidth: 1,
                     gridcolor: isDark ? 'rgba(255, 255, 255, 0.5)' : 'rgba(0, 0, 0, 0.3)',
                     gridwidth: 1,
-                    tickmode: 'linear',  // Ubah dari auto ke linear agar jaraknya konsisten
-                    dtick: 10,           // Paksa Plotly membuat garis grid setiap kelipatan 10%
+                    // 🔥 3. GUNAKAN dtick DINAMIS DI SINI
+                    tickmode: 'linear',
+                    dtick: dynamicDtick,
+                    tick0: 0,
                     ticksuffix: '%',
                     angle: 45,
                     tickangle: 45,
@@ -1968,7 +1995,9 @@ function renderWindRose(containerId, dataObj, options) {
                 y: 0.5,
                 itemsizing: 'constant'
             },
-            margin: { t: 50, b: 150, l: 30, r: 100 },
+            // 🔥 1. MARGIN BAWAH DIPERKECIL (Rapat)
+            // Ubah nilai 'b' (bottom) menjadi 80 (sebelumnya 100 atau lebih) agar ruang kosong di bawah hilang
+            margin: { t: 50, b: 80, l: 30, r: 100 },
             paper_bgcolor: 'rgba(0,0,0,0)',
             plot_bgcolor: 'rgba(0,0,0,0)',
             title: {
@@ -1983,7 +2012,8 @@ function renderWindRose(containerId, dataObj, options) {
                     xref: 'paper',
                     yref: 'paper',
                     x: 0,
-                    y: -0.25,
+                    // 🔥 2. TEKS DITURUNKAN
+                    y: -0.25, // Nilai minus diperbesar agar semakin turun menjauhi lingkaran
                     xanchor: 'left',
                     font: { size: 15, family: 'Inter', color: '#DC2626' }
                 },
@@ -1993,6 +2023,7 @@ function renderWindRose(containerId, dataObj, options) {
                     xref: 'paper',
                     yref: 'paper',
                     x: 0,
+                    // 🔥 3. TEKS SUB-LABEL DITURUNKAN (mengikuti teks di atasnya)
                     y: -0.35,
                     xanchor: 'left',
                     font: { size: 12, family: 'Inter', color: isDark ? '#94A3B8' : '#64748B' }
