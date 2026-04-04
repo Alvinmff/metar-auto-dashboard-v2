@@ -1952,23 +1952,24 @@ function renderWindRose(containerId, dataObj, options) {
                     linewidth: 1,
                     gridcolor: isDark ? 'rgba(255, 255, 255, 0.5)' : 'rgba(0, 0, 0, 0.3)',
                     gridwidth: 1,
-                    nticks: 5,
+                    tickmode: 'auto',
+                    nticks: 4,
                     tick0: 0,
                     ticksuffix: '%',
                     angle: 45,
                     tickangle: 45,
-                    tickfont: { size: 10, color: isDark ? '#94A3B8' : '#64748B' }
+                    tickfont: { size: 11, color: isDark ? '#94A3B8' : '#64748B', weight: 'bold' }
                 }
             },
             showlegend: true,
             legend: {
-                title: { text: 'Kecepatan (Knot)', font: { size: 14, family: 'Inter', weight: 'bold' } },
+                title: { text: 'Kecepatan', font: { size: 14, family: 'Inter', weight: 'bold' } },
                 font: { size: 12, family: 'Inter', color: isDark ? '#E2E8F0' : '#1E293B' },
                 x: 1.05,
                 y: 0.5,
                 itemsizing: 'constant'
             },
-            margin: { t: 60, b: 130, l: 60, r: 140 },
+            margin: { t: 50, b: 100, l: 30, r: 100 },
             paper_bgcolor: 'rgba(0,0,0,0)',
             plot_bgcolor: 'rgba(0,0,0,0)',
             title: {
@@ -1983,7 +1984,7 @@ function renderWindRose(containerId, dataObj, options) {
                     xref: 'paper',
                     yref: 'paper',
                     x: 0,
-                    y: -0.2,
+                    y: -0.50,
                     xanchor: 'left',
                     font: { size: 15, family: 'Inter', color: '#DC2626' }
                 },
@@ -1993,7 +1994,7 @@ function renderWindRose(containerId, dataObj, options) {
                     xref: 'paper',
                     yref: 'paper',
                     x: 0,
-                    y: -0.50,
+                    y: -0.35,
                     xanchor: 'left',
                     font: { size: 12, family: 'Inter', color: isDark ? '#94A3B8' : '#64748B' }
                 }
