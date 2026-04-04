@@ -1952,9 +1952,8 @@ function renderWindRose(containerId, dataObj, options) {
                     linewidth: 1,
                     gridcolor: isDark ? 'rgba(255, 255, 255, 0.5)' : 'rgba(0, 0, 0, 0.3)',
                     gridwidth: 1,
-                    tickmode: 'auto',
-                    nticks: 4,
-                    tick0: 0,
+                    tickmode: 'linear',  // Ubah dari auto ke linear agar jaraknya konsisten
+                    dtick: 10,           // Paksa Plotly membuat garis grid setiap kelipatan 10%
                     ticksuffix: '%',
                     angle: 45,
                     tickangle: 45,
@@ -1984,7 +1983,7 @@ function renderWindRose(containerId, dataObj, options) {
                     xref: 'paper',
                     yref: 'paper',
                     x: 0,
-                    y: -0.50,
+                    y: -0.25,
                     xanchor: 'left',
                     font: { size: 15, family: 'Inter', color: '#DC2626' }
                 },
