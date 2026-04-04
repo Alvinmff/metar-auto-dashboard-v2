@@ -1969,7 +1969,7 @@ function renderWindRose(containerId, dataObj, options) {
                 y: 0.5,
                 itemsizing: 'constant'
             },
-            margin: { t: 50, b: 100, l: 30, r: 100 },
+            margin: { t: 50, b: 150, l: 30, r: 100 },
             paper_bgcolor: 'rgba(0,0,0,0)',
             plot_bgcolor: 'rgba(0,0,0,0)',
             title: {
