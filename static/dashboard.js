@@ -1927,25 +1927,10 @@ function renderWindRose(containerId, dataObj, options) {
             };
         });
 
-        // Dynamic tickvals: aimed at 3 or 4 circles based on data magnitude
-        const maxFreq = Math.max(...sectors.map(s => s.bins.reduce((acc, b) => acc + b.percentage, 0)));
-        const displayMax = maxFreq > 0 ? maxFreq : 100;
-        
-        let tickvals = [];
-        if (displayMax <= 15) {
-            tickvals = [5, 10, 15];
-        } else if (displayMax <= 30) {
-            tickvals = [10, 20, 30];
-        } else {
-            const outerRing = Math.ceil(displayMax / 4) * 4;
-            tickvals = [outerRing * 0.25, outerRing * 0.5, outerRing * 0.75, outerRing];
-        }
-
         const layout = {
             polar: {
                 barmode: 'stack',
                 bgcolor: 'rgba(0,0,0,0)',
-                domain: { x: [0.05, 0.95], y: [0.1, 1] }, // Enlarge diagram area
                 angularaxis: {
                     direction: 'clockwise',
                     rotation: 90,
@@ -1967,8 +1952,8 @@ function renderWindRose(containerId, dataObj, options) {
                     linewidth: 1,
                     gridcolor: isDark ? 'rgba(255, 255, 255, 0.5)' : 'rgba(0, 0, 0, 0.3)',
                     gridwidth: 1,
-                    tickmode: 'array',
-                    tickvals: tickvals,
+                    nticks: 5,
+                    tick0: 0,
                     ticksuffix: '%',
                     angle: 45,
                     tickangle: 45,
@@ -1983,7 +1968,7 @@ function renderWindRose(containerId, dataObj, options) {
                 y: 0.5,
                 itemsizing: 'constant'
             },
-            margin: { t: 60, b: 180, l: 60, r: 140 }, // Increased bottom margin
+            margin: { t: 60, b: 130, l: 60, r: 140 },
             paper_bgcolor: 'rgba(0,0,0,0)',
             plot_bgcolor: 'rgba(0,0,0,0)',
             title: {
@@ -1998,7 +1983,7 @@ function renderWindRose(containerId, dataObj, options) {
                     xref: 'paper',
                     yref: 'paper',
                     x: 0,
-                    y: -0.35, // Moved further down
+                    y: -0.2,
                     xanchor: 'left',
                     font: { size: 15, family: 'Inter', color: '#DC2626' } 
                 },
@@ -2008,7 +1993,7 @@ function renderWindRose(containerId, dataObj, options) {
                     xref: 'paper',
                     yref: 'paper',
                     x: 0,
-                    y: -0.45, // Moved below Calm label
+                    y: -0.27,
                     xanchor: 'left',
                     font: { size: 12, family: 'Inter', color: isDark ? '#94A3B8' : '#64748B' }
                 }
