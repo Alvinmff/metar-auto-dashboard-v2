@@ -1437,7 +1437,7 @@ function createWindChart() {
 // =======================
 async function loadHistory() {
     // Only run on main dashboard
-    if (window.location.pathname !== '/' && window.location.pathname !== '/metar') return;
+    if (window.location.pathname !== '/' && window.location.pathname !== '/metar' && window.location.pathname !== '/charts') return;
 
     // 🔥 Jika sedang melihat data 'yesterday', jangan timpa grafik dengan data polling terbaru
     if (typeof currentView !== 'undefined' && currentView !== 'today') {
@@ -2951,7 +2951,7 @@ document.addEventListener('click', () => {
 let currentView = 'today';
 
 async function loadView(viewType) {
-    if (window.location.pathname !== '/' && window.location.pathname !== '/metar') return;
+    if (window.location.pathname !== '/' && window.location.pathname !== '/metar' && window.location.pathname !== '/charts') return;
     currentView = viewType;
 
     // Update Button UI

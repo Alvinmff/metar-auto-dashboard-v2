@@ -6,13 +6,27 @@
 
 {% block content %}
 <div class="card fade-in">
-    <div class="card-header">
+    <div class="card-header" style="flex-wrap: wrap; gap: 10px;">
         <h3 class="card-title"><span class="icon">📈</span> Parameter Cuaca</h3>
-        <span class="text-muted" style="font-size:0.8rem">Station: {{ station }}</span>
+        <span id="display-date" class="text-muted" style="font-size:0.8rem; margin-left: auto;">{{ history_start.split()[0] if history_start else '' }}</span>
     </div>
-    <div style="margin-bottom: var(--space-md); color: var(--text-secondary); font-size: 0.9rem;">
-        Grafik ini menampilkan tren historis parameter cuaca berdasarkan 20 rekaman METAR terakhir.
-        Data diperbarui secara otomatis saat data baru masuk.
+    <div style="padding: 0 var(--space-lg) var(--space-md);">
+        <div class="manager-controls" style="margin-bottom: 20px;">
+            <div class="button-group">
+                <button id="btn-today" class="toggle-btn active" onclick="loadView('today')">
+                    Today <span id="count-today" class="badge">0</span>
+                </button>
+                <button id="btn-yesterday" class="toggle-btn" onclick="loadView('yesterday')">
+                    Yesterday <span id="count-yesterday" class="badge">0</span>
+                </button>
+            </div>
+            <div class="flex gap-sm">
+                <button class="btn btn-sm btn-outline" onclick="location.reload()">🔄 Refresh</button>
+            </div>
+        </div>
+        <div style="color: var(--text-secondary); font-size: 0.9rem;">
+            Grafik ini menampilkan tren historis parameter cuaca berdasarkan rekaman METAR pada hari yang dipilih.
+        </div>
     </div>
 </div>
 
