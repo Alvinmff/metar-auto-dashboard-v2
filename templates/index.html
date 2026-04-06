@@ -136,34 +136,6 @@
 </div>
 {% endif %}
 
-<!-- ========== OPERATIONAL TOOLS ========== -->
-<div class="card crosswind-card fade-in" style="animation-delay:0.12s">
-    <div class="card-header">
-        <h3 class="card-title"><span class="icon">✈️</span> Crosswind Monitoring</h3>
-    </div>
-    <div class="runway-selector" id="runwaySelector">
-        <button class="runway-btn active" data-heading="100" onclick="selectRunway(this, 100)">RWY 10</button>
-        <button class="runway-btn" data-heading="280" onclick="selectRunway(this, 280)">RWY 28</button>
-    </div>
-    <div class="crosswind-result" id="crosswindResult">
-        <div class="xwind-item xw-safe">
-            <div class="xw-label">Headwind</div>
-            <div class="xw-value" id="xwHead">-- kt</div>
-            <span class="xw-status" id="xwHeadStatus">--</span>
-        </div>
-        <div class="xwind-item xw-safe">
-            <div class="xw-label">Crosswind</div>
-            <div class="xw-value" id="xwCross">-- kt</div>
-            <span class="xw-status" id="xwCrossStatus">--</span>
-        </div>
-        <div class="xwind-item xw-safe">
-            <div class="xw-label">Tailwind</div>
-            <div class="xw-value" id="xwTail">-- kt</div>
-            <span class="xw-status" id="xwTailStatus">--</span>
-        </div>
-    </div>
-</div>
-
 <div class="grid-2 fade-in" style="animation-delay:0.14s">
     <div class="card">
         <div class="card-header">
@@ -187,13 +159,45 @@
     </div>
 </div>
 
-<!-- Wind Compass (Full Width) -->
-<div class="card fade-in" style="animation-delay:0.21s">
+<!-- ========== UNIFIED WIND MONITORING ========== -->
+<div class="card fade-in" style="animation-delay:0.1s">
     <div class="card-header">
-        <h3 class="card-title"><span class="icon">🧭</span> Real-time Wind Compass</h3>
-        <button class="btn btn-sm btn-outline" onclick="downloadChart('windCompassChart')">📥 Download</button>
+        <h3 class="card-title"><span class="icon">🧭</span> Real-time Wind & Crosswind</h3>
+        <div class="flex gap-sm">
+            <button class="btn btn-sm btn-outline" onclick="downloadChart('windCompassChart')">📥 Compass</button>
+        </div>
     </div>
+
+    <!-- Compass Section (Top) -->
     <div id="windCompassChart" style="height:400px; max-width: 600px; margin: 0 auto;"></div>
+
+    <div style="border-top: 1px solid var(--border-color); margin: var(--space-md) 0; opacity: 0.5;"></div>
+
+    <!-- Crosswind Section (Bottom) -->
+    <div style="padding: 0 var(--space-md) var(--space-md);">
+        <div class="runway-selector" id="runwaySelector" style="justify-content: center; margin-bottom: 20px;">
+            <button class="runway-btn active" data-heading="100" onclick="selectRunway(this, 100)">RWY 10</button>
+            <button class="runway-btn" data-heading="280" onclick="selectRunway(this, 280)">RWY 28</button>
+        </div>
+        <div class="crosswind-result" id="crosswindResult" style="max-width: 800px; margin: 0 auto;">
+            <div class="xwind-item xw-safe">
+                <div class="xw-label">Headwind</div>
+                <div class="xw-value" id="xwHead">-- kt</div>
+                <span class="xw-status" id="xwHeadStatus">--</span>
+            </div>
+            <div class="xwind-item xw-safe">
+                <div class="xw-label">Crosswind</div>
+                <div class="xw-value" id="xwCross">-- kt</div>
+                <span class="xw-status" id="xwCrossStatus">--</span>
+            </div>
+            <div class="xwind-item xw-safe">
+                <div class="xw-label">Tailwind</div>
+                <div class="xw-value" id="xwTail">-- kt</div>
+                <span class="xw-status" id="xwTailStatus">--</span>
+            </div>
+        </div>
+    </div>
+
     <!-- Data store for compass -->
     <div id="wind-data-store" style="display: none;" data-latest='{{ latest_wind | default("{}") | safe }}'
         data-recent='{{ recent_winds | default("[]") | safe }}'></div>
@@ -311,7 +315,8 @@
 
 <!-- ========== HISTORY TABLE ========== -->
 <div class="record-manager-card">
-    <div class="card-header" style="padding: 0 0 15px 0; border-bottom: 1px solid var(--border-color); margin-bottom: 20px;">
+    <div class="card-header"
+        style="padding: 0 0 15px 0; border-bottom: 1px solid var(--border-color); margin-bottom: 20px;">
         <h3 class="card-title"><span class="icon">📋</span> METAR History</h3>
     </div>
     <div class="manager-controls">

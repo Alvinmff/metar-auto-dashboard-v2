@@ -1585,7 +1585,7 @@ function checkRESequence(currentRaw, previousRaw) {
     // Case 1: Previous had TSRA, current has neither TS nor RA → needs RETSRA
     if (prevHasTS && prevHasRA && !currHasTS && !currHasRA) {
         if (!metarHasRETSRA(currentRaw)) {
-            errors.push('❌ Cuaca TSRA berhenti total tapi tidak ada RETSRA');
+            errors.push('❌ Cuaca TSRA berhenti tapi tidak ada RETSRA');
         }
     }
     // Case 2: Previous had TSRA, current has only TS (rain stopped) → needs RERA
