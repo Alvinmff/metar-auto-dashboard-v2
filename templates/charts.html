@@ -1,25 +1,25 @@
 {% extends "layout.html" %}
 
-{% block title %}Charts & Trends — METAR Auto Dashboard{% endblock %}
+{% block title %}Parameter Cuaca — METAR Auto Dashboard{% endblock %}
 
 {% block nav_active_charts %}active{% endblock %}
 
 {% block content %}
 <div class="card fade-in">
     <div class="card-header">
-        <h3 class="card-title"><span class="icon">📈</span> Historical Charts & Trends</h3>
+        <h3 class="card-title"><span class="icon">📈</span> Parameter Cuaca</h3>
         <span class="text-muted" style="font-size:0.8rem">Station: {{ station }}</span>
     </div>
     <div style="margin-bottom: var(--space-md); color: var(--text-secondary); font-size: 0.9rem;">
-        These charts display the historical trend of weather parameters based on the last 20 METAR records. 
-        It updates automatically as new data is fetched.
+        Grafik ini menampilkan tren historis parameter cuaca berdasarkan 20 rekaman METAR terakhir.
+        Data diperbarui secara otomatis saat data baru masuk.
     </div>
 </div>
 
 <!-- ========== CHARTS ========== -->
 <div class="card chart-card fade-in" style="animation-delay:0.1s">
     <div class="card-header">
-        <h3 class="card-title"><span class="icon">🌡️</span> Temperature Trend</h3>
+        <h3 class="card-title"><span class="icon">🌡️</span> Trend Temperatur</h3>
         <button class="btn btn-sm btn-outline" onclick="downloadChart('tempChart')">📥 Download</button>
     </div>
     <div class="chart-container">
@@ -34,7 +34,7 @@
 
 <div class="card chart-card fade-in" style="animation-delay:0.2s">
     <div class="card-header">
-        <h3 class="card-title"><span class="icon">📊</span> Pressure (QNH) Trend</h3>
+        <h3 class="card-title"><span class="icon">📊</span> Trend Tekanan (QNH)</h3>
         <button class="btn btn-sm btn-outline" onclick="downloadChart('pressureChart')">📥 Download</button>
     </div>
     <div class="chart-container">
@@ -49,7 +49,7 @@
 
 <div class="card chart-card fade-in" style="animation-delay:0.3s">
     <div class="card-header">
-        <h3 class="card-title"><span class="icon">💨</span> Wind Speed Trend</h3>
+        <h3 class="card-title"><span class="icon">💨</span> Trend Kecepatan Angin</h3>
         <button class="btn btn-sm btn-outline" onclick="downloadChart('windChart')">📥 Download</button>
     </div>
     <div class="chart-container">

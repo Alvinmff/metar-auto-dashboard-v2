@@ -173,6 +173,13 @@ a:hover {
   grid-template-columns: var(--sidebar-collapsed) 1fr;
 }
 
+/* Hide labels and headers in collapsed sidebar */
+.sidebar-collapsed .sidebar-link .label,
+.sidebar-collapsed .sidebar-section-header,
+.sidebar-collapsed .sidebar-station-info {
+  display: none !important;
+}
+
 /* ============================================= */
 /* HEADER (Fixed, 64px)                          */
 /* ============================================= */
@@ -450,6 +457,15 @@ a:hover {
   flex-direction: column;
   gap: 4px;
   padding: 0 var(--space-sm);
+}
+
+.sidebar-section-header {
+  padding: 16px 16px 4px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  transition: opacity var(--transition-fast);
 }
 
 .sidebar-link {
@@ -2558,19 +2574,9 @@ body.rain-active::after {
 }
 
 /* Hide or shrink when sidebar is collapsed */
-.sidebar-collapsed .airplane-decor-container {
-  padding: 10px 5px;
-}
-
-.sidebar-collapsed .dashboard-airplane-img {
-  max-width: 40px;
-  transform: none;
-  opacity: 0.5;
-}
-
-.sidebar-collapsed .dashboard-tower-img {
-  display: none;
-  /* Hide tower in tiny sidebar */
+.sidebar-collapsed .airplane-decor-container,
+.sidebar-collapsed .sidebar-section-header {
+  display: none !important;
 }
 
 .dashboard-airplane-img:hover,

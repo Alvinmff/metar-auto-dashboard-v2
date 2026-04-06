@@ -107,33 +107,33 @@
             </div>
 
             <nav class="sidebar-nav">
-                <div
-                    style="padding: 12px 16px 4px; font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">
-                    Main</div>
+                <div class="sidebar-section-header">Main</div>
 
                 <a href="/" class="sidebar-link {% block nav_active_dashboard %}{% endblock %}" id="nav-dashboard">
                     <span class="icon">🏠</span>
                     <span class="label">Dashboard</span>
                 </a>
 
-                <div
-                    style="padding: 16px 16px 4px; font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">
-                    Analysis & Tools</div>
+                <a href="/metar" class="sidebar-link {% block nav_active_metar %}{% endblock %}" id="nav-metar">
+                    <span class="icon">📋</span>
+                    <span class="label">METAR</span>
+                </a>
+
+                <a href="/qam_report" class="sidebar-link {% block nav_active_qam_report %}{% endblock %}" id="nav-qam-report">
+                    <span class="icon">📄</span>
+                    <span class="label">QAM/MET Report</span>
+                </a>
+
+                <div class="sidebar-section-header">Analisis & Alat</div>
 
                 <a href="/charts" class="sidebar-link {% block nav_active_charts %}{% endblock %}" id="nav-charts">
                     <span class="icon">📈</span>
-                    <span class="label">Charts & Trends</span>
+                    <span class="label">Parameter Cuaca</span>
                 </a>
 
                 <a href="/wind_analysis" class="sidebar-link {% block nav_active_wind %}{% endblock %}" id="nav-wind">
                     <span class="icon">🧭</span>
-                    <span class="label">Wind Analysis</span>
-                </a>
-
-                <a href="/operational_tools" class="sidebar-link {% block nav_active_tools %}{% endblock %}"
-                    id="nav-tools">
-                    <span class="icon">✈️</span>
-                    <span class="label">Operational Tools</span>
+                    <span class="label">Analisis Angin</span>
                 </a>
 
                 <!--<a href="/weather_analysis" class="sidebar-link {% block nav_active_weather %}{% endblock %}" id="nav-weather">
@@ -141,19 +141,17 @@
                     <span class="label">Weather Analysis</span>
                 </a> -->
 
-                <div
-                    style="padding: 16px 16px 4px; font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">
-                    Data</div>
+                <div class="sidebar-section-header">Data</div>
 
                 <a href="/history_by_date" class="sidebar-link {% block nav_active_history %}{% endblock %}"
                     id="nav-history">
                     <span class="icon">📅</span>
-                    <span class="label">History Search</span>
+                    <span class="label">Cari Riwayat</span>
                 </a>
 
                 <a href="/manual_parser" class="sidebar-link {% block nav_active_parser %}{% endblock %}" id="nav-qam">
-                    <span class="icon">📄</span>
-                    <span class="label">Manual Parser</span>
+                    <span class="icon">🔧</span>
+                    <span class="label">Parser Manual</span>
                 </a>
 
                 <div class="sidebar-divider desktop-hidden"></div>

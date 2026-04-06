@@ -1650,16 +1650,16 @@ def home():
         latest_wind=json.dumps(latest_wind_obj)
     )
 
-def common_view_context(template_name):
-    """Helper to load common metrics for the new specialized pages"""
-    global last_metar_update, auto_fetch
+def common_view_context_data():
+    """Helper to get common metrics for all templates without rendering"""
+    global last_metar_update, auto_fetch, latest_metar_data
     station = "WARR"
     metar = None
     parsed = {}
     qam = None
     narrative = None
-    latest = None
     latest_wind_obj = {}
+    
     # Fetch latest data from cache
     metar = str(latest_metar_data.get("raw") or "")
     if metar:
@@ -1679,6 +1679,8 @@ def common_view_context(template_name):
     winds = []
     gusts = []
     has_history = False
+    history = pd.DataFrame()
+    current_day = ""
     
     full_history = fetch_history_from_source()
     if not full_history.empty:
@@ -1718,9 +1720,8 @@ def common_view_context(template_name):
             history_end = pd.to_datetime(history['time'].iloc[-1]).strftime("%Y-%m-%d %H:%M")
             history_count = len(history)
 
-    # Convert recent winds strictly to a list of dicts for JSON serialization
+    # Convert recent winds strictly to a list of dicts
     safe_recent_winds = []
-    # wind_history is a global deque of dictionaries
     for w in wind_history:
         if w.get("station") == station:
             safe_recent_winds.append({
@@ -1729,7 +1730,7 @@ def common_view_context(template_name):
                 "timestamp": w.get("time")
             })
             
-    # Extract latest wind specifically
+    # Extract latest wind
     latest_wind_obj = {}
     if parsed and parsed.get('wind_dir') is not None and parsed.get('wind_speed_kt') is not None:
         latest_wind_obj = {
@@ -1737,27 +1738,33 @@ def common_view_context(template_name):
             "speed": parsed['wind_speed_kt']
         }
 
-    return render_template(
-        template_name,
-        station=station,
-        latest={"station": station, "metar": metar, "status": parsed.get("status", "normal"), "report_type": detect_metar_report_type(metar)} if parsed else None,
-        qam=qam,
-        narrative=narrative,
-        history=history,
-        current_day=current_day if 'current_day' in locals() else "",
-        has_history=has_history,
-        temps=temps,
-        pressures=pressures,
-        winds=winds,
-        gusts=gusts,
-        labels=labels,
-        history_start=history_start,
-        history_end=history_end,
-        history_count=history_count,
-        history_source=history_source,
-        recent_winds=json.dumps(safe_recent_winds),
-        latest_wind=json.dumps(latest_wind_obj)
-    )
+    return {
+        "station": station,
+        "latest": {"station": station, "metar": metar, "status": parsed.get("status", "normal"), "report_type": detect_metar_report_type(metar)} if parsed else None,
+        "qam": qam,
+        "narrative": narrative,
+        "history": history,
+        "current_day": current_day,
+        "has_history": has_history,
+        "temps": temps,
+        "pressures": pressures,
+        "winds": winds,
+        "gusts": gusts,
+        "labels": labels,
+        "history_start": history_start,
+        "history_end": history_end,
+        "history_count": history_count,
+        "history_source": history_source,
+        "recent_winds": json.dumps(safe_recent_winds),
+        "latest_wind": json.dumps(latest_wind_obj),
+        "auto_fetch": auto_fetch,
+        "last_metar_update": last_metar_update
+    }
+
+def common_view_context(template_name):
+    """Helper to load common metrics for the new specialized pages"""
+    data = common_view_context_data()
+    return render_template(template_name, **data)
 
 @app.route("/charts")
 def charts_view():
@@ -1767,9 +1774,34 @@ def charts_view():
 def wind_analysis_view():
     return common_view_context("wind_analysis.html")
 
-@app.route("/operational_tools")
-def operational_tools_view():
-    return common_view_context("operational_tools.html")
+@app.route("/metar", methods=["GET", "POST"])
+def metar_view():
+    # Reuse manual parser logic inside the METAR view
+    raw_metar = None
+    parsed_qam = None
+    validation_results = None
+    station = "WARR"
+
+    if request.method == "POST":
+        raw_metar = request.form.get("raw_metar", "").strip()
+        if raw_metar:
+            station = raw_metar.split()[1] if len(raw_metar.split()) > 1 else "WARR"
+            parsed = parse_metar(raw_metar)
+            parsed_qam = generate_qam(station, parsed, raw_metar)
+            validation_results = validate_metar(raw_metar)
+
+    # We use common_view_context logic but need to inject the manual parser results
+    context = common_view_context_data() # I should create this helper to avoid code duplication
+    context.update({
+        "raw_metar": raw_metar,
+        "parsed_qam": parsed_qam,
+        "validation_results": validation_results
+    })
+    return render_template("metar.html", **context)
+
+@app.route("/qam_report")
+def qam_report_view():
+    return common_view_context("qam_report.html")
 
 @app.route("/weather_analysis")
 def weather_analysis_view():
