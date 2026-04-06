@@ -2442,69 +2442,88 @@ def validate_metar(metar: str) -> list[str]:
             errors.append(f"❌ Format waktu salah: {tokens[idx]} (harus 6 digit + Z)")
         idx += 1
 
-    # 3. Wind Group (may be absent in some reports)
+    # 3. Wind Group
     if idx < len(tokens):
         # Supports: 05006KT, 18012G20KT, VRB03KT, 00000KT
-        wind_pattern = r'^(\d{3}|VRB)\d{2}(G\d{2,3})?KT$'
-        if re.match(wind_pattern, tokens[idx]):
-            idx += 1  # Valid wind, advance
+        wind_match = re.match(r'^(\d{3}|VRB)(\d{2,3})(G(\d{2,3}))?KT$', tokens[idx])
+        if wind_match:
+            dir_part = wind_match.group(1)
+            speed_part = int(wind_match.group(2))
+            gust_part = int(wind_match.group(4)) if wind_match.group(4) else None
+            
+            # 🔥 RULE 1: VRB Wind (Speed 00-02KT)
+            if dir_part == "VRB" and speed_part > 2:
+                errors.append(f"❌ Angin VRB harus 00-02KT (Terbaca: {speed_part}KT)")
+            
+            # 🔥 RULE 2: Gust Difference (>= 10KT)
+            if gust_part is not None:
+                if (gust_part - speed_part) < 10:
+                    errors.append(f"❌ Selisih Gust ({gust_part}KT) harus >= 10KT dari angin utama ({speed_part}KT)")
+            
+            idx += 1  # Valid wind format, advance
         elif tokens[idx].endswith('KT'):
-            # Looks like wind but malformed
-            errors.append(str(f"❌ Format angin salah: {tokens[idx]}"))
+            errors.append(f"❌ Format angin salah: {tokens[idx]}")
             idx += 1
         else:
-            # No wind group found (missing), report error but don't skip the token
-            errors.append(str("❌ Angin tidak ditemukan"))
+            errors.append("❌ Angin tidak ditemukan atau format salah")
 
-    # From here on, groups can be more dynamic. We'll search for them.
-    remaining_tokens: list[str] = tokens[idx:] if idx < len(tokens) else []  # pyre-ignore
+    # From here on, groups can be more dynamic.
+    remaining_tokens = tokens[idx:] if idx < len(tokens) else []
     
-    # 4. Visibility Group (4 digits, CAVOK, or M1/4SM etc - sticking to metric for now)
-    vis_found = False
-    for i, t in enumerate(remaining_tokens):
-        if re.match(r'^\d{4}$', t) or t == "CAVOK":
-            vis_found = True
-            # Check for 9999 or specific digits
+    # Extract data for cross-validation
+    vis_val = None
+    for t in remaining_tokens:
+        if re.match(r'^\d{4}$', t):
+            vis_val = int(t)
             break
-    if not vis_found:
+        elif t == "CAVOK":
+            vis_val = 9999
+            break
+
+    # 4. Visibility Group
+    if vis_val is None:
         errors.append("❌ Cek Visibility (harus 4 digit atau CAVOK)")
 
-    # 5. Weather Group (Optional)
-    # 6. Cloud Group
+    # 5. Weather Group & 6. Cloud Group
     cloud_prefixes = ["FEW", "SCT", "BKN", "OVC", "SKC", "NSC", "NCD", "VV"]
     cloud_found = False
+    weather_phenomena = []
+    
     for t in remaining_tokens:
+        # Track weather for visibility rule
+        if t in ["HZ", "BR", "FG", "RA", "TS", "DZ", "SN"]:
+             weather_phenomena.append(t)
+             
         if any(t.startswith(p) for p in cloud_prefixes):
             cloud_found = True
             if t in ["SKC", "NSC", "NCD"]: continue
             
-            # Extract height (3 digits)
             height_part = re.search(r'\d{3}', t)
             if not height_part:
                 errors.append(f"❌ Tinggi awan salah: {t} (harus 3 digit)")
             
-            # Check prefix format specifically if it matches but has wrong height
-            prefix = t[:3]  # pyre-ignore
+            prefix = t[:3]
             if prefix in ["FEW", "SCT", "BKN", "OVC"]:
-                height = t[3:6]  # pyre-ignore
+                height = t[3:6]
                 if not height.isdigit() or len(height) != 3:
                      errors.append(f"❌ Format kelompok awan salah: {t} (tinggi harus 3 digit)")
-        
-        # Catch errors like TL103 mentioned by user
-        #elif re.match(r'^[A-Z]{2}\d+', t) and "/" not in t and "KT" not in t and not t.startswith("Q"):
-        #     errors.append(f"❌ Format kelompok awan salah: {t} (prefix harus FEW/SCT/BKN/OVC)")
+    
+    # 🔥 RULE 3: Visibility with HZ or BR (Max 5000m)
+    if any(code in weather_phenomena for code in ["HZ", "BR"]):
+        if vis_val is not None and vis_val > 5000:
+            codes = [c for c in weather_phenomena if c in ["HZ", "BR"]]
+            errors.append(f"❌ Visibility {', '.join(codes)} harus <= 5000m (Terbaca: {vis_val}m)")
 
     # 7. Temperature/Dewpoint (M?dd/M?dd)
     temp_pattern = r'^M?\d{2}/M?\d{2}$'
     if not any(re.match(temp_pattern, t) for t in remaining_tokens):
-        # Using any() for CAVOK check to avoid Pyre __contains__ bug
         has_cavok = any(t == "CAVOK" for t in remaining_tokens)
         if not has_cavok or not any("/" in t for t in remaining_tokens):
             errors.append("❌ Format suhu TT/TdTd salah (contoh: 31/24)")
 
     # 8. Pressure Group (Q + 4 digits)
     if not any(re.match(r'^Q\d{4}$', t) for t in remaining_tokens):
-        errors.append(str("❌ Tekanan (QNH) salah (contoh: Q1010)"))
+        errors.append("❌ Tekanan (QNH) salah (contoh: Q1010)")
 
     # 9. Trend Group (Optional check)
     trend_keywords = ["NOSIG", "TEMPO", "BECMG"]
