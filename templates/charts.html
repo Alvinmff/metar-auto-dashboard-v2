@@ -8,16 +8,17 @@
 <div class="card fade-in">
     <div class="card-header" style="flex-wrap: wrap; gap: 10px;">
         <h3 class="card-title"><span class="icon">📈</span> Parameter Cuaca</h3>
-        <span id="display-date" class="text-muted" style="font-size:0.8rem; margin-left: auto;">{{ history_start.split()[0] if history_start else '' }}</span>
+        <span id="display-date" class="text-muted" style="font-size:0.8rem; margin-left: auto;">{{
+            history_start.split()[0] if history_start else '' }}</span>
     </div>
     <div style="padding: 0 var(--space-lg) var(--space-md);">
         <div class="manager-controls" style="margin-bottom: 20px;">
             <div class="button-group">
                 <button id="btn-today" class="toggle-btn active" onclick="loadView('today')">
-                    Today <span id="count-today" class="badge">0</span>
+                    Today <span id="count-today"></span>
                 </button>
                 <button id="btn-yesterday" class="toggle-btn" onclick="loadView('yesterday')">
-                    Yesterday <span id="count-yesterday" class="badge">0</span>
+                    Yesterday <span id="count-yesterday"></span>
                 </button>
             </div>
             <div class="flex gap-sm">
@@ -82,16 +83,13 @@
 <!-- We inject the initial chart data rendered from the server -->
 {% if has_history %}
 <!-- Data Storage for Charts -->
-<div id="chart-data-store" style="display: none;" 
-     data-labels='{{ labels | tojson | safe }}'
-     data-temps='{{ temps | tojson | safe }}'
-     data-pressures='{{ pressures | tojson | safe }}'
-     data-winds='{{ winds | tojson | safe }}'
-     data-gusts='{{ gusts | tojson | safe }}'></div>
+<div id="chart-data-store" style="display: none;" data-labels='{{ labels | tojson | safe }}'
+    data-temps='{{ temps | tojson | safe }}' data-pressures='{{ pressures | tojson | safe }}'
+    data-winds='{{ winds | tojson | safe }}' data-gusts='{{ gusts | tojson | safe }}'></div>
 
 <script>
     // Trigger chart render explicitly since the HTML structure changed
-    document.addEventListener("DOMContentLoaded", function() {
+    document.addEventListener("DOMContentLoaded", function () {
         const store = document.getElementById('chart-data-store');
         if (!store) return;
 

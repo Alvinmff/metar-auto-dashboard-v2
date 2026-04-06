@@ -60,7 +60,7 @@
                 <button class="sidebar-toggle" id="sidebarToggle" title="Toggle Sidebar">☰</button>
                 <img src="{{ url_for('static', filename='images/BMKG_LOGO.jpg') }}" alt="BMKG Logo" class="header-logo">
                 <div class="header-title">
-                    <h1>METAR Auto Dashboard</h1>
+                    <h1>METAR Monitoring</h1>
                     <div class="station-badge">
                         {% block header_badge_status %}
                         <span id="stationBadgeStatus"
@@ -119,7 +119,8 @@
                     <span class="label">METAR</span>
                 </a>
 
-                <a href="/qam_report" class="sidebar-link {% block nav_active_qam_report %}{% endblock %}" id="nav-qam-report">
+                <a href="/qam_report" class="sidebar-link {% block nav_active_qam_report %}{% endblock %}"
+                    id="nav-qam-report">
                     <span class="icon">📄</span>
                     <span class="label">QAM/MET Report</span>
                 </a>
