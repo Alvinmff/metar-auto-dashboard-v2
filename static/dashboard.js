@@ -2013,9 +2013,10 @@ function renderWindRose(containerId, dataObj, options) {
         sectors.forEach(sector => {
             let sectorTotal = 0;
             sector.bins.forEach(bin => {
-                // Pastikan nilai persentase valid (angka)
-                if (typeof bin.percentage === 'number') {
-                    sectorTotal += bin.percentage;
+                // Pastikan nilai persentase valid (angka atau string angka)
+                const p = parseFloat(bin.percentage);
+                if (!isNaN(p)) {
+                    sectorTotal += p;
                 }
             });
             if (sectorTotal > maxPercent) maxPercent = sectorTotal;

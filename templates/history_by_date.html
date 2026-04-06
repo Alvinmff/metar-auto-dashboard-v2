@@ -451,7 +451,7 @@
                     const count = matrix[i][j];
                     const percent = total_valid > 0 ? (count / total_valid) * 100 : 0;
                     const times = [...new Set(time_matrix[i][j])].sort().join('<br>');
-                    return { label, count, percentage: percent.toFixed(2), times };
+                    return { label, count, percentage: parseFloat(percent.toFixed(2)), times };
                 });
                 return { sector, angle: i * 45, bins: sector_bins };
             });
