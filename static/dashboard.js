@@ -1228,6 +1228,26 @@ function playValidationError() {
     }
 }
 
+function playStaleAlarm() {
+    if (!soundEnabled) {
+        console.log('Sound disabled, skipping stale alarm');
+        return;
+    }
+    const a = document.getElementById('staleDataSound');
+    if (a) {
+        a.currentTime = 0;
+        a.play()
+            .then(() => console.log('Stale METAR alarm played'))
+            .catch(error => {
+                console.error('Failed to play stale alarm:', error);
+                a.load();
+                a.play().catch(e => console.warn('Retry failed:', e));
+            });
+    } else {
+        console.error('Stale alarm audio element not found');
+    }
+}
+
 // =======================
 // CHARTS (Light Theme)
 // =======================
@@ -2790,9 +2810,9 @@ class MetarStaleMonitor {
      * Play alarm using existing system, repeat every 10 seconds
      */
     startAlarmLoop() {
-        // Use existing playAlarm if sound is enabled
-        if (typeof playAlarm === 'function') {
-            playAlarm();
+        // Use specifically playStaleAlarm for metartelat.mp3
+        if (typeof playStaleAlarm === 'function') {
+            playStaleAlarm();
         }
         this.alarmTimer = setTimeout(() => this.startAlarmLoop(), 10000);
     }
