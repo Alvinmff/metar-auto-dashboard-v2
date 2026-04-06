@@ -403,7 +403,7 @@ function highlightMetar(raw) {
  * 🔥 METAR Validator Feature
  * Calls /api/validate to check the METAR string against 10 group rules
  */
-async function runMetarValidation(raw) {
+async function runMetarValidation(raw, shouldPlayVoice = false) {
     const displayEl = document.getElementById('metarValidation');
     if (!displayEl || !raw) return;
 
@@ -418,6 +418,12 @@ async function runMetarValidation(raw) {
 
         const isValid = results.length === 1 && results[0].startsWith('✅');
         const validationClass = isValid ? 'validation-success' : 'validation-error';
+
+        // 🔥 VOICE ALERT FOR INVALID DATA (Only for new reports)
+        if (!isValid && shouldPlayVoice) {
+            console.warn('[VALIDATION] Invalid METAR detected on new update! Playing voice alert...');
+            playValidationError();
+        }
 
         let html = `
             <div class="validation-card ${validationClass}">
@@ -1009,7 +1015,9 @@ function handleMetarUpdate(data) {
 
     // updateMiniTimeline(); // 🔥 DISABLED
 
-    runMetarValidation(data.raw);
+    // Run validation (trigger voice alert only if it's a new unique record)
+    const shouldVoiceOnFailure = !isFirstLoad && data.status === 'new' && isMetarChanged;
+    runMetarValidation(data.raw, shouldVoiceOnFailure);
 
     // Update status panel
     if (data.auto_fetch !== undefined) {
@@ -1197,6 +1205,26 @@ function playNotify() {
             });
     } else {
         console.error('Notify audio element not found');
+    }
+}
+
+function playValidationError() {
+    if (!soundEnabled) {
+        console.log('Sound disabled, skipping validation alert');
+        return;
+    }
+    const a = document.getElementById('validationErrorSound');
+    if (a) {
+        a.currentTime = 0;
+        a.play()
+            .then(() => console.log('Validation error sound played'))
+            .catch(error => {
+                console.error('Failed to play validation sound:', error);
+                a.load();
+                a.play().catch(e => console.warn('Retry failed:', e));
+            });
+    } else {
+        console.error('Validation audio element not found');
     }
 }
 
