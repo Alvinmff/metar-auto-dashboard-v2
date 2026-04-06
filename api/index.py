@@ -710,8 +710,8 @@ CLOUD    : {display['cloud']}
 TT/TD    : {display['temp_td']}
 QNH      : {display['qnh']} MB
 QFE      : {display['qfe']} MB
+REW¹W²   : {supp_info}
 TREND    : {display['trend']}
-SUPPLMNT : {supp_info}
 """
     return qam
 

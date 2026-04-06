@@ -1522,6 +1522,80 @@ window.updateCharts = updateCharts;
 // METAR STATUS INDICATOR SYSTEM
 // =======================
 
+// 🔥 RE SEQUENCE VALIDATION HELPERS
+function metarHasTS(metar) {
+    // Detects TS, TSRA, +TSRA, -TSRA, VCTS, TSGR etc.
+    return /(?:^|\s)(?:[+-])?(?:VC)?TS(?:RA|GR|SN|PE|PL)?\b/i.test(metar);
+}
+
+function metarHasRA(metar) {
+    // Detects RA, +RA, -RA, SHRA, TSRA, DZ, +DZ, -DZ etc.
+    return /(?:^|\s)(?:[+-])?(?:TS|SH|VC)?(?:RA|DZ)\b/i.test(metar);
+}
+
+function metarHasRETSRA(metar) {
+    return /\bRETSRA\b/i.test(metar);
+}
+
+function metarHasRETS(metar) {
+    // RETS but not RETSRA
+    return /\bRETS\b/i.test(metar) && !metarHasRETSRA(metar);
+}
+
+function metarHasRERA(metar) {
+    return /\bRERA\b/i.test(metar);
+}
+
+/**
+ * 🔥 Check RE (Recent Weather) sequence between consecutive METAR observations.
+ * Returns an array of error messages if transition rules are violated.
+ * @param {string} currentRaw - Current METAR string
+ * @param {string} previousRaw - Previous METAR string (the one before current in time)
+ * @returns {string[]} Array of error strings, empty if all OK
+ */
+function checkRESequence(currentRaw, previousRaw) {
+    if (!currentRaw || !previousRaw) return [];
+    const errors = [];
+
+    const prevHasTS = metarHasTS(previousRaw);
+    const prevHasRA = metarHasRA(previousRaw);
+    const currHasTS = metarHasTS(currentRaw);
+    const currHasRA = metarHasRA(currentRaw);
+
+    // Case 1: Previous had TSRA, current has neither TS nor RA → needs RETSRA
+    if (prevHasTS && prevHasRA && !currHasTS && !currHasRA) {
+        if (!metarHasRETSRA(currentRaw)) {
+            errors.push('❌ Cuaca TSRA berhenti total tapi tidak ada RETSRA');
+        }
+    }
+    // Case 2: Previous had TSRA, current has only TS (rain stopped) → needs RERA
+    else if (prevHasTS && prevHasRA && currHasTS && !currHasRA) {
+        if (!metarHasRERA(currentRaw)) {
+            errors.push('❌ Hujan (RA) berhenti tapi tidak ada RERA');
+        }
+    }
+    // Case 3: Previous had TSRA, current has only RA (TS stopped) → needs RETS
+    else if (prevHasTS && prevHasRA && !currHasTS && currHasRA) {
+        if (!metarHasRETS(currentRaw) && !metarHasRETSRA(currentRaw)) {
+            errors.push('❌ Thunderstorm (TS) berhenti tapi tidak ada RETS');
+        }
+    }
+    // Case 4: Previous had TS only (no RA), current has no TS → needs RETS
+    else if (prevHasTS && !prevHasRA && !currHasTS) {
+        if (!metarHasRETS(currentRaw) && !metarHasRETSRA(currentRaw)) {
+            errors.push('❌ Cuaca TS berhenti tapi tidak ada RETS');
+        }
+    }
+    // Case 5: Previous had RA only (no TS), current has no RA → needs RERA
+    else if (!prevHasTS && prevHasRA && !currHasRA) {
+        if (!metarHasRERA(currentRaw) && !metarHasRETSRA(currentRaw)) {
+            errors.push('❌ Cuaca RA berhenti tapi tidak ada RERA');
+        }
+    }
+
+    return errors;
+}
+
 /**
  * Determine METAR status based on data characteristics.
  * Logic:
@@ -1531,17 +1605,22 @@ window.updateCharts = updateCharts;
  *   - Minute not on :00 or :30 → SPECI (intermediate)
  *   - Otherwise → Normal METAR
  */
-function getMetarStatus(rawMetar, fullTime, validationResults) {
+function getMetarStatus(rawMetar, fullTime, validationResults, sequenceErrors) {
     const raw = rawMetar || '';
     const hasComma = raw.includes(',');
     const hasValidationError = validationResults && validationResults.length > 0 && !validationResults[0].startsWith('✅');
+    const hasSequenceError = sequenceErrors && sequenceErrors.length > 0;
 
-    // 1. Check for anomaly (contains comma or has validation errors)
-    if (hasComma || hasValidationError) {
+    // 1. Check for anomaly (contains comma, validation errors, or RE sequence errors)
+    if (hasComma || hasValidationError || hasSequenceError) {
         let errorDetail = hasComma ? 'Anomali ditemukan dalam string data (koma)' : '';
         if (hasValidationError) {
             const errorList = validationResults.filter(err => !err.startsWith('✅')).join('; ');
             errorDetail = errorDetail ? `${errorDetail}. ${errorList}` : errorList;
+        }
+        if (hasSequenceError) {
+            const seqList = sequenceErrors.join('; ');
+            errorDetail = errorDetail ? `${errorDetail}. ${seqList}` : seqList;
         }
 
         return {
@@ -1550,7 +1629,7 @@ function getMetarStatus(rawMetar, fullTime, validationResults) {
             pillIcon: '🔴',
             icon: '⚠️',
             title: 'Data Invalid',
-            description: hasComma ? 'Data METAR mengandung karakter tidak valid (koma).' : 'Data METAR gagal divalidasi.',
+            description: hasSequenceError ? 'Data METAR tidak memenuhi aturan Recent Weather (RE).' : (hasComma ? 'Data METAR mengandung karakter tidak valid (koma).' : 'Data METAR gagal divalidasi.'),
             errorDetail: errorDetail
         };
     }
@@ -2892,8 +2971,14 @@ async function loadView(viewType) {
         if (!data.records || data.records.length === 0) {
             tbody.innerHTML = `<tr><td colspan="4" class="empty" style="text-align: center; padding: 20px;">Tidak ada records tersedia</td></tr>`;
         } else {
-            data.records.forEach(record => {
-                const status = getMetarStatus(record.metar, record.time, record.validation_results);
+            // 🔥 RE Sequence Validation: records are newest-first
+            // records[i] is newer, records[i+1] is the previous observation
+            data.records.forEach((record, i) => {
+                // Get the previous (older) record for RE comparison
+                const prevRecord = (i + 1 < data.records.length) ? data.records[i + 1] : null;
+                const seqErrors = prevRecord ? checkRESequence(record.metar, prevRecord.metar) : [];
+
+                const status = getMetarStatus(record.metar, record.time, record.validation_results, seqErrors);
                 const statusHtml = createStatusIndicatorHTML(status);
                 let rowClass = "";
                 if (status.type === "speci") {
