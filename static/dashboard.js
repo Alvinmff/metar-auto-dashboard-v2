@@ -786,11 +786,11 @@ function updateWindCompassDisplay(windDir, windSpeed) {
             marker: { size: 10, color: windColor, symbol: 'circle' },
             hoverinfo: 'none', showlegend: false
         },
-        // 6. Ujung Panah (Segitiga)
+        // 6. Ujung Panah (Bulat)
         {
             type: 'scatterpolar', mode: 'markers',
             r: [arrowLength], theta: [dir],
-            marker: { symbol: 'triangle-up', size: 18, color: windColor, angle: dir },
+            marker: { symbol: 'circle', size: 14, color: windColor },
             name: 'Wind',
             hovertemplate: `Direction: ${windDir === 'VRB' ? 'VRB' : dir + '°'}<br>Speed: ${speed} kt<extra></extra>`
         }
