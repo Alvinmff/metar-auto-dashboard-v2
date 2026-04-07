@@ -693,8 +693,192 @@ function setParam(id, value) {
 }
 
 // =======================
-// CROSSWIND CALCULATOR
+// WIND COMPASS (Plotly) - 100% CLEAN DIGITAL INSTRUMENT
 // =======================
+function updateWindCompassDisplay(windDir, windSpeed) {
+    if (typeof windDir === 'object' && windDir !== null) {
+        windSpeed = windDir.wind_speed;
+        windDir = windDir.wind_direction;
+    }
+
+    if (windDir === undefined || (windDir === null && windDir !== 0)) return;
+    if (!document.getElementById('windCompassChart')) return;
+
+    const dir = windDir === 'VRB' ? 0 : parseInt(windDir);
+    const speed = windSpeed || 0;
+    const isDark = (typeof currentTheme !== 'undefined' ? currentTheme : 'light') === 'dark';
+
+    // Bersihkan state Plotly lama
+    Plotly.purge('windCompassChart');
+
+    // Palet Warna
+    const windColor = isDark ? '#F59E0B' : '#DC2626';
+    const runwayColor = isDark ? '#334155' : '#64748b';
+    const textColor = isDark ? '#F1F5F9' : '#1E3A5F';
+    const subTextColor = isDark ? '#94A3B8' : '#64748B'; // Warna untuk teks "Speed - knot"
+    const gridColor = isDark ? 'rgba(255, 255, 255, 0.4)' : 'rgba(0, 0, 0, 0.4)';
+    const cardinalTickColor = isDark ? '#FFFFFF' : '#000000';
+
+    const maxRadius = Math.max(speed + 5, 20);
+    const rwyRadius = maxRadius * 0.85;
+    const arrowLength = maxRadius * 0.80;
+
+    // -----------------------------------------------------------
+    // MEMBUAT GRID PINGGIRAN LINGKARAN (TICKS) SETIAP 5 DERAJAT
+    // -----------------------------------------------------------
+    const tickVals = [];
+    const tickText = [];
+    const compassLabels = {
+        0: 'N', 45: 'NE', 90: 'E', 135: 'SE',
+        180: 'S', 225: 'SW', 270: 'W', 315: 'NW'
+    };
+
+    for (let i = 0; i < 360; i += 5) {
+        tickVals.push(i);
+        // Hanya tampilkan huruf di sudut utama, sisanya kosong (hanya garis)
+        if (compassLabels[i]) {
+            tickText.push(compassLabels[i]);
+        } else {
+            tickText.push('');
+        }
+    }
+
+    const traces = [
+        // 1. Aspal Runway
+        {
+            type: 'scatterpolar', mode: 'lines',
+            r: [rwyRadius, 0, rwyRadius], theta: [100, 0, 280],
+            line: { color: runwayColor, width: 28 },
+            hoverinfo: 'none', showlegend: false
+        },
+        // 2. Garis Putus-putus Centerline
+        {
+            type: 'scatterpolar', mode: 'lines',
+            r: [rwyRadius * 0.95, 0, rwyRadius * 0.95], theta: [100, 0, 280],
+            line: { color: '#ffffff', width: 2, dash: 'dash' },
+            hoverinfo: 'none', showlegend: false
+        },
+        // 3. Angka Runway 10 & 28 (Dipindah ke samping poros agar tidak tertutup panah)
+        {
+            type: 'scatterpolar', mode: 'text',
+            r: [rwyRadius * 0.82, rwyRadius * 0.82],
+            theta: [115, 295], // Geser +15 derajat agar selalu terlihat di samping panah
+            text: ['10', '28'],
+            textfont: {
+                size: 12,
+                color: cardinalTickColor, // Mengikuti warna mata angin (Hitam/Putih)
+                family: 'Inter',
+                weight: 'bold'
+            },
+            hoverinfo: 'none', showlegend: false
+        },
+        // 4. Badan Panah Angin
+        {
+            type: 'scatterpolar', mode: 'lines',
+            r: [0, arrowLength], theta: [dir, dir],
+            line: { color: windColor, width: 6 },
+            hoverinfo: 'none', showlegend: false
+        },
+        // 5. Titik Pusat
+        {
+            type: 'scatterpolar', mode: 'markers',
+            r: [0], theta: [0],
+            marker: { size: 10, color: windColor, symbol: 'circle' },
+            hoverinfo: 'none', showlegend: false
+        },
+        // 6. Ujung Panah (Segitiga)
+        {
+            type: 'scatterpolar', mode: 'markers',
+            r: [arrowLength], theta: [dir],
+            marker: { symbol: 'triangle-up', size: 18, color: windColor, angle: dir },
+            name: 'Wind',
+            hovertemplate: `Direction: ${windDir === 'VRB' ? 'VRB' : dir + '°'}<br>Speed: ${speed} kt<extra></extra>`
+        }
+    ];
+
+    const layout = {
+        polar: {
+            bgcolor: 'rgba(0,0,0,0)',
+            angularaxis: {
+                direction: 'clockwise',
+                rotation: 90,
+
+                // Menerapkan grid pengukur kecil-kecil (Ticks)
+                tickmode: 'array',
+                tickvals: tickVals,
+                ticktext: tickText,
+                tickfont: { size: 14, color: cardinalTickColor, family: 'Inter', weight: 'bold' },
+
+                showgrid: false,          // 1. MENGHILANGKAN JARING LABA-LABA DI DALAM
+                showline: true,           // 2. MENGAKTIFKAN LINGKARAN LUAR
+                linecolor: gridColor,
+                linewidth: 2,
+
+                ticks: 'inside',          // 3. MEMBUAT GARIS KECIL MENGHADAP KE DALAM
+                ticklen: 8,               // Panjang garis pengukur
+                tickwidth: 1.5,
+                tickcolor: gridColor
+            },
+            radialaxis: {
+                visible: false,           // 4. MENGHILANGKAN CINCIN KECEPATAN DI DALAM
+                range: [0, maxRadius]
+            }
+        },
+        showlegend: false,
+        margin: { t: 40, b: 40, l: 40, r: 40 },
+        paper_bgcolor: 'rgba(0,0,0,0)',
+        plot_bgcolor: 'rgba(0,0,0,0)',
+
+        // -----------------------------------------------------------
+        // TEKS INFORMASI (SUDAH DIPISAH AGAR TIDAK NUMPUK)
+        // -----------------------------------------------------------
+        annotations: [
+            // 1. Teks "Speed - knot" (Dinaikkan secara independen)
+            {
+                text: `Speed - knot`,
+                showarrow: false,
+                font: { color: subTextColor, family: 'Inter', size: 10 },
+                x: 0.5,
+                y: 0.88,  // <--- Ubah angka ini untuk menaik/turunkan kalimatnya saja
+                xref: 'paper', yref: 'paper',
+                xanchor: 'center', yanchor: 'middle'
+            },
+            // 2. Angka Speed (Tetap di posisinya)
+            {
+                text: `<b>${speed}</b>`,
+                showarrow: false,
+                font: { color: textColor, family: 'Inter', size: 24 },
+                x: 0.5,
+                y: 0.80,  // <--- Posisi angka kecepatan
+                xref: 'paper', yref: 'paper',
+                xanchor: 'center', yanchor: 'middle'
+            },
+            // 3. Angka Derajat (Tetap di posisinya)
+            {
+                text: `<b style="font-size:24px">${windDir === 'VRB' ? 'VRB' : dir + '°'}</b>`,
+                showarrow: false,
+                font: { color: textColor, family: 'Inter' },
+                x: 0.5,
+                y: 0.20,  // <--- Posisi angka arah angin
+                xref: 'paper', yref: 'paper',
+                xanchor: 'center', yanchor: 'middle'
+            },
+            // 4. Teks "Direction" (Diturunkan secara independen)
+            {
+                text: `Direction`,
+                showarrow: false,
+                font: { color: subTextColor, family: 'Inter', size: 10 },
+                x: 0.5,
+                y: 0.12,  // <--- Ubah angka ini untuk menaik/turunkan tulisan 'Direction'
+                xref: 'paper', yref: 'paper',
+                xanchor: 'center', yanchor: 'middle'
+            }
+        ]
+    };
+
+    Plotly.newPlot('windCompassChart', traces, layout, { responsive: true, displayModeBar: false });
+}
+
 function selectRunway(btn, heading) {
     document.querySelectorAll('.runway-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
@@ -702,32 +886,51 @@ function selectRunway(btn, heading) {
     updateCrosswind();
 }
 
-function updateCrosswind() {
+function updateCrosswind(dir, speed) {
     if (!document.getElementById('xwHead')) return;
-    if (currentWindDir === null || currentWindDir === 'VRB' || currentWindSpeed === null) {
+
+    // Gunakan parameter atau ambil dari global state
+    const windDir = dir !== undefined ? dir : currentWindDir;
+    const windSpeed = speed !== undefined ? speed : currentWindSpeed;
+
+    // Update global state supaya sinkron
+    if (dir !== undefined) currentWindDir = dir;
+    if (speed !== undefined) currentWindSpeed = speed;
+
+    if (windDir === null || windDir === 'VRB' || windSpeed === null) {
         return;
     }
 
-    const windDir = typeof currentWindDir === 'string' ? parseInt(currentWindDir) : currentWindDir;
-    const windSpeed = currentWindSpeed;
+    const dirNum = typeof windDir === 'string' ? parseInt(windDir) : windDir;
     const rwyHdg = currentRunwayHeading;
 
-    const angleDeg = windDir - rwyHdg;
+    // Kalkulasi arah relatif (Relative Angle)
+    const angleDeg = dirNum - rwyHdg;
     const angleRad = angleDeg * (Math.PI / 180);
 
-    const headwind = Math.round(windSpeed * Math.cos(angleRad) * 10) / 10;
-    const crosswind = Math.round(Math.abs(windSpeed * Math.sin(angleRad)) * 10) / 10;
-    const tailwind = headwind < 0 ? Math.abs(headwind) : 0;
-    const headVal = headwind > 0 ? headwind : 0;
+    // Crosswind Calculator Logic
+    const rawHeadwind = windSpeed * Math.cos(angleRad);
+    const rawCrosswind = windSpeed * Math.sin(angleRad);
 
-    // Update values
+    const headwind = Math.round(rawHeadwind * 10) / 10;
+    const crosswind = Math.round(Math.abs(rawCrosswind) * 10) / 10;
+
+    const headVal = headwind > 0 ? headwind : 0;
+    const tailwind = headwind < 0 ? Math.abs(headwind) : 0;
+
+    // Update Text Values
     document.getElementById('xwHead').textContent = `${headVal.toFixed(1)} kt`;
     document.getElementById('xwCross').textContent = `${crosswind.toFixed(1)} kt`;
     document.getElementById('xwTail').textContent = `${tailwind.toFixed(1)} kt`;
 
-    // Update status colors
+    // Update Status Colors
+    // Headwind: Favorable (Limit: 999 kt dummy)
     updateXwindStatus('xwHead', 'xwHeadStatus', headVal, 999, 'Favorable', 'Favorable', 'Favorable');
-    updateXwindStatus('xwCross', 'xwCrossStatus', crosswind, 20, 'Safe', 'Monitor', 'EXCEEDED');
+    // Crosswind: Safe < 10, Monitor 10-15, Warning 15-20, Critical > 20
+    let crossSafe = 'Safe'; let crossMon = 'Monitor'; let crossCrit = 'EXCEEDED';
+    updateXwindStatus('xwCross', 'xwCrossStatus', crosswind, 20, crossSafe, crossMon, crossCrit);
+
+    // Tailwind: Safe < 5, Monitor 5-10, Critical > 10
     updateXwindStatus('xwTail', 'xwTailStatus', tailwind, 10, 'Safe', 'Monitor', 'EXCEEDED');
 }
 
@@ -736,9 +939,28 @@ function updateXwindStatus(parentId, statusId, value, limit, safeText, monitorTe
     const status = document.getElementById(statusId);
     if (!parent || !status) return;
 
-    const pct = value / limit;
-    parent.className = 'xwind-item ' + (pct >= 0.8 ? 'xw-critical' : pct >= 0.5 ? 'xw-monitor' : 'xw-safe');
-    status.textContent = pct >= 0.8 ? criticalText : pct >= 0.5 ? monitorText : safeText;
+    let cssClass = 'xw-safe';
+    let text = safeText;
+
+    if (value >= limit) {
+        cssClass = 'xw-critical';
+        text = criticalText;
+    } else if (value >= limit * 0.5) { // e.g. Crosswind >= 10 (if limit is 20)
+        cssClass = 'xw-monitor';
+        text = monitorText;
+    }
+
+    // specific tailwind rules
+    if (parentId === 'xwTail') {
+        if (value > 10) {
+            cssClass = 'xw-critical'; text = 'EXCEEDED';
+        } else if (value >= 5) {
+            cssClass = 'xw-monitor'; text = 'Caution';
+        }
+    }
+
+    parent.className = 'xwind-item ' + cssClass;
+    status.textContent = text;
 }
 
 // =======================
@@ -1884,60 +2106,6 @@ function loadWindCompass() {
         .catch(e => console.error('Wind compass error:', e));
 }
 
-function updateWindCompassDisplay(windDir, windSpeed) {
-    // Handle object as first argument (for consistency with template initialization)
-    if (typeof windDir === 'object' && windDir !== null) {
-        windSpeed = windDir.wind_speed;
-        windDir = windDir.wind_direction;
-    }
-
-    if (windDir === undefined || (windDir === null && windDir !== 0)) return;
-
-    // Check if the container actually exists on this page
-    if (!document.getElementById('windCompassChart')) return;
-
-    const dir = windDir === 'VRB' ? 0 : windDir;
-    const speed = windSpeed || 0;
-    const isDark = currentTheme === 'dark';
-    const accentColor = isDark ? '#F59E0B' : '#DC2626'; // Amber in dark mode, Red in light
-    const textColor = isDark ? '#F1F5F9' : '#1E3A5F';
-    const gridColor = isDark ? 'rgba(255, 255, 255, 0.4)' : '#1E3A5F';
-
-    Plotly.newPlot('windCompassChart', [{
-        type: 'scatterpolar',
-        r: [0, 1],
-        theta: [0, dir],
-        mode: 'lines+markers',
-        line: { color: accentColor, width: 4 },
-        marker: { size: 10, color: accentColor },
-        fill: 'toself',
-        fillcolor: isDark ? 'rgba(245, 158, 11, 0.15)' : 'rgba(220, 38, 38, 0.1)'
-    }], {
-        polar: {
-            bgcolor: 'rgba(0,0,0,0)',
-            angularaxis: {
-                direction: 'clockwise',
-                rotation: 90,
-                tickmode: 'array',
-                tickvals: [0, 45, 90, 135, 180, 225, 270, 315],
-                ticktext: ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'],
-                tickfont: { size: 13, color: gridColor, family: 'Inter', weight: isDark ? 'bold' : 'normal' },
-                gridcolor: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'
-            },
-            radialaxis: { visible: false }
-        },
-        showlegend: false,
-        margin: { t: 40, b: 40, l: 40, r: 40 },
-        paper_bgcolor: 'rgba(0,0,0,0)',
-        plot_bgcolor: 'rgba(0,0,0,0)',
-        annotations: [{
-            text: `<b>${dir}°</b><br>${speed} kt`,
-            showarrow: false,
-            font: { size: 24, color: textColor, family: 'Inter' },
-            y: 0.5, x: 0.5, xref: 'paper', yref: 'paper'
-        }]
-    }, { responsive: true });
-}
 // WIND ROSE (Plotly)
 // =======================
 async function loadWindRose(station = STATION) {
