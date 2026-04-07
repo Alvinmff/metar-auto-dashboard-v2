@@ -837,7 +837,7 @@ function updateWindCompassDisplay(windDir, windSpeed) {
             {
                 text: `Speed - knot`,
                 showarrow: false,
-                font: { color: subTextColor, family: 'Inter', size: 10 },
+                font: { color: subTextColor, family: 'Inter', size: 13 },
                 x: 0.5,
                 y: 0.88,  // <--- Ubah angka ini untuk menaik/turunkan kalimatnya saja
                 xref: 'paper', yref: 'paper',
@@ -867,7 +867,7 @@ function updateWindCompassDisplay(windDir, windSpeed) {
             {
                 text: `Direction`,
                 showarrow: false,
-                font: { color: subTextColor, family: 'Inter', size: 10 },
+                font: { color: subTextColor, family: 'Inter', size: 13 },
                 x: 0.5,
                 y: 0.12,  // <--- Ubah angka ini untuk menaik/turunkan tulisan 'Direction'
                 xref: 'paper', yref: 'paper',

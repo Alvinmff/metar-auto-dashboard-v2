@@ -1124,10 +1124,15 @@ button.sidebar-link {
 }
 
 .xwind-item .xw-label {
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--text-muted);
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #000000;
   text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+[data-theme="dark"] .xwind-item .xw-label {
+  color: #FFFFFF;
 }
 
 .xwind-item .xw-value {
