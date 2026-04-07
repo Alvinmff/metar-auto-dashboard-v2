@@ -790,7 +790,7 @@ function updateWindCompassDisplay(windDir, windSpeed) {
         {
             type: 'scatterpolar', mode: 'markers',
             r: [arrowLength], theta: [dir],
-            marker: { symbol: 'circle', size: 14, color: windColor },
+            marker: { symbol: 'circle', size: 12, color: windColor },
             name: 'Wind',
             hovertemplate: `Direction: ${windDir === 'VRB' ? 'VRB' : dir + '°'}<br>Speed: ${speed} kt<extra></extra>`
         }
