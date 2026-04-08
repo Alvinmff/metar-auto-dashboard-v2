@@ -175,10 +175,47 @@
 
     <!-- Crosswind Section (Bottom) -->
     <div style="padding: 0 var(--space-md) var(--space-md);">
-        <div class="runway-selector" id="runwaySelector" style="justify-content: center; margin-bottom: 20px;">
+        <div class="runway-selector" id="runwaySelector" style="justify-content: center; margin-bottom: 20px; align-items: center; gap: 10px;">
             <button class="runway-btn active" data-heading="100" onclick="selectRunway(this, 100)">RWY 10</button>
             <button class="runway-btn" data-heading="280" onclick="selectRunway(this, 280)">RWY 28</button>
+            <a href="javascript:void(0)" class="info-icon" onclick="openCitationModal()" title="Dasar Hukum & Perhitungan" style="text-decoration: none; font-size: 1.2rem; color: var(--text-secondary); margin-left: 5px;">ⓘ</a>
         </div>
+...
+<!-- MODAL CITATION / DASAR HUKUM -->
+<div id="citationModal" class="modal-overlay" style="display: none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h4 style="margin: 0; color: var(--bmkg-primary); display: flex; align-items: center; gap: 8px;">
+                <span>📚</span> Dasar Hukum & Perhitungan Crosswind
+            </h4>
+            <button class="btn-close" onclick="closeCitationModal()">&times;</button>
+        </div>
+        <div class="modal-body" style="font-size: 0.9rem; line-height: 1.6; color: var(--text-primary);">
+            <p>Perhitungan komponen angin (Wind Components) pada dashboard ini didasarkan pada standar internasional penerbangan:</p>
+            
+            <div class="citation-box" style="background: var(--bg-body); padding: 12px; border-left: 4px solid var(--bmkg-accent); border-radius: 4px; margin-bottom: 15px;">
+                <strong>Rumus Trigonometri Standar:</strong><br>
+                • <code>Crosswind = Wind Speed × sin(θ)</code><br>
+                • <code>Headwind = Wind Speed × cos(θ)</code><br>
+                <small>*θ = Perbedaan sudut antara arah angin dan heading landasan (Runway Heading).*</small>
+            </div>
+
+            <p><strong>Referensi Regulasi:</strong></p>
+            <ul style="padding-left: 20px; margin-bottom: 15px;">
+                <li><strong>ICAO Annex 14 (Aerodromes):</strong> Standar desain bandar udara terkait orientasi landasan terhadap angin permukaan.</li>
+                <li><strong>ICAO Doc 8168 (PANS-OPS):</strong> Prosedur operasional penerbangan terkait batas aman komponen angin samping.</li>
+                <li><strong>FAA AC 150/5300-13:</strong> Panduan desain FAA untuk analisis data angin dan orientasi runway.</li>
+            </ul>
+
+            <p>Informasi lebih lanjut dapat dipelajari melalui: <br>
+                <a href="https://www.tarmacview.com/glossary/crosswind-component/" target="_blank" style="color: var(--bmkg-accent); text-decoration: none;">TarmacView - Crosswind Component Analysis</a>
+            </p>
+        </div>
+        <div class="modal-footer" style="text-align: right; padding-top: 15px; border-top: 1px solid var(--border-color);">
+            <button class="btn btn-sm btn-outline" onclick="closeCitationModal()">Tutup</button>
+        </div>
+    </div>
+</div>
         <div class="crosswind-result" id="crosswindResult" style="max-width: 800px; margin: 0 auto;">
             <div class="xwind-item xw-safe">
                 <div class="xw-label">Headwind</div>

@@ -3206,3 +3206,30 @@ setInterval(() => {
 
 // Load data awal
 document.addEventListener('DOMContentLoaded', () => loadView('today'));
+// =======================
+// MODAL HANDLERS (CITATION)
+// =======================
+function openCitationModal() {
+    console.log('[UI] Opening Citation Modal');
+    const modal = document.getElementById('citationModal');
+    if (modal) {
+        modal.style.display = 'flex';
+        document.body.style.overflow = 'hidden'; // Prevent scroll
+    }
+}
+
+function closeCitationModal() {
+    const modal = document.getElementById('citationModal');
+    if (modal) {
+        modal.style.display = 'none';
+        document.body.style.overflow = 'auto'; // Restore scroll
+    }
+}
+
+// Close modal when clicking outside content
+window.addEventListener('click', (event) => {
+    const modal = document.getElementById('citationModal');
+    if (event.target === modal) {
+        closeCitationModal();
+    }
+});

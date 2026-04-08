@@ -603,17 +603,20 @@ def format_parsed_for_display(parsed):
     
     # Cloud - format: FEW010FT, BKN025FT CB, etc.
     if parsed.get("cloud"):
-        cloud = parsed["cloud"]
+        cloud = str(parsed["cloud"])
         try:
-            # cloud format in new parse: "BKN025" or "FEW015CB"
+            # cloud format expected: "BKN025" or "FEW015CB"
             amount = cloud[:3]
             height = int(cloud[3:6]) * 100
-            cloud_str = f"{amount} {height}FT"
+            
+            # Rearrange according to requirement: [AMOUNT] [TYPE] [HEIGHT]FT
+            type_part = ""
             if "CB" in cloud:
-                cloud_str += " CB"
+                type_part = " CB"
             elif "TCU" in cloud:
-                cloud_str += " TCU"
-            display["cloud"] = cloud_str
+                type_part = " TCU"
+            
+            display["cloud"] = f"{amount}{type_part} {height}FT"
         except:
             display["cloud"] = cloud
     else:
@@ -766,18 +769,23 @@ def generate_metar_narrative(parsed, raw_metar=None):
     # Wind information - FORMAT: "160° derajat 13 Gust 27 Knot"
     wind = display.get('wind', '')
     if wind and wind != 'NIL':
-        # Parse wind format: 160°/13G27KT atau 160°/13KT
-        wind_match = re.match(r'(\d{3})°/(\d{2,3})(G(\d{2,3}))?KT', str(wind))
+        # Parse wind format: 160°/13G27KT, 160°/13KT, or VRB°/13KT
+        wind_match = re.match(r'(\d{3}|VRB)°/(\d{2,3})(G(\d{2,3}))?KT', str(wind))
         if wind_match:
-            # Removed leading zeros (060 -> 60)
-            wind_dir = str(int(wind_match.group(1)))
+            dir_part = wind_match.group(1)
             wind_speed = wind_match.group(2)
             wind_gust = wind_match.group(4)
             
-            if wind_gust:
-                wind_text = f"Angin dari arah {wind_dir}° derajat dengan kecepatan angin {wind_speed} Gust {wind_gust} Knot."
+            if dir_part == "VRB":
+                dir_text = "yang bervariasi"
             else:
-                wind_text = f"Angin dari arah {wind_dir}° derajat dengan kecepatan angin {wind_speed} Knot."
+                # Removed leading zeros (060 -> 60)
+                dir_text = f"{int(dir_part)}° derajat"
+            
+            if wind_gust:
+                wind_text = f"Angin dari arah {dir_text} dengan kecepatan angin {wind_speed} Gust {wind_gust} Knot."
+            else:
+                wind_text = f"Angin dari arah {dir_text} dengan kecepatan angin {wind_speed} Knot."
             narrative.append(wind_text)
         else:
             narrative.append(f"Angin dari arah {wind}.")
@@ -2539,6 +2547,11 @@ def validate_metar(metar: str) -> list[str]:
                 height = t[3:6]
                 if not height.isdigit() or len(height) != 3:
                      errors.append(f"❌ Format kelompok awan salah: {t} (tinggi harus 3 digit)")
+
+    # 🔥 NEW RULE: Missing Cloud Info
+    has_cavok = any(t == "CAVOK" for t in tokens)
+    if not cloud_found and not has_cavok:
+        errors.append("❌ metar tidak valid dan awan tidak ditemukan")
     
     # 🔥 RULE 3: Visibility with HZ or BR (Max 5000m)
     if any(code in weather_phenomena for code in ["HZ", "BR"]):
