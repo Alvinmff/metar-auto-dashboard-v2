@@ -829,15 +829,24 @@ def generate_metar_narrative(parsed, raw_metar=None):
         cloud_map = {
             "FEW": "awan sedikit", "SCT": "awan tersebar", "BKN": "awan banyak", "OVC": "awan menutup langit"
         }
-        # Parse cloud: BKN 1800FT CB atau BKN018CB
-        cloud_match = re.match(r'([A-Z]{3})\s*(\d+)(?:FT)?(CB|TCU)?', str(cloud))
+        # Parse cloud: BKN 1800FT CB, BKN018CB, atau SCT CB 1600FT
+        # Regex fleksibel untuk menangkap CB/TCU baik sebelum atau sesudah angka ketinggian
+        cloud_match = re.search(r'([A-Z]{3})\s*(CB|TCU)?\s*(\d+)(?:FT)?\s*(CB|TCU)?', str(cloud))
         if cloud_match:
-            c_type, c_height, c_extra = cloud_match.groups()
+            c_type, c_extra_pre, c_height, c_extra_post = cloud_match.groups()
             c_desc = cloud_map.get(c_type, c_type)
+            
+            # Tentukan info tambahan (CB/TCU)
+            c_extra = c_extra_pre or c_extra_post
+            c_extra_long = ""
             if c_extra == "CB":
-                narrative.append(f"Terdapat {c_desc} pada ketinggian {c_height} kaki CB (Cumulonimbus).")
+                c_extra_long = "CB (Cumulonimbus)"
             elif c_extra == "TCU":
-                narrative.append(f"Terdapat {c_desc} pada ketinggian {c_height} kaki TCU (Towering Cumulus).")
+                c_extra_long = "TCU (Towering Cumulus)"
+            
+            if c_extra_long:
+                # Format: Terdapat [deskripsi] [CB/TCU] pada ketinggian [X] kaki.
+                narrative.append(f"Terdapat {c_desc} {c_extra_long} pada ketinggian {c_height} kaki.")
             else:
                 narrative.append(f"Terdapat {c_desc} pada ketinggian {c_height} kaki.")
         else:
