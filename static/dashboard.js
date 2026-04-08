@@ -3211,25 +3211,20 @@ document.addEventListener('DOMContentLoaded', () => loadView('today'));
 // =======================
 function openCitationModal() {
     console.log('[UI] Opening Citation Modal');
+    const overlay = document.getElementById('citationModalOverlay');
     const modal = document.getElementById('citationModal');
-    if (modal) {
-        modal.style.display = 'flex';
-        document.body.style.overflow = 'hidden'; // Prevent scroll
-    }
+    if (overlay) overlay.classList.add('active');
+    if (modal) modal.classList.add('active');
+    document.body.style.overflow = 'hidden'; // Prevent scroll
 }
 
 function closeCitationModal() {
+    const overlay = document.getElementById('citationModalOverlay');
     const modal = document.getElementById('citationModal');
-    if (modal) {
-        modal.style.display = 'none';
-        document.body.style.overflow = 'auto'; // Restore scroll
-    }
+    if (overlay) overlay.classList.remove('active');
+    if (modal) modal.classList.remove('active');
+    document.body.style.overflow = 'auto'; // Restore scroll
 }
 
-// Close modal when clicking outside content
-window.addEventListener('click', (event) => {
-    const modal = document.getElementById('citationModal');
-    if (event.target === modal) {
-        closeCitationModal();
-    }
-});
+// Close modal when clicking outside content (handled by onclick on overlay div)
+
