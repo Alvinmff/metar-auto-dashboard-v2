@@ -2492,8 +2492,8 @@ def validate_metar(metar: str) -> list[str]:
             gust_part = int(wind_match.group(4)) if wind_match.group(4) else None
             
             # 🔥 RULE 1: VRB Wind (Speed 00-02KT)
-            if dir_part == "VRB" and speed_part > 2:
-                errors.append(f"❌ Angin VRB harus 00-02KT (Terbaca: {speed_part}KT)")
+            #if dir_part == "VRB" and speed_part > 2:
+               # errors.append(f"❌ Angin VRB harus 00-02KT (Terbaca: {speed_part}KT)")
             
             # 🔥 RULE 2: Gust Difference (>= 10KT)
             if gust_part is not None:
