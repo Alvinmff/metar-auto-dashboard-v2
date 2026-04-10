@@ -1816,9 +1816,29 @@ def metar_view():
     })
     return render_template("metar.html", **context)
 
-@app.route("/qam_report")
+@app.route("/qam_report", methods=["GET", "POST"])
 def qam_report_view():
-    return common_view_context("qam_report.html")
+    raw_metar = None
+    parsed_qam = None
+    validation_results = None
+    station = "WARR"
+
+    if request.method == "POST":
+        raw_metar = request.form.get("raw_metar", "").strip()
+        if raw_metar:
+            station = raw_metar.split()[1] if len(raw_metar.split()) > 1 else "WARR"
+            parsed = parse_metar(raw_metar)
+            parsed_qam = generate_qam(station, parsed, raw_metar)
+            validation_results = validate_metar(raw_metar)
+
+    # We use common_view_context logic but need to inject the manual parser results
+    context = common_view_context_data()
+    context.update({
+        "raw_metar": raw_metar,
+        "parsed_qam": parsed_qam,
+        "validation_results": validation_results
+    })
+    return render_template("qam_report.html", **context)
 
 @app.route("/weather_analysis")
 def weather_analysis_view():

@@ -24,7 +24,7 @@
             manually.</p>
     </div>
 
-    <form method="post" action="/metar">
+    <form method="post" action="/qam_report">
         <div class="form-group mb-lg">
             <label for="rawMetar">Paste METAR Data</label>
             <textarea name="raw_metar" id="rawMetar" class="form-input" rows="4"
@@ -42,7 +42,7 @@
     </form>
 
     {% if validation_results %}
-    <div class="validation-card {% if validation_results[0].startsWith('✅') %}validation-success{% else %}validation-error{% endif %}"
+    <div class="validation-card {% if validation_results[0].startswith('✅') %}validation-success{% else %}validation-error{% endif %}"
         style="margin-top: 1.5rem;">
         <h4 style="margin-bottom: 10px; font-size: 0.95rem;">📋 Validation Results:</h4>
         <ul
