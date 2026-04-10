@@ -29,13 +29,15 @@
             ⚠️ Format METAR tidak valid! Harap masukkan data METAR yang benar.
         </div>
 
-        <button class="btn btn-primary" id="convertBtn" disabled>🔄 Convert METAR</button>
+        <button class="btn btn-primary" id="convertBtn" disabled>🔄 Convert METAR to QAM</button>
     </form>
 
     {% if validation_results %}
-    <div class="validation-card {% if validation_results[0].startswith('✅') %}validation-success{% else %}validation-error{% endif %}">
+    <div
+        class="validation-card {% if validation_results[0].startswith('✅') %}validation-success{% else %}validation-error{% endif %}">
         <h4 style="margin-bottom: 10px; font-size: 0.95rem;">📋 Validation Results:</h4>
-        <ul style="list-style: none; padding: 0; margin: 0; font-family: 'JetBrains Mono', monospace; font-size: 0.85rem;">
+        <ul
+            style="list-style: none; padding: 0; margin: 0; font-family: 'JetBrains Mono', monospace; font-size: 0.85rem;">
             {% for res in validation_results %}
             <li style="margin-bottom: 4px;">{{ res }}</li>
             {% endfor %}
@@ -91,7 +93,7 @@
             }
         }
 
-        if(textarea) {
+        if (textarea) {
             textarea.addEventListener('input', checkInput);
             checkInput();
         }
@@ -112,19 +114,19 @@
 
 {% if raw_metar %}
 <script>
-    window.addEventListener('load', function() {
+    window.addEventListener('load', function () {
         // Delay 500ms to ensure all JS is fully loaded and DOM is ready
-        setTimeout(function() {
+        setTimeout(function () {
             var metarText = "{{ raw_metar|replace('\"', '\\\"')|replace('\n', ' ')|safe }}";
             console.log('[MANUAL] Triggering weather effects for:', metarText);
-            
+
             // Trigger Fog Effect
             if (typeof checkAndActivateFog === 'function') {
                 checkAndActivateFog(metarText);
             } else {
                 console.warn('[MANUAL] checkAndActivateFog not available');
             }
-            
+
             // Trigger Rain Effect
             if (typeof checkRainStatus === 'function') {
                 checkRainStatus(metarText);
