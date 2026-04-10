@@ -763,7 +763,7 @@ function updateWindCompassDisplay(windDir, windSpeed) {
             type: 'scatterpolar', mode: 'text',
             r: [rwyRadius * 0.82, rwyRadius * 0.82],
             theta: [115, 295], // Geser +15 derajat agar selalu terlihat di samping panah
-            text: ['10', '28'],
+            text: ['28', '10'],
             textfont: {
                 size: 12,
                 color: cardinalTickColor, // Mengikuti warna mata angin (Hitam/Putih)
