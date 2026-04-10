@@ -689,6 +689,8 @@ button.sidebar-link {
   height: 350px;
   width: 100%;
   position: relative;
+  background: var(--bg-surface);
+  border-radius: var(--radius-md);
 }
 
 /* ============================================= */
@@ -1033,6 +1035,12 @@ button.sidebar-link {
   border-radius: var(--radius-lg);
   padding: var(--space-xl);
   box-shadow: var(--shadow-sm);
+  overflow: hidden;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.chart-card:hover {
+  box-shadow: var(--shadow-md);
 }
 
 .chart-container {
@@ -2676,17 +2684,7 @@ body.rain-active::after {
   }
 }
 
-.chart-card {
-  background: var(--card-bg);
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--border-color);
-  overflow: hidden;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-
-.chart-card:hover {
-  box-shadow: var(--shadow-md);
-}
+/* Removed duplicate .chart-card definition */
 
 .chart-card .card-header {
   padding: 1rem 1.25rem;
