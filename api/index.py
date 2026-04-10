@@ -2537,14 +2537,22 @@ def validate_metar(metar: str) -> list[str]:
     cloud_prefixes = ["FEW", "SCT", "BKN", "OVC", "SKC", "NSC", "NCD", "VV"]
     cloud_found = False
     weather_phenomena = []
+    has_ts = False
+    has_cb = False
     
     for t in remaining_tokens:
+        # 🔥 Detect TS/VCTS for cross-validation
+        if "TS" in t or "VCTS" in t:
+            has_ts = True
+
         # Track weather for visibility rule
         if t in ["HZ", "BR", "FG", "RA", "TS", "DZ", "SN"]:
              weather_phenomena.append(t)
              
         if any(t.startswith(p) for p in cloud_prefixes):
             cloud_found = True
+            if "CB" in t:
+                has_cb = True
             if t in ["SKC", "NSC", "NCD"]: continue
             
             height_part = re.search(r'\d{3}', t)
@@ -2567,6 +2575,10 @@ def validate_metar(metar: str) -> list[str]:
         if vis_val is not None and vis_val > 5000:
             codes = [c for c in weather_phenomena if c in ["HZ", "BR"]]
             errors.append(f"❌ Visibility {', '.join(codes)} harus <= 5000m (Terbaca: {vis_val}m)")
+
+    # 🔥 RULE 4: TS/VCTS requires CB
+    if has_ts and not has_cb:
+        errors.append("❌ METAR mengandung TS/VCTS tapi tidak ada indikator awan CB")
 
     # 7. Temperature/Dewpoint (M?dd/M?dd)
     temp_pattern = r'^M?\d{2}/M?\d{2}$'
