@@ -3382,15 +3382,23 @@ function refreshWindLogTable() {
             }
 
             let dangerCount = 0;
+            let lastMetarRawLocal = null;
 
             data.logs.forEach(log => {
                 const isDanger = log.crosswind_status === 'DANGER' || log.tailwind_status === 'DANGER';
                 if (isDanger) dangerCount++;
+                
+                let isBoundary = false;
+                if (lastMetarRawLocal && lastMetarRawLocal !== log.metar_raw) {
+                    isBoundary = true;
+                }
+                lastMetarRawLocal = log.metar_raw;
 
                 const timeStr = log.timestamp ? log.timestamp.replace('T', ' ').substring(0, 16) : '-';
                 const windDisplay = `${log.wind_dir}°/${log.wind_speed}kt${log.wind_gust ? ' G' + log.wind_gust : ''}`;
 
-                const rowClass = isDanger ? 'xw-danger-row' : '';
+                let rowClass = isDanger ? 'xw-danger-row' : '';
+                if (isBoundary) rowClass += (rowClass ? ' ' : '') + 'metar-boundary';
 
                 const getStatusBadge = (status) => {
                     if (status === 'DANGER') return '<span class="badge" style="background:#ef4444;color:white">DANGER</span>';

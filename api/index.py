@@ -1147,10 +1147,14 @@ def get_wind_logs():
         start_date = request.args.get('start')
         end_date = request.args.get('end')
         
+        # Default to last 24 hours if no dates provided
+        if not start_date and not end_date:
+            start_date = (datetime.utcnow() - timedelta(days=1)).isoformat()
+        
         # Coba dari Sheets dulu
         try:
             logs = sheets_handler.get_wind_logs(
-                limit=100, 
+                limit=1000, 
                 runway=runway, 
                 start_date=start_date, 
                 end_date=end_date
@@ -1177,7 +1181,7 @@ def get_wind_logs():
         if end_date:
             df = df[df['timestamp'] <= end_date]
             
-        df = df.sort_values('timestamp', ascending=False).head(100)
+        df = df.sort_values('timestamp', ascending=False).head(1000)
         # Ensure NaNs are converted to None for valid JSON output
         logs = df.where(pd.notnull(df), None).to_dict('records')
         
