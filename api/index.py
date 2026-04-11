@@ -1124,17 +1124,19 @@ def log_crosswind():
         success = save_wind_calculation(data)
         
         if success:
-            print(f"[WIND LOG] Saved calculation for RWY {data['runway']} at {data['timestamp']}", file=sys.stderr)
             return jsonify({
                 "status": "success", 
                 "message": "Wind calculation logged",
                 "timestamp": data['timestamp']
             }), 200
         else:
-            return jsonify({"error": "Failed to save"}), 500
+            return jsonify({
+                "status": "error",
+                "error": "Database write failed (Sheets & CSV failed)"
+            }), 500
             
     except Exception as e:
-        print(f"[WIND LOG] Exception: {e}", file=sys.stderr)
+        print(f"[WIND LOG] Critical Exception: {traceback.format_exc()}", file=sys.stderr)
         return jsonify({"error": str(e)}), 500
 
 @app.route("/api/wind-logs")

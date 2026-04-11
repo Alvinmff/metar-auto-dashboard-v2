@@ -1085,9 +1085,19 @@ class WindCalculationLogger {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
         })
-            .then(res => res.json())
-            .then(res => console.log(`[WIND LOG] Saved: RWY ${runwayName}`, res))
-            .catch(err => console.error('[WIND LOG] Error saving log:', err));
+        .then(async res => {
+            const dr = await res.json();
+            if (!res.ok) throw new Error(dr.error || 'Server error');
+            return dr;
+        })
+        .then(res => {
+            console.log(`[WIND LOG] Saved successfully: RWY ${runwayName}`, res);
+            showToast('Wind Log', `Berhasil simpan Log RWY ${runwayName}`, 'success');
+        })
+        .catch(err => {
+            console.error('[WIND LOG] Error saving log:', err);
+            showToast('Wind Log Error', `Gagal simpan: ${err.message}`, 'error');
+        });
     }
 }
 
