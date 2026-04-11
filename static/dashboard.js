@@ -1080,7 +1080,7 @@ class WindCalculationLogger {
             metar_raw: metarRaw,
             // qnh: extractPressure(metarRaw),
             qnh: metarRaw.match(/Q(\d{4})/) ? parseInt(metarRaw.match(/Q(\d{4})/)[1]) : null,
-            visibility: data.visibility_m || null
+            visibility: (data.visibility_m === undefined || data.visibility_m === null || isNaN(data.visibility_m)) ? null : data.visibility_m
         };
 
         fetch('/api/log-crosswind', {

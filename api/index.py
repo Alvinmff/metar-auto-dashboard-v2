@@ -1179,7 +1179,8 @@ def get_wind_logs():
             df = df[df['timestamp'] <= end_date]
             
         df = df.sort_values('timestamp', ascending=False).head(100)
-        logs = df.to_dict('records')
+        # Ensure NaNs are converted to None for valid JSON output
+        logs = df.where(pd.notnull(df), None).to_dict('records')
         
         return jsonify({
             "logs": logs,
