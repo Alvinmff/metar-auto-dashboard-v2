@@ -186,11 +186,10 @@ def init_wind_log():
             with open(WIND_LOG_FILE, 'w', newline='') as f:
                 writer = csv.writer(f)
                 writer.writerow([
-                    'timestamp', 'station', 'runway', 'runway_heading',
+                    'timestamp', 'metar_raw', 'station', 'runway', 'runway_heading',
                     'wind_dir', 'wind_speed', 'wind_gust',
                     'headwind', 'crosswind', 'tailwind',
-                    'crosswind_status', 'tailwind_status',
-                    'metar_raw', 'qnh', 'visibility'
+                    'crosswind_status', 'tailwind_status'
                 ])
         except Exception as e:
             print(f"[INIT] Failed to init wind log: {e}", file=sys.stderr)
@@ -212,6 +211,7 @@ def save_wind_calculation(data):
             writer = csv.writer(f)
             writer.writerow([
                 data.get('timestamp', datetime.utcnow().isoformat()),
+                data.get('metar_raw', ''),
                 data.get('station', 'WARR'),
                 data.get('runway', 'Unknown'),
                 data.get('runway_heading', ''),
@@ -222,10 +222,7 @@ def save_wind_calculation(data):
                 data.get('crosswind', ''),
                 data.get('tailwind', ''),
                 data.get('crosswind_status', ''),
-                data.get('tailwind_status', ''),
-                data.get('metar_raw', ''),
-                data.get('qnh', ''),
-                data.get('visibility', '')
+                data.get('tailwind_status', '')
             ])
         return True
     except Exception as e:

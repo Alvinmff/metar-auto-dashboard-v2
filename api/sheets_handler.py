@@ -199,16 +199,16 @@ class GoogleSheetHandler:
                 worksheet = sheet.add_worksheet(title="WindLogs", rows="10000", cols="15")
                 # Setup header
                 headers = [
-                    'timestamp', 'station', 'runway', 'runway_heading', 
+                    'timestamp', 'metar_raw', 'station', 'runway', 'runway_heading', 
                     'wind_dir', 'wind_speed', 'wind_gust', 'headwind', 
-                    'crosswind', 'tailwind', 'crosswind_status', 
-                    'tailwind_status', 'metar_raw', 'qnh', 'visibility'
+                    'crosswind', 'tailwind', 'crosswind_status', 'tailwind_status'
                 ]
                 worksheet.insert_row(headers, 1)
             
             # Append data
             row = [
                 data.get('timestamp'),
+                data.get('metar_raw', ''),
                 data.get('station', 'WARR'),
                 data.get('runway'),
                 data.get('runway_heading'),
@@ -219,10 +219,7 @@ class GoogleSheetHandler:
                 data.get('crosswind'),
                 data.get('tailwind'),
                 data.get('crosswind_status'),
-                data.get('tailwind_status'),
-                data.get('metar_raw', ''),
-                data.get('qnh', ''),
-                data.get('visibility', '')
+                data.get('tailwind_status')
             ]
             
             worksheet.append_row(row)

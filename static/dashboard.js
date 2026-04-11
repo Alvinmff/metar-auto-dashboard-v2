@@ -1077,10 +1077,7 @@ class WindCalculationLogger {
             tailwind: tailwind,
             crosswind_status: crossStatus,
             tailwind_status: tailStatus,
-            metar_raw: metarRaw,
-            // qnh: extractPressure(metarRaw),
-            qnh: metarRaw.match(/Q(\d{4})/) ? parseInt(metarRaw.match(/Q(\d{4})/)[1]) : null,
-            visibility: (data.visibility_m === undefined || data.visibility_m === null || isNaN(data.visibility_m)) ? null : data.visibility_m
+            metar_raw: metarRaw
         };
 
         fetch('/api/log-crosswind', {
@@ -3399,13 +3396,19 @@ function refreshWindLogTable() {
                 if (rowClass) tr.className = rowClass;
 
                 tr.innerHTML = `
-                    <td>${timeStr}</td>
-                    <td><stong>RWY ${log.runway}</strong></td>
-                    <td>${windDisplay}</td>
+                    <td style="white-space:nowrap;">${timeStr}</td>
+                    <td style="font-family:'JetBrains Mono',monospace; font-size:0.8rem;">${log.metar_raw || '-'}</td>
+                    <td>${log.station || '-'}</td>
+                    <td><strong>RWY ${log.runway}</strong></td>
+                    <td>${log.runway_heading || '-'}°</td>
+                    <td>${log.wind_dir || '-'}°</td>
+                    <td>${log.wind_speed || '0'} kt</td>
+                    <td>${log.wind_gust ? log.wind_gust + ' kt' : '-'}</td>
                     <td>${log.headwind} kt</td>
                     <td>${log.crosswind} kt</td>
                     <td>${log.tailwind} kt</td>
-                    <td>${combinedStatus}</td>
+                    <td>${getStatusBadge(log.crosswind_status)}</td>
+                    <td>${getStatusBadge(log.tailwind_status)}</td>
                 `;
 
                 tbody.appendChild(tr);
