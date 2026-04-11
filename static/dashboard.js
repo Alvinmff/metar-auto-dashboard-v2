@@ -1030,7 +1030,7 @@ class WindCalculationLogger {
         // Cek duplikat
         const currentHash = hashMetar(data.raw);
         if (this.lastLoggedMetarHash === currentHash) return;
-        
+
         // Extract wind from METAR
         const windMatch = data.raw.match(/\b(\d{3}|VRB)(\d{2,3})(G\d{2,3})?KT\b/);
         if (!windMatch) return; // No wind data
@@ -1045,7 +1045,7 @@ class WindCalculationLogger {
         // Run calculation for both runways
         this.calculateAndSendLog(data.raw, windDir, windSpeed, windGust, '10', 100, data);
         this.calculateAndSendLog(data.raw, windDir, windSpeed, windGust, '28', 280, data);
-        
+
         this.lastLoggedMetarHash = currentHash;
     }
 
@@ -1078,7 +1078,8 @@ class WindCalculationLogger {
             crosswind_status: crossStatus,
             tailwind_status: tailStatus,
             metar_raw: metarRaw,
-            qnh: extractPressure(metarRaw),
+            // qnh: extractPressure(metarRaw),
+            qnh: metarRaw.match(/Q(\d{4})/) ? parseInt(metarRaw.match(/Q(\d{4})/)[1]) : null,
             visibility: data.visibility_m || null
         };
 
@@ -1087,9 +1088,9 @@ class WindCalculationLogger {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
         })
-        .then(res => res.json())
-        .then(res => console.log(`[WIND LOG] Saved: RWY ${runwayName}`, res))
-        .catch(err => console.error('[WIND LOG] Error saving log:', err));
+            .then(res => res.json())
+            .then(res => console.log(`[WIND LOG] Saved: RWY ${runwayName}`, res))
+            .catch(err => console.error('[WIND LOG] Error saving log:', err));
     }
 }
 
@@ -3320,7 +3321,7 @@ function closeCitationModal() {
 function toggleWindLogPanel() {
     const modal = document.getElementById('windLogPanel');
     const overlay = document.getElementById('windLogOverlay');
-    
+
     if (modal && overlay) {
         if (modal.classList.contains('active')) {
             modal.classList.remove('active');
@@ -3350,53 +3351,53 @@ function refreshWindLogTable() {
     const tbody = document.getElementById('windLogTableBody');
     const statsTotal = document.getElementById('windLogTotal');
     const statsDanger = document.getElementById('windLogDanger');
-    
+
     if (!tbody) return;
-    
+
     // Set loading
     tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 20px;">Memuat data...</td></tr>';
-    
+
     let url = '/api/wind-logs?';
     if (runwaySelect && runwaySelect.value) url += `runway=${runwaySelect.value}&`;
     if (startDate && startDate.value) url += `start=${startDate.value}T00:00:00&`;
     if (endDate && endDate.value) url += `end=${endDate.value}T23:59:59&`;
-    
+
     fetch(url)
         .then(res => res.json())
         .then(data => {
             tbody.innerHTML = '';
-            
+
             if (!data.logs || data.logs.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 20px;">Tidak ada data log angin.</td></tr>';
                 if (statsTotal) statsTotal.textContent = '0';
                 if (statsDanger) statsDanger.textContent = '0';
                 return;
             }
-            
+
             let dangerCount = 0;
-            
+
             data.logs.forEach(log => {
                 const isDanger = log.crosswind_status === 'DANGER' || log.tailwind_status === 'DANGER';
                 if (isDanger) dangerCount++;
-                
+
                 const timeStr = log.timestamp ? log.timestamp.replace('T', ' ').substring(0, 16) : '-';
                 const windDisplay = `${log.wind_dir}°/${log.wind_speed}kt${log.wind_gust ? ' G' + log.wind_gust : ''}`;
-                
+
                 const rowClass = isDanger ? 'xw-danger-row' : '';
-                
+
                 const getStatusBadge = (status) => {
                     if (status === 'DANGER') return '<span class="badge" style="background:#ef4444;color:white">DANGER</span>';
                     if (status === 'CAUTION') return '<span class="badge" style="background:#f59e0b;color:black">CAUTION</span>';
                     return '<span class="badge" style="background:#22c55e;color:white">SAFE</span>';
                 };
-                
+
                 let combinedStatus = getStatusBadge(log.crosswind_status);
                 if (log.tailwind_status === 'DANGER') combinedStatus = getStatusBadge('DANGER');
                 else if (log.tailwind_status === 'CAUTION' && log.crosswind_status === 'SAFE') combinedStatus = getStatusBadge('CAUTION');
-                
+
                 const tr = document.createElement('tr');
                 if (rowClass) tr.className = rowClass;
-                
+
                 tr.innerHTML = `
                     <td>${timeStr}</td>
                     <td><stong>RWY ${log.runway}</strong></td>
@@ -3406,10 +3407,10 @@ function refreshWindLogTable() {
                     <td>${log.tailwind} kt</td>
                     <td>${combinedStatus}</td>
                 `;
-                
+
                 tbody.appendChild(tr);
             });
-            
+
             if (statsTotal) statsTotal.textContent = data.count || 0;
             if (statsDanger) statsDanger.textContent = dangerCount;
         })
@@ -3428,19 +3429,19 @@ function logCurrentWind() {
         showToast('Info', 'Belum ada data METAR yang tersedia', 'warning');
         return;
     }
-    
+
     // Paksa simpan log dengan object simulasi yang berisi raw metar
     const mockupData = {
         raw: lastMetarRaw,
         visibility_m: window.lastVisibility || null
     };
-    
+
     // Hapus hash lama agar trigger
     window.windLogger.lastLoggedMetarHash = null;
     window.windLogger.logForCurrentMetar(mockupData);
-    
+
     showToast('Wind Log', 'Mencatat perhitungan crosswind saat ini...', 'success');
-    
+
     // Refresh table after short delay
     setTimeout(refreshWindLogTable, 1000);
 }
