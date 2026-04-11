@@ -13,6 +13,7 @@ import threading
 from collections import deque
 import sys
 import traceback
+import csv
 from typing import Optional, List, Dict, Any, Union
 try:
     from .sheets_handler import sheets_handler  # type: ignore
@@ -175,6 +176,61 @@ if IS_VERCEL:
 else:
     CSV_FILE = ROOT_CSV
     print("[INIT] Running locally - Using local storage", file=sys.stderr)
+
+WIND_LOG_FILE = os.path.join(project_root if not IS_VERCEL else "/tmp", "wind_calculations.csv")
+
+def init_wind_log():
+    """Initialize CSV file untuk wind calculations"""
+    if not os.path.exists(WIND_LOG_FILE):
+        try:
+            with open(WIND_LOG_FILE, 'w', newline='') as f:
+                writer = csv.writer(f)
+                writer.writerow([
+                    'timestamp', 'station', 'runway', 'runway_heading',
+                    'wind_dir', 'wind_speed', 'wind_gust',
+                    'headwind', 'crosswind', 'tailwind',
+                    'crosswind_status', 'tailwind_status',
+                    'metar_raw', 'qnh', 'visibility'
+                ])
+        except Exception as e:
+            print(f"[INIT] Failed to init wind log: {e}", file=sys.stderr)
+
+def save_wind_calculation(data):
+    """Simpan wind calculation - Prioritaskan Google Sheets, fallback ke CSV"""
+    # 1. Coba simpan ke Google Sheets dulu (persistent di Vercel)
+    try:
+        success = sheets_handler.save_wind_calculation(data)
+        if success:
+            return True
+    except Exception as e:
+        print(f"[WIND SAVE] Sheets failed: {e}", file=sys.stderr)
+    
+    # 2. Fallback ke CSV (untuk local dev atau jika Sheets error)
+    try:
+        init_wind_log()
+        with open(WIND_LOG_FILE, 'a', newline='') as f:
+            writer = csv.writer(f)
+            writer.writerow([
+                data.get('timestamp', datetime.utcnow().isoformat()),
+                data.get('station', 'WARR'),
+                data.get('runway', 'Unknown'),
+                data.get('runway_heading', ''),
+                data.get('wind_dir', ''),
+                data.get('wind_speed', ''),
+                data.get('wind_gust', ''),
+                data.get('headwind', ''),
+                data.get('crosswind', ''),
+                data.get('tailwind', ''),
+                data.get('crosswind_status', ''),
+                data.get('tailwind_status', ''),
+                data.get('metar_raw', ''),
+                data.get('qnh', ''),
+                data.get('visibility', '')
+            ])
+        return True
+    except Exception as e:
+        print(f"[WIND LOG] Error saving: {e}", file=sys.stderr)
+        return False
 
 # =========================
 # FAVICON HANDLER
@@ -1049,6 +1105,174 @@ def api_crosswind():
         "wind_speed": wind_speed,
         "runway_heading": runway_heading
     })
+
+@app.route("/api/log-crosswind", methods=["POST"])
+def log_crosswind():
+    """Endpoint untuk menyimpan perhitungan crosswind dari frontend"""
+    try:
+        data = request.json
+        if not data:
+            return jsonify({"error": "No data provided"}), 400
+            
+        # Validasi data wajib
+        required = ['runway', 'wind_dir', 'wind_speed', 'headwind', 'crosswind', 'tailwind']
+        if not all(k in data for k in required):
+            return jsonify({"error": "Missing required fields"}), 400
+            
+        # Tambahkan timestamp server
+        data['timestamp'] = datetime.utcnow().isoformat()
+        data['station'] = data.get('station', 'WARR')
+        
+        # Simpan
+        success = save_wind_calculation(data)
+        
+        if success:
+            print(f"[WIND LOG] Saved calculation for RWY {data['runway']} at {data['timestamp']}", file=sys.stderr)
+            return jsonify({
+                "status": "success", 
+                "message": "Wind calculation logged",
+                "timestamp": data['timestamp']
+            }), 200
+        else:
+            return jsonify({"error": "Failed to save"}), 500
+            
+    except Exception as e:
+        print(f"[WIND LOG] Exception: {e}", file=sys.stderr)
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/wind-logs")
+def get_wind_logs():
+    """Ambil history perhitungan crosswind (hybrid)"""
+    try:
+        runway = request.args.get('runway')
+        start_date = request.args.get('start')
+        end_date = request.args.get('end')
+        
+        # Coba dari Sheets dulu
+        try:
+            logs = sheets_handler.get_wind_logs(
+                limit=100, 
+                runway=runway, 
+                start_date=start_date, 
+                end_date=end_date
+            )
+            if logs:
+                return jsonify({
+                    "logs": logs,
+                    "count": len(logs),
+                    "source": "Google Sheets"
+                })
+        except Exception as e:
+            print(f"[WIND LOG] Fetch from sheets error: {e}", file=sys.stderr)
+            
+        # Fallback ke CSV
+        if not os.path.exists(WIND_LOG_FILE):
+            return jsonify({"logs": [], "count": 0, "source": "CSV"})
+            
+        df = pd.read_csv(WIND_LOG_FILE)
+        
+        if runway:
+            df = df[df['runway'] == str(runway)]
+        if start_date:
+            df = df[df['timestamp'] >= start_date]
+        if end_date:
+            df = df[df['timestamp'] <= end_date]
+            
+        df = df.sort_values('timestamp', ascending=False).head(100)
+        logs = df.to_dict('records')
+        
+        return jsonify({
+            "logs": logs,
+            "count": len(logs),
+            "source": "CSV Fallback"
+        })
+        
+    except Exception as e:
+        print(f"[WIND LOG] Error reading logs: {e}", file=sys.stderr)
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/wind-logs/by-metar")
+def get_wind_logs_by_metar():
+    """Ambil wind logs yang dikelompokkan per METAR timestamp"""
+    try:
+        # Coba dari Sheets dulu
+        try:
+            groups = sheets_handler.get_wind_logs_by_metar(limit=50)
+            if groups:
+                return jsonify({
+                    "metar_groups": groups,
+                    "count": len(groups),
+                    "source": "Google Sheets"
+                })
+        except Exception as e:
+            print(f"[WIND LOG] Fetch from sheets error: {e}", file=sys.stderr)
+            
+        # Fallback ke CSV
+        if not os.path.exists(WIND_LOG_FILE):
+            return jsonify({"metar_groups": [], "count": 0, "source": "CSV"})
+            
+        df = pd.read_csv(WIND_LOG_FILE)
+        
+        # Group by timestamp 
+        grouped = df.groupby('timestamp').apply(
+            lambda x: {
+                "timestamp": x['timestamp'].iloc[0],
+                "metar_raw": x['metar_raw'].iloc[0],
+                "wind": f"{x['wind_dir'].iloc[0]}°/{x['wind_speed'].iloc[0]}kt",
+                "runways": x[['runway', 'headwind', 'crosswind', 'tailwind', 
+                             'crosswind_status', 'tailwind_status']].to_dict('records')
+            }
+        ).tolist()
+        
+        # sort descending
+        grouped = sorted(grouped, key=lambda x: str(x.get('timestamp', '')), reverse=True)
+        
+        return jsonify({
+            "metar_groups": grouped,
+            "count": len(grouped),
+            "source": "CSV Fallback"
+        })
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/wind-logs/export")
+def export_wind_logs():
+    """Export wind logs ke CSV untuk investigasi"""
+    try:
+        data_to_export = []
+        
+        # Ambil dari sheets
+        try:
+            data_to_export = sheets_handler.get_wind_logs(limit=1000)
+        except Exception:
+            pass
+            
+        # Fallback
+        if not data_to_export and os.path.exists(WIND_LOG_FILE):
+            df = pd.read_csv(WIND_LOG_FILE)
+            data_to_export = df.to_dict('records')
+            
+        if not data_to_export:
+            return "No data available", 404
+            
+        df_export = pd.DataFrame(data_to_export)
+        
+        buffer = BytesIO()
+        df_export.to_csv(buffer, index=False)
+        buffer.seek(0)
+        
+        timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+        
+        return send_file(
+            buffer,
+            as_attachment=True,
+            download_name=f"WIND_INVESTIGATION_LOG_{timestamp}.csv",
+            mimetype="text/csv"
+        )
+        
+    except Exception as e:
+        return str(e), 500
 
 # =========================
 # API WIND ROSE - Historical Wind Data

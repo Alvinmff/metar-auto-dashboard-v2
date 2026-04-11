@@ -182,5 +182,134 @@ class GoogleSheetHandler:
             print(f"[SHEETS] ❌ Error syncing from Sheets: {e}", file=sys.stderr)
             return False
 
+    def save_wind_calculation(self, data: dict) -> bool:
+        """Simpan wind calculation ke sheet terpisah 'WindLogs'"""
+        try:
+            if not self.client:
+                self._authenticate()
+            if not self.client:
+                return False
+                
+            sheet = self.client.open_by_key(SPREADSHEET_ID)
+            
+            # Coba akses worksheet WindLogs, buat jika belum ada
+            try:
+                worksheet = sheet.worksheet("WindLogs")
+            except gspread.WorksheetNotFound:
+                worksheet = sheet.add_worksheet(title="WindLogs", rows="10000", cols="15")
+                # Setup header
+                headers = [
+                    'timestamp', 'station', 'runway', 'runway_heading', 
+                    'wind_dir', 'wind_speed', 'wind_gust', 'headwind', 
+                    'crosswind', 'tailwind', 'crosswind_status', 
+                    'tailwind_status', 'metar_raw', 'qnh', 'visibility'
+                ]
+                worksheet.insert_row(headers, 1)
+            
+            # Append data
+            row = [
+                data.get('timestamp'),
+                data.get('station', 'WARR'),
+                data.get('runway'),
+                data.get('runway_heading'),
+                data.get('wind_dir'),
+                data.get('wind_speed'),
+                data.get('wind_gust', ''),
+                data.get('headwind'),
+                data.get('crosswind'),
+                data.get('tailwind'),
+                data.get('crosswind_status'),
+                data.get('tailwind_status'),
+                data.get('metar_raw', ''),
+                data.get('qnh', ''),
+                data.get('visibility', '')
+            ]
+            
+            worksheet.append_row(row)
+            print(f"[SHEETS] Wind log saved: RWY {data.get('runway')} at {data.get('timestamp')}")
+            return True
+            
+        except Exception as e:
+            print(f"[SHEETS] Error saving wind log: {e}")
+            return False
+
+    def get_wind_logs(self, limit: int = 100, runway: str = None, 
+                      start_date: str = None, end_date: str = None) -> list:
+        """Ambil wind logs dari Google Sheets"""
+        try:
+            if not self.client:
+                self._authenticate()
+            if not self.client:
+                return []
+                
+            sheet = self.client.open_by_key(SPREADSHEET_ID)
+            worksheet = sheet.worksheet("WindLogs")
+            
+            # Ambil semua data
+            data = worksheet.get_all_records()
+            
+            # Convert ke list of dicts dengan proper typing
+            logs = []
+            for row in data:
+                # Filter by runway jika specified
+                if runway and str(row.get('runway')) != str(runway):
+                    continue
+                
+                # Filter by date range
+                if start_date:
+                    if str(row.get('timestamp', '')) < start_date:
+                        continue
+                if end_date:
+                    if str(row.get('timestamp', '')) > end_date:
+                        continue
+                
+                logs.append(dict(row))
+            
+            # Sort by timestamp descending (terbaru dulu) dan limit
+            logs = sorted(logs, key=lambda x: str(x.get('timestamp', '')), reverse=True)[:limit]
+            return logs
+            
+        except gspread.WorksheetNotFound:
+            print("[SHEETS] WindLogs worksheet not found")
+            return []
+        except Exception as e:
+            print(f"[SHEETS] Error getting wind logs: {e}")
+            return []
+
+    def get_wind_logs_by_metar(self, limit: int = 50) -> list:
+        """Group wind logs by METAR timestamp untuk forensics view"""
+        logs = self.get_wind_logs(limit=limit * 2)  # Ambil lebih banyak karena akan digroup
+        
+        # Group by timestamp
+        from collections import defaultdict
+        grouped = defaultdict(lambda: {
+            'timestamp': '',
+            'metar_raw': '',
+            'wind': '',
+            'runways': []
+        })
+        
+        for log in logs:
+            ts = log.get('timestamp')
+            if not ts: continue
+            
+            if not grouped[ts]['timestamp']:
+                grouped[ts]['timestamp'] = ts
+                grouped[ts]['metar_raw'] = log.get('metar_raw', '')
+                wind_dir = log.get('wind_dir', '')
+                wind_speed = log.get('wind_speed', '')
+                grouped[ts]['wind'] = f"{wind_dir}°/{wind_speed}kt"
+            
+            grouped[ts]['runways'].append({
+                'runway': log.get('runway'),
+                'headwind': log.get('headwind'),
+                'crosswind': log.get('crosswind'),
+                'tailwind': log.get('tailwind'),
+                'crosswind_status': log.get('crosswind_status'),
+                'tailwind_status': log.get('tailwind_status')
+            })
+        
+        return list(grouped.values())
+
 # Singleton instance
 sheets_handler = GoogleSheetHandler()
