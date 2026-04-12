@@ -1103,8 +1103,14 @@ def api_crosswind():
         "runway_heading": runway_heading
     })
 
+LAST_LOGGED_WIND = {
+    '10': '',
+    '28': ''
+}
+
 @app.route("/api/log-crosswind", methods=["POST"])
 def log_crosswind():
+    global LAST_LOGGED_WIND
     """Endpoint untuk menyimpan perhitungan crosswind dari frontend"""
     try:
         data = request.json
@@ -1119,6 +1125,18 @@ def log_crosswind():
         # Tambahkan timestamp server
         data['timestamp'] = datetime.utcnow().isoformat()
         data['station'] = data.get('station', 'WARR')
+        # Check duplication globally across server
+        runway = str(data['runway'])
+        metar_raw = data.get('metar_raw', '').strip()
+        
+        if metar_raw and LAST_LOGGED_WIND.get(runway) == metar_raw:
+            return jsonify({
+                "status": "success", 
+                "message": "Duplicate calculation ignored",
+                "timestamp": data['timestamp']
+            }), 200
+            
+        LAST_LOGGED_WIND[runway] = metar_raw
         
         # Simpan
         success = save_wind_calculation(data)
