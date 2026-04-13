@@ -320,7 +320,10 @@ def process_server_wind_log(metar_raw):
             # Remove oldest (roughly)
             WIND_LOGGED_REGISTRY.clear() 
             
-        print(f"[SERVER LOG] ✨ SAVED Wind Forensics for: {metar_raw[:40]}...", file=sys.stderr)
+        # DEBUG LOGGING UNTUK INVESTIGASI
+        print(f"[SERVER WIND] Calculated: Spd={wind_speed}, Dir={wind_dir}, Angle={angle_deg}deg", file=sys.stderr)
+        print(f"[SERVER WIND] Results: Lat={raw_headwind:.1f}, Cross={raw_crosswind:.1f}", file=sys.stderr)
+        print(f"[SERVER WIND] ✨ SAVED Wind Forensics for: {metar_raw[:40]}...", file=sys.stderr)
         return True
     except Exception as e:
         print(f"[SERVER LOG] Failed: {e}", file=sys.stderr)
@@ -1275,18 +1278,25 @@ def get_wind_logs():
                 start_date=start_date, 
                 end_date=end_date
             )
-            if logs:
-                # 🔥 DATA COERCION: Pastikan semua angka adalah float murni sebelum dikirim ke dashboard
-                # Ini memperbaiki masalah display 98,0 vs 9,8 yang disebabkan oleh locale mismatch (koma Indonesia)
+                # 🔥 DATA COERCION & AUTO-HEALING: 
+                # Memperbaiki display 98,0 vs 9,8 secara otomatis jika terdeteksi anomali 10x
                 for log in logs:
-                    for field in ['wind_speed', 'wind_gust', 'headwind', 'crosswind', 'tailwind']:
-                        if field in log and log[field] is not None:
-                            try:
+                    try:
+                        w_speed = float(str(log.get('wind_speed', 0)).replace(',', '.'))
+                        for field in ['headwind', 'crosswind', 'tailwind']:
+                            if field in log and log[field] is not None:
                                 # Bersihkan string jika mengandung koma (format Indonesia dari Sheets)
                                 val_str = str(log[field]).replace(',', '.')
-                                log[field] = float(val_str)
-                            except (ValueError, TypeError):
-                                pass
+                                val = float(val_str)
+                                
+                                # LOGIKA AUTO-HEALING: 
+                                # Jika angka > speed + toleransi (fisik tidak mungkin), bagi 10
+                                if abs(val) > (abs(w_speed) + 2) and abs(val) > 10:
+                                    val = val / 10.0
+                                    
+                                log[field] = val
+                    except (ValueError, TypeError):
+                        pass
 
                 return jsonify({
                     "logs": logs,
@@ -1314,15 +1324,22 @@ def get_wind_logs():
         # Ensure NaNs are converted to None for valid JSON output
         logs = df.where(pd.notnull(df), None).to_dict('records')
         
-        # 🔥 DATA COERCION (CSV Path)
+        # 🔥 DATA COERCION & AUTO-HEALING (CSV Path)
         for log in logs:
-            for field in ['wind_speed', 'wind_gust', 'headwind', 'crosswind', 'tailwind']:
-                if field in log and log[field] is not None:
-                    try:
+            try:
+                w_speed = float(str(log.get('wind_speed', 0)).replace(',', '.'))
+                for field in ['headwind', 'crosswind', 'tailwind']:
+                    if field in log and log[field] is not None:
                         val_str = str(log[field]).replace(',', '.')
-                        log[field] = float(val_str)
-                    except (ValueError, TypeError):
-                        pass
+                        val = float(val_str)
+                        
+                        # LOGIKA AUTO-HEALING
+                        if abs(val) > (abs(w_speed) + 2) and abs(val) > 10:
+                            val = val / 10.0
+                        
+                        log[field] = val
+            except (ValueError, TypeError):
+                pass
         
         return jsonify({
             "logs": logs,
