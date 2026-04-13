@@ -358,12 +358,12 @@
         .wind-log-body th {
             background: #edf2f7 !important;
             color: #4a5568 !important;
-            border-right: 5px solid #cbd5e0;
+            border-right: 2px solid #223850;
         }
 
         .wind-log-body td {
             border-bottom: 1px solid #edf2f7;
-            border-right: 5px solid #edf2f7;
+            border-right: 2px solid #223850;
         }
 
         .wind-log-body th:last-child,
@@ -381,6 +381,74 @@
 
         .wind-log-panel .text-muted {
             color: #64748b !important;
+        }
+
+        /* DARK MODE SUPPORT */
+        [data-theme='dark'] .wind-log-panel {
+            background: #0f172a;
+            color: #f8fafc;
+            border-color: #1e293b;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8);
+        }
+
+        [data-theme='dark'] .wind-log-controls {
+            background: #1e293b;
+            border-bottom-color: #334155;
+        }
+
+        [data-theme='dark'] .wind-log-controls label {
+            color: #94a3b8;
+        }
+
+        [data-theme='dark'] .wind-log-controls .form-input {
+            background: #0f172a;
+            color: #f8fafc;
+            border-color: #334155;
+        }
+
+        [data-theme='dark'] .wind-log-stats {
+            background: #0f172a;
+            border-bottom-color: #334155;
+        }
+
+        [data-theme='dark'] .wind-log-stat-card {
+            background: #1e293b;
+            border-color: #334155;
+        }
+
+        [data-theme='dark'] .wind-log-stat-value {
+            color: #f1f5f9;
+        }
+
+        [data-theme='dark'] .wind-log-body {
+            background: #0f172a;
+        }
+
+        [data-theme='dark'] .wind-log-body table {
+            color: #f1f5f9;
+        }
+
+        [data-theme='dark'] .wind-log-body th {
+            background: #1e293b !important;
+            color: #cbd5e1 !important;
+            border-right-color: #334155;
+        }
+
+        [data-theme='dark'] .wind-log-body td {
+            border-bottom-color: #1e293b;
+            border-right-color: #334155;
+        }
+
+        [data-theme='dark'] .metar-boundary td {
+            border-top-color: #cbd5e1 !important;
+        }
+
+        [data-theme='dark'] .wind-log-panel .text-muted {
+            color: #94a3b8 !important;
+        }
+
+        [data-theme='dark'] .xw-danger-row {
+            background: rgba(239, 68, 68, 0.15) !important;
         }
     </style>
 
