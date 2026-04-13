@@ -242,12 +242,31 @@ def process_server_wind_log(metar_raw):
         if not metar_raw:
             return False
             
-        # --- STRICT DEDUPLICATION ---
-        # Gunakan hash/string METAR murni sebagai kunci
+        # --- PERSISTENT DEDUPLICATION ---
+        # 1. Cek di memori (Fast cache - Sesi ini)
         metar_key = normalize_metar(metar_raw)
         if metar_key in WIND_LOGGED_REGISTRY:
-            # print(f"[SERVER LOG] Skip: METAR already logged for wind.", file=sys.stderr)
             return True
+            
+        # 2. Cek di Google Sheets (Persisten - Antar Device/Restart)
+        try:
+            if sheets_handler.check_if_metar_logged(metar_raw):
+                WIND_LOGGED_REGISTRY.add(metar_key)
+                print(f"[SERVER WIND] Duplicate detected in Sheets: {metar_raw[:20]}... Skipping.", file=sys.stderr)
+                return True
+        except Exception as e:
+            print(f"[SERVER WIND] Persistence check failed: {e}", file=sys.stderr)
+
+        # 3. Cek di CSV Lokal (Jika sedang dev lokal)
+        if not IS_VERCEL and os.path.exists(WIND_LOG_FILE):
+            try:
+                df_tail = pd.read_csv(WIND_LOG_FILE).tail(40)
+                if not df_tail.empty and metar_raw in df_tail['metar_raw'].values:
+                    WIND_LOGGED_REGISTRY.add(metar_key)
+                    print(f"[SERVER WIND] Duplicate detected in LOCAL CSV: {metar_raw[:20]}...", file=sys.stderr)
+                    return True
+            except Exception as e:
+                pass
             
         # Extract wind from METAR: 3 digits dir, 2-3 digits speed, optional G gust
         wind_match = re.search(r'\b(\d{3}|VRB)(\d{2,3})(G\d{2,3})?KT\b', metar_raw)

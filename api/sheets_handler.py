@@ -230,6 +230,39 @@ class GoogleSheetHandler:
             print(f"[SHEETS] Error saving wind log: {e}")
             return False
 
+    def check_if_metar_logged(self, metar_raw: str) -> bool:
+        """
+        Cek apakah METAR tertentu sudah pernah dicatat di WindLogs (Persisten).
+        Mengambil 40 baris terakhir untuk efisiensi.
+        """
+        try:
+            if not self.client:
+                self._authenticate()
+            if not self.client:
+                return False
+                
+            sheet = self.client.open_by_key(SPREADSHEET_ID)
+            worksheet = sheet.worksheet("WindLogs")
+            
+            # Ambil hanya baris-baris terakhir (misal 40 baris teratas setelah header)
+            # Karena append_row menambah ke bawah, kita cek baris terakhir
+            all_values = worksheet.get_all_values()
+            if len(all_values) <= 1:
+                return False
+            
+            # Cek 40 baris terakhir (ignore header)
+            last_rows = all_values[-40:]
+            
+            # Kolom METAR_RAW ada di index 1 (headers check: timestamp=0, metar_raw=1)
+            for row in last_rows:
+                if len(row) > 1 and row[1] == metar_raw:
+                    return True
+            
+            return False
+        except Exception as e:
+            print(f"[SHEETS] Error checking persistence: {e}")
+            return False
+
     def get_wind_logs(self, limit: int = 100, runway: str = None, 
                       start_date: str = None, end_date: str = None) -> list:
         """Ambil wind logs dari Google Sheets"""
