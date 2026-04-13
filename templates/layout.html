@@ -198,7 +198,8 @@
             position: fixed;
             bottom: 80px;
             right: 20px;
-            background: #ef4444; /* Danger/Red color to stand out */
+            background: #ef4444;
+            /* Danger/Red color to stand out */
             color: white;
             border: none;
             border-radius: 30px;
@@ -214,14 +215,19 @@
             z-index: 9998;
             transition: all 0.3s ease;
         }
+
         .wind-log-fab:hover {
             transform: translateY(-3px) scale(1.05);
             box-shadow: 0 6px 20px rgba(239, 68, 68, 0.6);
             background: #dc2626;
         }
+
         .wind-log-overlay {
             position: fixed;
-            top: 0; left: 0; right: 0; bottom: 0;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
             background: rgba(15, 23, 42, 0.7);
             backdrop-filter: blur(4px);
             z-index: 9999;
@@ -229,10 +235,12 @@
             visibility: hidden;
             transition: all 0.3s ease;
         }
+
         .wind-log-overlay.active {
             opacity: 1;
             visibility: visible;
         }
+
         .wind-log-panel {
             position: fixed;
             top: 50%;
@@ -241,8 +249,10 @@
             width: 95%;
             max-width: 1300px;
             max-height: 85vh;
-            background: #FFFFFF; /* Forced White Background */
-            color: #1e293b; /* Forced Dark Text for readability */
+            background: #FFFFFF;
+            /* Forced White Background */
+            color: #1e293b;
+            /* Forced Dark Text for readability */
             border-radius: 12px;
             box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
             z-index: 10000;
@@ -254,11 +264,13 @@
             border: 1px solid #e2e8f0;
             overflow: hidden;
         }
+
         .wind-log-panel.active {
             transform: translate(-50%, -50%);
             opacity: 1;
             visibility: visible;
         }
+
         .wind-log-header {
             background: #1E3A5F;
             color: white;
@@ -267,6 +279,7 @@
             justify-content: space-between;
             align-items: center;
         }
+
         .wind-log-header h3 {
             margin: 0;
             display: flex;
@@ -274,6 +287,7 @@
             gap: 10px;
             font-size: 1.2rem;
         }
+
         .wind-log-controls {
             padding: 15px 20px;
             border-bottom: 1px solid #e2e8f0;
@@ -281,15 +295,19 @@
             flex-wrap: wrap;
             gap: 15px;
             align-items: flex-end;
-            background: #f8fafc; /* Subtle grey difference */
+            background: #f8fafc;
+            /* Subtle grey difference */
         }
+
         .wind-log-controls label {
             color: #475569;
             font-weight: 600;
         }
+
         .wind-log-controls .form-group {
             margin: 0;
         }
+
         .wind-log-controls .form-input {
             padding: 8px 12px;
             height: 38px;
@@ -297,6 +315,7 @@
             border: 1px solid #cbd5e1;
             color: #1e293b;
         }
+
         .wind-log-stats {
             display: flex;
             gap: 15px;
@@ -304,6 +323,7 @@
             background: #ffffff;
             border-bottom: 1px solid #e2e8f0;
         }
+
         .wind-log-stat-card {
             flex: 1;
             background: #f8fafc;
@@ -312,46 +332,66 @@
             border: 1px solid #e2e8f0;
             text-align: center;
         }
+
         .wind-log-stat-value {
             font-size: 1.5rem;
             font-weight: 700;
             color: #1e3a5f;
             margin-top: 5px;
         }
-        .wind-log-stat-value.danger { color: #ef4444; }
+
+        .wind-log-stat-value.danger {
+            color: #ef4444;
+        }
+
         .wind-log-body {
             padding: 0;
             flex: 1;
             overflow-y: auto;
             background: #ffffff;
         }
+
         .wind-log-body table {
             color: #1e293b;
         }
+
         .wind-log-body th {
             background: #edf2f7 !important;
             color: #4a5568 !important;
-            border-right: 2px solid #cbd5e0;
+            border-right: 5px solid #cbd5e0;
         }
+
         .wind-log-body td {
             border-bottom: 1px solid #edf2f7;
-            border-right: 2px solid #edf2f7;
+            border-right: 5px solid #edf2f7;
         }
-        .wind-log-body th:last-child, .wind-log-body td:last-child {
+
+        .wind-log-body th:last-child,
+        .wind-log-body td:last-child {
             border-right: none;
         }
-        .xw-danger-row { background: rgba(239, 68, 68, 0.08) !important; }
-        .metar-boundary td { border-top: 2px solid #1e293b !important; }
-        .wind-log-panel .text-muted { color: #64748b !important; }
+
+        .xw-danger-row {
+            background: rgba(239, 68, 68, 0.08) !important;
+        }
+
+        .metar-boundary td {
+            border-top: 2px solid #1e293b !important;
+        }
+
+        .wind-log-panel .text-muted {
+            color: #64748b !important;
+        }
     </style>
 
     <div class="wind-log-overlay" id="windLogOverlay" onclick="closeWindLogPanel()"></div>
     <div class="wind-log-panel" id="windLogPanel">
         <div class="wind-log-header">
             <h3><span>🛬</span> Wind Investigation Log</h3>
-            <button class="help-modal-close" onclick="closeWindLogPanel()" style="color:white; opacity:0.8; background:none; border:none; font-size:1.5rem; cursor:pointer;">✕</button>
+            <button class="help-modal-close" onclick="closeWindLogPanel()"
+                style="color:white; opacity:0.8; background:none; border:none; font-size:1.5rem; cursor:pointer;">✕</button>
         </div>
-        
+
         <div class="wind-log-controls">
             <div class="form-group" style="width: 120px;">
                 <label>Runway</label>
@@ -375,7 +415,7 @@
                 <button class="btn btn-primary" onclick="refreshWindLogTable()">🔄 Refresh</button>
             </div>
         </div>
-        
+
         <div class="wind-log-stats">
             <div class="wind-log-stat-card">
                 <div class="text-muted" style="font-size: 0.8rem; text-transform: uppercase;">Total Records</div>
@@ -386,7 +426,7 @@
                 <div class="wind-log-stat-value danger" id="windLogDanger">0</div>
             </div>
         </div>
-        
+
         <div class="wind-log-body">
             <table class="data-table modern-table" style="margin:0;">
                 <thead style="position: sticky; top: 0; z-index: 10;">

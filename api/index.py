@@ -178,6 +178,9 @@ else:
     CSV_FILE = ROOT_CSV
     print("[INIT] Running locally - Using local storage", file=sys.stderr)
 
+# Global in-memory deduplication for wind logs (prevents flooding during sync)
+WIND_LOGGED_REGISTRY = set()
+
 WIND_LOG_FILE = os.path.join(project_root if not IS_VERCEL else "/tmp", "wind_calculations.csv")
 
 def init_wind_log():
@@ -238,6 +241,13 @@ def process_server_wind_log(metar_raw):
     try:
         if not metar_raw:
             return False
+            
+        # --- STRICT DEDUPLICATION ---
+        # Gunakan hash/string METAR murni sebagai kunci
+        metar_key = normalize_metar(metar_raw)
+        if metar_key in WIND_LOGGED_REGISTRY:
+            # print(f"[SERVER LOG] Skip: METAR already logged for wind.", file=sys.stderr)
+            return True
             
         # Extract wind from METAR: 3 digits dir, 2-3 digits speed, optional G gust
         wind_match = re.search(r'\b(\d{3}|VRB)(\d{2,3})(G\d{2,3})?KT\b', metar_raw)
@@ -302,7 +312,15 @@ def process_server_wind_log(metar_raw):
             # Namun kita panggil save_wind_calculation langsung di sini untuk server-side
             save_wind_calculation(payload)
             
-        print(f"[SERVER LOG] Auto-logged wind forensics for: {metar_raw[:40]}...", file=sys.stderr)
+        # Mark as processed in this session
+        WIND_LOGGED_REGISTRY.add(metar_key)
+        
+        # Keep registry size manageable
+        if len(WIND_LOGGED_REGISTRY) > 200:
+            # Remove oldest (roughly)
+            WIND_LOGGED_REGISTRY.clear() 
+            
+        print(f"[SERVER LOG] ✨ SAVED Wind Forensics for: {metar_raw[:40]}...", file=sys.stderr)
         return True
     except Exception as e:
         print(f"[SERVER LOG] Failed: {e}", file=sys.stderr)
@@ -1258,6 +1276,18 @@ def get_wind_logs():
                 end_date=end_date
             )
             if logs:
+                # 🔥 DATA COERCION: Pastikan semua angka adalah float murni sebelum dikirim ke dashboard
+                # Ini memperbaiki masalah display 98,0 vs 9,8 yang disebabkan oleh locale mismatch (koma Indonesia)
+                for log in logs:
+                    for field in ['wind_speed', 'wind_gust', 'headwind', 'crosswind', 'tailwind']:
+                        if field in log and log[field] is not None:
+                            try:
+                                # Bersihkan string jika mengandung koma (format Indonesia dari Sheets)
+                                val_str = str(log[field]).replace(',', '.')
+                                log[field] = float(val_str)
+                            except (ValueError, TypeError):
+                                pass
+
                 return jsonify({
                     "logs": logs,
                     "count": len(logs),
@@ -1280,8 +1310,19 @@ def get_wind_logs():
             df = df[df['timestamp'] <= end_date]
             
         df = df.sort_values('timestamp', ascending=False).head(1000)
+        
         # Ensure NaNs are converted to None for valid JSON output
         logs = df.where(pd.notnull(df), None).to_dict('records')
+        
+        # 🔥 DATA COERCION (CSV Path)
+        for log in logs:
+            for field in ['wind_speed', 'wind_gust', 'headwind', 'crosswind', 'tailwind']:
+                if field in log and log[field] is not None:
+                    try:
+                        val_str = str(log[field]).replace(',', '.')
+                        log[field] = float(val_str)
+                    except (ValueError, TypeError):
+                        pass
         
         return jsonify({
             "logs": logs,
