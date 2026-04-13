@@ -1092,7 +1092,7 @@ class WindCalculationLogger {
         })
         .then(res => {
             console.log(`[WIND LOG] Saved successfully: RWY ${runwayName}`, res);
-            showToast('Wind Log', `Berhasil simpan Log RWY ${runwayName}`, 'success');
+            showToast('Wind Log', `Berhasil simpan Log RWY ${runwayName}`, 'success', 5000, false);
         })
         .catch(err => {
             console.error('[WIND LOG] Error saving log:', err);

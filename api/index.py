@@ -3,6 +3,7 @@ import json
 import requests  # pyre-ignore
 import pandas as pd  # pyre-ignore
 import os
+import math
 import re
 import io   
 from datetime import datetime
@@ -227,6 +228,82 @@ def save_wind_calculation(data):
         return True
     except Exception as e:
         print(f"[WIND LOG] Error saving: {e}", file=sys.stderr)
+        return False
+
+def process_server_wind_log(metar_raw):
+    """
+    Menghitung dan menyimpan log angin secara otomatis di server.
+    Menduplikasi logika trigonometri dari dashboard.js ke Python.
+    """
+    try:
+        if not metar_raw:
+            return False
+            
+        # Extract wind from METAR: 3 digits dir, 2-3 digits speed, optional G gust
+        wind_match = re.search(r'\b(\d{3}|VRB)(\d{2,3})(G\d{2,3})?KT\b', metar_raw)
+        if not wind_match:
+            return False
+            
+        wind_dir_raw = wind_match.group(1)
+        if wind_dir_raw == 'VRB':
+            return False # Tidak bisa hitung presisi untuk VRB
+            
+        wind_dir = int(wind_dir_raw)
+        wind_speed = int(wind_match.group(2))
+        wind_gust = int(wind_match.group(3)[1:]) if wind_match.group(3) else None
+        
+        station = "WARR" # Default for Juanda
+        if "WARR" not in metar_raw and "WARS" in metar_raw: station = "WARS"
+        
+        runways = [
+            {"name": "10", "hdg": 100},
+            {"name": "28", "hdg": 280}
+        ]
+        
+        timestamp = datetime.utcnow().isoformat()
+        
+        for rwy in runways:
+            # Trigonometri
+            angle_deg = wind_dir - rwy["hdg"]
+            angle_rad = math.radians(angle_deg)
+            
+            raw_headwind = wind_speed * math.cos(angle_rad)
+            raw_crosswind = wind_speed * math.sin(angle_rad)
+            
+            headwind = round(raw_headwind, 1)
+            crosswind = round(abs(raw_crosswind), 1)
+            
+            head_val = max(0, headwind)
+            tailwind = abs(headwind) if headwind < 0 else 0
+            
+            # Status
+            cross_status = 'DANGER' if crosswind >= 20 else ('CAUTION' if crosswind >= 10 else 'SAFE')
+            tail_status = 'DANGER' if tailwind >= 10 else ('CAUTION' if tailwind >= 5 else 'SAFE')
+            
+            payload = {
+                'timestamp': timestamp,
+                'metar_raw': metar_raw,
+                'station': station,
+                'runway': rwy["name"],
+                'runway_heading': rwy["hdg"],
+                'wind_dir': wind_dir,
+                'wind_speed': wind_speed,
+                'wind_gust': wind_gust,
+                'headwind': head_val,
+                'crosswind': crosswind,
+                'tailwind': tailwind,
+                'crosswind_status': cross_status,
+                'tailwind_status': tail_status
+            }
+            
+            # Anti-duplikasi di log_crosswind sudah handle global state
+            # Namun kita panggil save_wind_calculation langsung di sini untuk server-side
+            save_wind_calculation(payload)
+            
+        print(f"[SERVER LOG] Auto-logged wind forensics for: {metar_raw[:40]}...", file=sys.stderr)
+        return True
+    except Exception as e:
+        print(f"[SERVER LOG] Failed: {e}", file=sys.stderr)
         return False
 
 # =========================
@@ -1165,9 +1242,10 @@ def get_wind_logs():
         start_date = request.args.get('start')
         end_date = request.args.get('end')
         
-        # Default to last 24 hours if no dates provided
+        # Default to Today UTC (00:00:00 to 23:59:59)
         if not start_date and not end_date:
-            start_date = (datetime.utcnow() - timedelta(days=1)).isoformat()
+            now = datetime.utcnow()
+            start_date = now.replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
         
         # Coba dari Sheets dulu
         try:
@@ -2598,6 +2676,9 @@ def update_metar_data_and_sync(station="WARR"):
             "time": datetime.utcnow(),
             "metar": metar  # Simpan original, tidak normalized
         }
+        
+        # 🔥 SERVER-SIDE WIND LOGGING: Perekaman otomatis tanpa dashboard
+        process_server_wind_log(metar)
         
         # Format waktu tanpa milliseconds untuk consistency
         new_row_df = pd.DataFrame([new_row])
