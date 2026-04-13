@@ -1172,10 +1172,9 @@ function handleMetarUpdate(data) {
     }
     saveAlarmState(); // 🔥 COMMIT TO LOCALSTORAGE
 
-    // 🔥 LOG FORENSIC CALCULATION ONLY FOR NEW DATA
-    if (window.windLogger) {
-        window.windLogger.logForCurrentMetar(data);
-    }
+    // 🔥 AUTO-LOGGING DISABLED ON CLIENT: 
+    // Now handled exclusively by server-side sync to prevent double entries.
+    // window.windLogger.logForCurrentMetar(data);
 
     // Cek apakah kondisi berbahaya BARU muncul (transisi dari aman ke berbahaya)
     const isNewLowVis = isLowVis && !alarmState.lowVisTriggered;

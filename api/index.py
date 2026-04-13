@@ -270,11 +270,13 @@ def process_server_wind_log(metar_raw):
             raw_headwind = wind_speed * math.cos(angle_rad)
             raw_crosswind = wind_speed * math.sin(angle_rad)
             
-            headwind = round(raw_headwind, 1)
-            crosswind = round(abs(raw_crosswind), 1)
+            # Rounding precision 1 decimal (e.g. 8.45 -> 8.5)
+            # Dibuat eksplisit untuk menghindari kesalahan scaling
+            headwind = round(float(raw_headwind), 1)
+            crosswind = round(float(abs(raw_crosswind)), 1)
             
-            head_val = max(0, headwind)
-            tailwind = abs(headwind) if headwind < 0 else 0
+            head_val = max(0.0, headwind)
+            tailwind = abs(headwind) if headwind < 0 else 0.0
             
             # Status
             cross_status = 'DANGER' if crosswind >= 20 else ('CAUTION' if crosswind >= 10 else 'SAFE')
