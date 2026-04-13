@@ -3413,6 +3413,11 @@ function refreshWindLogTable() {
                 const tr = document.createElement('tr');
                 if (rowClass) tr.className = rowClass;
 
+                const fmtKnots = (val) => {
+                    if (val === null || val === undefined || isNaN(val)) return '-';
+                    return Number(val).toFixed(1).replace('.', ',') + ' kt';
+                };
+
                 tr.innerHTML = `
                     <td style="white-space:nowrap;">${timeStr}</td>
                     <td style="font-family:'JetBrains Mono',monospace; font-size:0.8rem;">${log.metar_raw || '-'}</td>
@@ -3420,11 +3425,11 @@ function refreshWindLogTable() {
                     <td><strong>RWY ${log.runway}</strong></td>
                     <td>${log.runway_heading || '-'}°</td>
                     <td>${log.wind_dir || '-'}°</td>
-                    <td>${log.wind_speed || '0'} kt</td>
-                    <td>${log.wind_gust ? log.wind_gust + ' kt' : '-'}</td>
-                    <td>${log.headwind} kt</td>
-                    <td>${log.crosswind} kt</td>
-                    <td>${log.tailwind} kt</td>
+                    <td>${fmtKnots(log.wind_speed)}</td>
+                    <td>${log.wind_gust ? fmtKnots(log.wind_gust) : '-'}</td>
+                    <td>${fmtKnots(log.headwind)}</td>
+                    <td>${fmtKnots(log.crosswind)}</td>
+                    <td>${fmtKnots(log.tailwind)}</td>
                     <td>${getStatusBadge(log.crosswind_status)}</td>
                     <td>${getStatusBadge(log.tailwind_status)}</td>
                 `;
