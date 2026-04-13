@@ -1278,11 +1278,14 @@ def get_wind_logs():
                 start_date=start_date, 
                 end_date=end_date
             )
+            if logs:
                 # 🔥 DATA COERCION & AUTO-HEALING: 
                 # Memperbaiki display 98,0 vs 9,8 secara otomatis jika terdeteksi anomali 10x
                 for log in logs:
                     try:
-                        w_speed = float(str(log.get('wind_speed', 0)).replace(',', '.'))
+                        w_spd_raw = log.get('wind_speed', 0)
+                        w_speed = float(str(w_spd_raw).replace(',', '.')) if w_spd_raw is not None else 0.0
+                        
                         for field in ['headwind', 'crosswind', 'tailwind']:
                             if field in log and log[field] is not None:
                                 # Bersihkan string jika mengandung koma (format Indonesia dari Sheets)
@@ -1327,7 +1330,9 @@ def get_wind_logs():
         # 🔥 DATA COERCION & AUTO-HEALING (CSV Path)
         for log in logs:
             try:
-                w_speed = float(str(log.get('wind_speed', 0)).replace(',', '.'))
+                w_spd_raw = log.get('wind_speed', 0)
+                w_speed = float(str(w_spd_raw).replace(',', '.')) if w_spd_raw is not None else 0.0
+                
                 for field in ['headwind', 'crosswind', 'tailwind']:
                     if field in log and log[field] is not None:
                         val_str = str(log[field]).replace(',', '.')
