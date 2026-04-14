@@ -1857,6 +1857,17 @@ window.updateCharts = updateCharts;
 // =======================
 
 // 🔥 RE SEQUENCE VALIDATION HELPERS
+function getMainMetarPart(metar) {
+    if (!metar) return "";
+    // Find the first occurrence of trend/supplementary keywords
+    const match = metar.match(/\b(TEMPO|BECMG|NOSIG|PROB|TREND|RMK)\b/i);
+    if (match) {
+        // Cut the string before the keyword
+        return metar.substring(0, match.index).trim();
+    }
+    return metar.trim();
+}
+
 function metarHasTS(metar) {
     // Detects TS, TSRA, +TSRA, -TSRA, VCTS, TSGR etc.
     return /(?:^|\s)(?:[+-])?(?:VC)?TS(?:RA|GR|SN|PE|PL)?\b/i.test(metar);
@@ -1891,10 +1902,13 @@ function checkRESequence(currentRaw, previousRaw) {
     if (!currentRaw || !previousRaw) return [];
     const errors = [];
 
-    const prevHasTS = metarHasTS(previousRaw);
-    const prevHasRA = metarHasRA(previousRaw);
-    const currHasTS = metarHasTS(currentRaw);
-    const currHasRA = metarHasRA(currentRaw);
+    const currentMain = getMainMetarPart(currentRaw);
+    const previousMain = getMainMetarPart(previousRaw);
+
+    const prevHasTS = metarHasTS(previousMain);
+    const prevHasRA = metarHasRA(previousMain);
+    const currHasTS = metarHasTS(currentMain);
+    const currHasRA = metarHasRA(currentMain);
 
     // Case 1: Previous had TSRA, current has neither TS nor RA → needs RETSRA
     if (prevHasTS && prevHasRA && !currHasTS && !currHasRA) {
