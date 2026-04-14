@@ -2727,8 +2727,10 @@ body.rain-active::after {
   z-index: 1100;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 12px 20px;
+  justify-content: center;
+  width: 48px; /* Circular by default */
+  height: 48px;
+  padding: 0;
   background: linear-gradient(135deg, #1e3a5f 0%, #2e5c8a 100%);
   color: #ffffff;
   border: none;
@@ -2738,13 +2740,19 @@ body.rain-active::after {
   font-size: 0.9rem;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  overflow: hidden;
+  white-space: nowrap;
 }
 
 .help-fab:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 6px 20px rgba(30, 58, 95, 0.5);
+  width: 140px; /* Expand on hover */
+  transform: translateY(-5px);
+  box-shadow: 0 8px 25px rgba(30, 58, 95, 0.5);
   background: linear-gradient(135deg, #2e5c8a 0%, #1e3a5f 100%);
+  padding: 0 20px;
+  justify-content: flex-start;
+  gap: 10px;
 }
 
 .help-fab-icon {
@@ -2752,18 +2760,28 @@ body.rain-active::after {
 }
 
 .help-fab-text {
-  display: inline;
+  opacity: 0;
+  max-width: 0;
+  transition: all 0.3s ease;
+  pointer-events: none;
 }
 
-/* Mobile: hanya icon */
+.help-fab:hover .help-fab-text {
+  opacity: 1;
+  max-width: 100px;
+  pointer-events: auto;
+}
+
+/* Mobile: tetap icon saja */
 @media (max-width: 768px) {
   .help-fab-text {
-    display: none;
+    display: none !important;
   }
-
-  .help-fab {
-    padding: 12px;
-    border-radius: 50%;
+  
+  .help-fab:hover {
+    width: 48px;
+    padding: 0;
+    justify-content: center;
   }
 }
 

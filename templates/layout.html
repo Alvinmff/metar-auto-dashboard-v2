@@ -196,30 +196,57 @@
     <style>
         .wind-log-fab {
             position: fixed;
-            bottom: 80px;
+            bottom: 84px; /* 60px above the help-fab (24px + 60px) */
             right: 20px;
             background: #ef4444;
-            /* Danger/Red color to stand out */
             color: white;
             border: none;
-            border-radius: 30px;
-            padding: 12px 20px;
-            font-family: inherit;
-            font-weight: 600;
-            font-size: 0.95rem;
+            border-radius: 50px;
+            width: 48px;
+            height: 48px;
+            padding: 0;
             cursor: pointer;
             box-shadow: 0 4px 15px rgba(239, 68, 68, 0.4);
             display: flex;
             align-items: center;
-            gap: 8px;
+            justify-content: center;
             z-index: 9998;
-            transition: all 0.3s ease;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            overflow: hidden;
+            white-space: nowrap;
         }
 
         .wind-log-fab:hover {
-            transform: translateY(-3px) scale(1.05);
-            box-shadow: 0 6px 20px rgba(239, 68, 68, 0.6);
+            width: 150px;
+            transform: translateY(-5px);
+            box-shadow: 0 8px 25px rgba(239, 68, 68, 0.6);
             background: #dc2626;
+            padding: 0 20px;
+            justify-content: flex-start;
+            gap: 10px;
+        }
+
+        .wind-log-fab .help-fab-text {
+            opacity: 0;
+            max-width: 0;
+            transition: all 0.3s ease;
+            pointer-events: none;
+            color: white;
+            font-weight: 600;
+        }
+
+        .wind-log-fab:hover .help-fab-text {
+            opacity: 1;
+            max-width: 100px;
+            pointer-events: auto;
+        }
+
+        @media (max-width: 768px) {
+            .wind-log-fab:hover {
+                width: 48px;
+                padding: 0;
+                justify-content: center;
+            }
         }
 
         .wind-log-overlay {
