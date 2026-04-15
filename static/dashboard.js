@@ -168,9 +168,9 @@ function isAwaitingNewMetar() {
     const now = new Date();
     const mins = now.getUTCMinutes();
     
-    // Hunt Windows: :02-12 and :32-42 past the hour
-    const window00 = (mins >= 2 && mins <= 12);
-    const window30 = (mins >= 32 && mins <= 42);
+    // Hunt Windows: Activating at minute 5 and 35
+    const window00 = (mins >= 5 && mins <= 15);
+    const window30 = (mins >= 35 && mins <= 45);
     
     if (!window00 && !window30) return false;
     
@@ -181,9 +181,9 @@ function isAwaitingNewMetar() {
     const timeMatch = lastMetarRaw.match(/(\d{2})(\d{2})(\d{2})Z/);
     if (timeMatch) {
         const metarMins = parseInt(timeMatch[3]);
-        // If we're in the :02-12 window, we want data matching :00
+        // If we're in the :05-15 window, we want data matching :00
         if (window00 && metarMins !== 0) return true;
-        // If we're in the :32-42 window, we want data matching :30
+        // If we're in the :35-45 window, we want data matching :30
         if (window30 && metarMins !== 30) return true;
     }
     
