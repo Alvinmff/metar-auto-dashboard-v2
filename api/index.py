@@ -2065,7 +2065,7 @@ def home():
         except:
             pass
 
-    return render_template(
+    response = make_response(render_template(
         "index.html",
         station=station,
         latest=latest,
@@ -2088,7 +2088,12 @@ def home():
         history_source=history_source,
         recent_winds=json.dumps(safe_recent_winds),
         latest_wind=json.dumps(latest_wind_obj)
-    )
+    ))
+    
+    if request.method == "GET":
+        response.headers['Cache-Control'] = 'public, max-age=15, s-maxage=60, stale-while-revalidate=120'
+        
+    return response
 
 def common_view_context_data():
     """Helper to get common metrics for all templates without rendering"""
@@ -2204,7 +2209,9 @@ def common_view_context_data():
 def common_view_context(template_name):
     """Helper to load common metrics for the new specialized pages"""
     data = common_view_context_data()
-    return render_template(template_name, **data)
+    response = make_response(render_template(template_name, **data))
+    response.headers['Cache-Control'] = 'public, max-age=15, s-maxage=60, stale-while-revalidate=120'
+    return response
 
 @app.route("/charts")
 def charts_view():
@@ -2237,7 +2244,10 @@ def metar_view():
         "parsed_qam": parsed_qam,
         "validation_results": validation_results
     })
-    return render_template("metar.html", **context)
+    response = make_response(render_template("metar.html", **context))
+    if request.method == "GET":
+        response.headers['Cache-Control'] = 'public, max-age=15, s-maxage=60, stale-while-revalidate=120'
+    return response
 
 @app.route("/qam_report", methods=["GET", "POST"])
 def qam_report_view():
@@ -2261,7 +2271,10 @@ def qam_report_view():
         "parsed_qam": parsed_qam,
         "validation_results": validation_results
     })
-    return render_template("qam_report.html", **context)
+    response = make_response(render_template("qam_report.html", **context))
+    if request.method == "GET":
+        response.headers['Cache-Control'] = 'public, max-age=15, s-maxage=60, stale-while-revalidate=120'
+    return response
 
 @app.route("/weather_analysis")
 def weather_analysis_view():
