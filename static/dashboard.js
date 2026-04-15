@@ -152,7 +152,7 @@ document.addEventListener("visibilitychange", () => {
         console.log("[POLL] Tab active, resuming fast poll...");
         // Trigger immediate poll on return
         if (currentPollTimeout) clearTimeout(currentPollTimeout);
-        adaptivePoll(); 
+        adaptivePoll();
     } else {
         console.log("[POLL] Tab hidden, switching to background poll rate...");
         // Don't clear here, let the next adaptivePoll handle the timing
@@ -167,16 +167,16 @@ document.addEventListener("visibilitychange", () => {
 function isAwaitingNewMetar() {
     const now = new Date();
     const mins = now.getUTCMinutes();
-    
+
     // Hunt Windows: Activating at minute 5 and 35
     const window00 = (mins >= 5 && mins <= 15);
     const window30 = (mins >= 35 && mins <= 45);
-    
+
     if (!window00 && !window30) return false;
-    
+
     // If we have no data at all, we should always 'hunt' in these windows
     if (!lastMetarRaw) return true;
-    
+
     // Extract minutes group from METAR (DDHHMMZ)
     const timeMatch = lastMetarRaw.match(/(\d{2})(\d{2})(\d{2})Z/);
     if (timeMatch) {
@@ -186,7 +186,7 @@ function isAwaitingNewMetar() {
         // If we're in the :35-45 window, we want data matching :30
         if (window30 && metarMins !== 30) return true;
     }
-    
+
     return false;
 }
 
@@ -199,14 +199,14 @@ async function adaptivePoll() {
 
     if (!isTabVisible) {
         // BACKGROUND POLL: Poll every 5 minutes when minimized
-        nextInterval = 300000; 
+        nextInterval = 300000;
     } else {
         const isHunting = isAwaitingNewMetar();
         const metarStatus = lastMetarStatus || 'normal';
         const isNewData = alarmState.lastUpdateTime > (Date.now() - 30000);
 
         if (isHunting) {
-            nextInterval = 15000; // HUNT MODE: Fast pool during expected windows
+            nextInterval = 10000; // HUNT MODE: Fast pool during expected windows
         } else if (metarStatus !== 'normal') {
             nextInterval = 30000; // Urgent/Critical
         } else if (isNewData) {
@@ -1327,7 +1327,7 @@ function handleMetarUpdate(data) {
     // Show toast untuk data baru (hanya jika konten METAR berubah)
     if (!isFirstLoad && data.raw && data.status === 'new' && isMetarChanged) {
         showToast('New METAR Received', `${STATION} — ${new Date().toISOString().slice(11, 19)} UTC`, 'success', 5000, allowToastSound);
-        
+
         // 🔔 TRIGGER NOTIFIKASI SUARA UNTUK DATA BARU
         if (typeof playNotifySound === 'function') {
             playNotifySound();
