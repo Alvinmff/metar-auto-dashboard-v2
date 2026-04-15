@@ -159,6 +159,37 @@ document.addEventListener("visibilitychange", () => {
     }
 });
 
+/**
+ * Detect if we are waiting for a new scheduled METAR report.
+ * Scheduled reports are expected at :00 and :30 (+ few minutes lag).
+ * 'Hunt Mode' activates 2 minutes after expected time if data hasn't arrived.
+ */
+function isAwaitingNewMetar() {
+    const now = new Date();
+    const mins = now.getUTCMinutes();
+    
+    // Hunt Windows: :02-12 and :32-42 past the hour
+    const window00 = (mins >= 2 && mins <= 12);
+    const window30 = (mins >= 32 && mins <= 42);
+    
+    if (!window00 && !window30) return false;
+    
+    // If we have no data at all, we should always 'hunt' in these windows
+    if (!lastMetarRaw) return true;
+    
+    // Extract minutes group from METAR (DDHHMMZ)
+    const timeMatch = lastMetarRaw.match(/(\d{2})(\d{2})(\d{2})Z/);
+    if (timeMatch) {
+        const metarMins = parseInt(timeMatch[3]);
+        // If we're in the :02-12 window, we want data matching :00
+        if (window00 && metarMins !== 0) return true;
+        // If we're in the :32-42 window, we want data matching :30
+        if (window30 && metarMins !== 30) return true;
+    }
+    
+    return false;
+}
+
 async function adaptivePoll() {
     // Perform the actual fetch
     await pollLatestData();
@@ -170,10 +201,13 @@ async function adaptivePoll() {
         // BACKGROUND POLL: Poll every 5 minutes when minimized
         nextInterval = 300000; 
     } else {
+        const isHunting = isAwaitingNewMetar();
         const metarStatus = lastMetarStatus || 'normal';
         const isNewData = alarmState.lastUpdateTime > (Date.now() - 30000);
 
-        if (metarStatus !== 'normal') {
+        if (isHunting) {
+            nextInterval = 15000; // HUNT MODE: Fast pool during expected windows
+        } else if (metarStatus !== 'normal') {
             nextInterval = 30000; // Urgent/Critical
         } else if (isNewData) {
             nextInterval = 60000; // Fresh data
@@ -182,7 +216,8 @@ async function adaptivePoll() {
         }
     }
 
-    console.log(`[POLL] Next poll in ${nextInterval / 1000}s (${isTabVisible ? 'Active' : 'Background'})`);
+    const huntStatus = !isTabVisible ? 'Background' : (isAwaitingNewMetar() ? 'HUNTING' : 'Active');
+    console.log(`[POLL] Next poll in ${nextInterval / 1000}s (${huntStatus})`);
 
     if (currentPollTimeout) clearTimeout(currentPollTimeout);
     currentPollTimeout = setTimeout(adaptivePoll, nextInterval);
