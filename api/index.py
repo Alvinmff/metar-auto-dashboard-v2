@@ -2545,13 +2545,16 @@ def _background_update_metar(station):
 # =========================
 @app.route("/api/latest-data")
 def latest_data():
-    """Endpoint for frontend polling — heavily cached for Vercel"""
+    """Endpoint for frontend polling — optimized for VERCEL serverless consistency"""
     global last_metar_update, auto_fetch, latest_metar_data, _last_fetch_time, _cached_metar
     
     now_ts = time.time()
+    now_dt = datetime.utcnow()
     
-    # 🔥 CACHE HIT: Return cached data immediately jika masih fresh
-    if _cached_metar and (now_ts - _last_fetch_time < CACHE_TTL):
+    # 1. 🔥 FAST CACHE HIT (Local Memory)
+    # Jika data di memori masih sangat baru (< 15 detik), langsung kirim balik
+    # Ini sangat cepat dan menghemat kuota Google Sheets API.
+    if _cached_metar and (now_ts - _last_fetch_time < 15):
         data = _cached_metar.copy()
         data.update({
             "auto_fetch": auto_fetch,
@@ -2559,51 +2562,34 @@ def latest_data():
             "cache_age": int(now_ts - _last_fetch_time)
         })
         response = make_response(jsonify(data))
-        # Remove strict browser cache so pulling happens, but edge caches for 10s
-        response.headers['Cache-Control'] = 'public, max-age=10, s-maxage=10'
+        response.headers['Cache-Control'] = 'public, max-age=5, s-maxage=5'
         return response
     
-    # 🔥 STALE-WHILE-REVALIDATE: Return stale data sambil update background
-    if _cached_metar and auto_fetch:
-        # Return data yang ada dulu, update async
-        data = _cached_metar.copy()
-        data.update({
-            "auto_fetch": auto_fetch,
-            "stale": True,
-            "message": "Data being refreshed"
-        })
-        
-        # Trigger background update (non-blocking)
-        threading.Thread(target=_background_update_metar, args=("WARR",), daemon=True).start()
-        
-        response = make_response(jsonify(data))
-        response.headers['Cache-Control'] = 'public, max-age=10, s-maxage=10'
-        return response
-    
-    # 🔥 VERCEL SYNC TRIGGER:
-    # If auto_fetch is on, check if we need to fetch fresh data
+    # 2. 🔥 SYNCHRONOUS SYNC (Vercel Compatibility)
+    # Jika data sudah stale (> 20 detik) atau cache kosong, lakukan penarikan data baru secara sinkron.
+    # PENTING: Jangan gunakan Threading di Vercel karena akan dimatikan sebelum selesai.
     if auto_fetch:
-        now = datetime.utcnow()
-        should_update = False
+        should_sync = False
         
-        if not last_metar_update:
-            should_update = True
+        if not last_metar_update or not latest_metar_data:
+            should_sync = True
         else:
             try:
+                # Cek kesegaran timestamp data terakhir
+                # last_metar_update biasanya ISO format (UTC)
                 last_dt = pd.to_datetime(last_metar_update.replace("Z", ""), format='mixed')
-                # If more than 20 seconds old, trigger an update
-                if (now - last_dt).total_seconds() > 20: 
-                    should_update = True
+                # Jika data sudah lebih dari 20 detik berlalu sejak update terakhir
+                if (now_dt - last_dt).total_seconds() > 20: 
+                    should_sync = True
             except:
-                should_update = True
+                should_sync = True
         
-        if should_update:
-            print(f"[POLL] Data stale or missing, triggering sync for WARR...", file=sys.stderr)
-            # Browser-triggered sync
+        if should_sync:
+            print(f"[POLL] Data stale or missing, triggering synchronous sync...", file=sys.stderr)
+            # Jalankan sync secara sinkron agar Vercel tidak mematikan process di tengah jalan
             update_metar_data_and_sync("WARR", is_cron=False)
 
-    # Ensure latest_metar_data is populated if available in CSV but missing in cache
-    # (Happens on first load or after server restart in serverless environments)
+    # 3. 🔥 FALLBACK: Populasikan data dari CSV jika cache memori hilang (serverless restart)
     if not latest_metar_data and os.path.exists(CSV_FILE):
         try:
             df = pd.read_csv(CSV_FILE)
@@ -2617,46 +2603,39 @@ def latest_data():
                 last_metar_update = pd.to_datetime(last_row["time"]).isoformat() + "Z"
                 
                 latest_metar_data = {
-                    "status": "cached",
+                    "status": "cached_fallback",
                     "raw": metar,
                     "qam": qam,
                     "narrative": narrative,
+                    "last_update": last_metar_update,
+                    "auto_fetch": auto_fetch,
                     "wind_dir": parsed.get("wind_dir"),
                     "wind_speed": parsed.get("wind_speed_kt"),
-                    "last_update": last_metar_update, # Include timestamp for change detection
-                    "auto_fetch": auto_fetch,
-                    "wind_gust": parsed.get("wind_gust_kt"),
                     "temp": parsed.get("temperature_c"),
-                    "dewpoint": parsed.get("dewpoint_c"),
-                    "visibility_m": parsed.get("visibility_m"),
-                    "cloud": parsed.get("cloud"),
                     "qnh": parsed.get("pressure_hpa"),
-                    "weather": parsed.get("weather"),
-                    "metar_status": parsed.get("status", "normal"),
-                    "report_type": parsed.get("report_type", "METAR")
+                    "metar_status": parsed.get("status", "normal")
                 }
         except Exception as e:
-            print(f"[POLL] Error building fallback data: {e}", file=sys.stderr)
+            print(f"[POLL] Fallback build failed: {e}", file=sys.stderr)
 
-    # Return cached data with current system status
-    data = {}
-    if latest_metar_data:
-        data = latest_metar_data.copy()
-    
+    # 4. PREPARE RESPONSE
+    data = (latest_metar_data or {}).copy()
     data.update({
         "auto_fetch": auto_fetch,
         "last_update": last_metar_update,
-        "server": "online"
+        "server": "online",
+        "sync_time": now_dt.isoformat() + "Z"
     })
     
-    # Update cache
+    # Update memory cache
     _cached_metar = data
     _last_fetch_time = now_ts
     
-    # Return with Edge Cache headers for Vercel optimization
-    # Return with short Edge Cache headers for real-time consistency
     response = make_response(jsonify(data))
-    response.headers['Cache-Control'] = 'public, max-age=5, s-maxage=10, stale-while-revalidate=20'
+    # s-maxage=0 memberitahu Edge (Vercel) untuk TIDAK melakukan caching pada level CDN.
+    # Dashboard kita sudah punya polling interval sendiri, lebih aman fetch langsung ke server
+    # agar tidak ada data jam 15.00 yang "nyangkut" di CDN.
+    response.headers['Cache-Control'] = 'private, no-cache, no-store, must-revalidate, s-maxage=0'
     return response
 
 # =========================
