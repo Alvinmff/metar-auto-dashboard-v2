@@ -9,12 +9,6 @@
       "destination": "/api"
     }
   ],
-  "crons": [
-    {
-      "path": "/api/cron/sync?auth=bmkg-juanda-secret-123",
-      "schedule": "*/10 * * * *"
-    }
-  ],
   "functions": {
     "api/index.py": {
       "maxDuration": 10
