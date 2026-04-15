@@ -23,7 +23,7 @@ except (ImportError, ValueError):
 # Global Caching for Polling Efficiency - VERCEL OPTIMIZED
 _last_fetch_time = 0
 _cached_metar = None
-CACHE_TTL = 300  # 5 menit
+CACHE_TTL = 20  # 20 detik untuk polling data (mempercepat real-time update)
 
 # Tambahkan cache untuk history API
 _cached_history = None
@@ -2557,7 +2557,8 @@ def latest_data():
             "cache_age": int(now_ts - _last_fetch_time)
         })
         response = make_response(jsonify(data))
-        response.headers['Cache-Control'] = 'public, max-age=300'  # Browser cache 5 menit
+        # Remove strict browser cache so pulling happens, but edge caches for 10s
+        response.headers['Cache-Control'] = 'public, max-age=10, s-maxage=10'
         return response
     
     # 🔥 STALE-WHILE-REVALIDATE: Return stale data sambil update background
@@ -2574,7 +2575,7 @@ def latest_data():
         threading.Thread(target=_background_update_metar, args=("WARR",), daemon=True).start()
         
         response = make_response(jsonify(data))
-        response.headers['Cache-Control'] = 'public, max-age=60, stale-while-revalidate=300'
+        response.headers['Cache-Control'] = 'public, max-age=10, s-maxage=10'
         return response
     
     # 🔥 VERCEL SYNC TRIGGER:
