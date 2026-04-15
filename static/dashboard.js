@@ -57,6 +57,8 @@ let autoFetchEnabled = localStorage.getItem('autoFetchEnabled') === null ? true 
 // =======================
 let pollingInterval = null;
 let isPolling = false;
+let pollFailCount = 0;
+const MAX_POLL_FAILS = 3;
 
 // =======================
 // CONNECTION STATUS HELPER
@@ -74,7 +76,11 @@ function updateConnectionIndicator(isOnline) {
     }
 
     if (text) {
-        text.textContent = isOnline ? 'LIVE' : 'OFFLINE';
+        if (isOnline) {
+            text.textContent = 'LIVE';
+        } else if (pollFailCount >= MAX_POLL_FAILS) {
+            text.textContent = 'OFFLINE';
+        }
     }
 }
 
@@ -118,9 +124,16 @@ async function pollLatestData() {
             updateStatusPanel(data);
             updateConnectionIndicator(true);
         }
+        // Success: Reset fail count and update status
+        pollFailCount = 0;
+        updateConnectionIndicator(true);
+
     } catch (error) {
         console.error('[POLL] Error:', error);
-        updateConnectionIndicator(false);
+        pollFailCount++;
+        if (pollFailCount >= MAX_POLL_FAILS) {
+            updateConnectionIndicator(false);
+        }
     } finally {
         isPolling = false;
     }
@@ -136,39 +149,40 @@ let isTabVisible = !document.hidden;
 document.addEventListener("visibilitychange", () => {
     isTabVisible = !document.hidden;
     if (isTabVisible) {
-        console.log("[POLL] Tab active, resuming poll...");
-        adaptivePoll(); // Trigger immediate on return
-    } else {
-        console.log("[POLL] Tab hidden, pausing poll to save resources...");
+        console.log("[POLL] Tab active, resuming fast poll...");
+        // Trigger immediate poll on return
         if (currentPollTimeout) clearTimeout(currentPollTimeout);
+        adaptivePoll(); 
+    } else {
+        console.log("[POLL] Tab hidden, switching to background poll rate...");
+        // Don't clear here, let the next adaptivePoll handle the timing
     }
 });
 
 async function adaptivePoll() {
-    if (!isTabVisible) return; // Jangan fetch kalau user gak buka tab
-
+    // Perform the actual fetch
     await pollLatestData();
 
-    // Hitung interval berdasarkan freshness dan cuaca (SPECI/COR/AMD)
-    let nextInterval = 60000; // Default 1 menit
+    // Determine next interval
+    let nextInterval = 60000; // Default 1 minute
 
-    const metarStatus = lastMetarStatus || 'normal';
-    const isNewData = alarmState.lastUpdateTime > (Date.now() - 30000);
+    if (!isTabVisible) {
+        // BACKGROUND POLL: Poll every 5 minutes when minimized
+        nextInterval = 300000; 
+    } else {
+        const metarStatus = lastMetarStatus || 'normal';
+        const isNewData = alarmState.lastUpdateTime > (Date.now() - 30000);
 
-    // Jika cuaca buruk/urgent, poll setiap 30 detik
-    if (metarStatus !== 'normal') {
-        nextInterval = 30000;
-    }
-    // Jika data baru keluar, tunggu 1 menit
-    else if (isNewData) {
-        nextInterval = 60000;
-    }
-    // Jika data sudah lama ngga update (idle season), poll 3 menit sekali!
-    else {
-        nextInterval = 180000;
+        if (metarStatus !== 'normal') {
+            nextInterval = 30000; // Urgent/Critical
+        } else if (isNewData) {
+            nextInterval = 60000; // Fresh data
+        } else {
+            nextInterval = 180000; // Idle season (3 mins)
+        }
     }
 
-    console.log(`[POLL] Next poll in ${nextInterval / 1000}s`);
+    console.log(`[POLL] Next poll in ${nextInterval / 1000}s (${isTabVisible ? 'Active' : 'Background'})`);
 
     if (currentPollTimeout) clearTimeout(currentPollTimeout);
     currentPollTimeout = setTimeout(adaptivePoll, nextInterval);
