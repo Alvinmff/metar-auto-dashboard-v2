@@ -2534,7 +2534,8 @@ def favicon():
 def _background_update_metar(station):
     """Background update tanpa blocking response"""
     try:
-        update_metar_data_and_sync(station)
+        # Pemicu dari browser/latest-data, gunakan is_cron=False
+        update_metar_data_and_sync(station, is_cron=False)
     except Exception as e:
         print(f"[BG UPDATE] Error: {e}", file=sys.stderr)
 
@@ -2597,7 +2598,8 @@ def latest_data():
         
         if should_update:
             print(f"[POLL] Data stale or missing, triggering sync for WARR...", file=sys.stderr)
-            update_metar_data_and_sync("WARR")
+            # Browser-triggered sync
+            update_metar_data_and_sync("WARR", is_cron=False)
 
     # Ensure latest_metar_data is populated if available in CSV but missing in cache
     # (Happens on first load or after server restart in serverless environments)
@@ -2693,7 +2695,8 @@ def cron_sync():
     
     # Execute collection
     try:
-        success = update_metar_data_and_sync(station)
+        # Pemicu dari Cron (GHA/Vercel Cron)
+        success = update_metar_data_and_sync(station, is_cron=True)
         
         if success:
             _last_collection[station] = {
@@ -2744,21 +2747,25 @@ def normalize_metar(metar: str) -> str:
     # Uppercase untuk consistency
     metar = metar.upper().strip()
     return metar
-
 # =========================
 # CENTRALIZED METAR UPDATE DATA & SYNC (ANTI-DUPLIKASI)
 # =========================
-def update_metar_data_and_sync(station="WARR"):
+def update_metar_data_and_sync(station="WARR", is_cron=False):
     """
     Central function to fetch METAR, save locally, sync to Google Sheets, 
     and update global cache. 
     
     LOGIKA ANTI-DUPLIKASI:
-    - Hanya menyimpan jika METAR benar-benar berbeda dari yang sudah ada
-      dalam 24 jam terakhir, ATAU jika sudah lewat 30 menit dari update terakhir
-      dengan data yang sama (untuk tracking continuity).
+    - Hanya menyimpan jika METAR benar-benar berbeda dari data yang sudah ada
+      di Google Sheets dalam 10 record terakhir.
+    - Mengecek isi string METAR dan uniknya kode waktu (DDHHMMZ).
     """
     global last_metar_update, latest_metar_data, auto_fetch
+    
+    # 🔥 STAGGERED DELAY (Anti-Collision)
+    # Jika dipicu oleh browser, beri jeda acak agar tidak bertabrakan dengan Cron
+    if not is_cron:
+        time.sleep(random.uniform(1.0, 3.0))
     
     try:
         print(f"[SYNC] Starting update for {station}...", file=sys.stderr)
@@ -2770,8 +2777,13 @@ def update_metar_data_and_sync(station="WARR"):
         
         # Normalisasi untuk comparison
         metar_clean = normalize_metar(metar)
-        print(f"[SYNC] Raw METAR: {str(metar)[:80]}...", file=sys.stderr)  # type: ignore
-        print(f"[SYNC] Normalized: {str(metar_clean)[:80]}...", file=sys.stderr)  # type: ignore
+        
+        # Ekstrak Time Group (misal: 151430Z) untuk key unik
+        time_match = re.search(r' (\d{6}Z) ', " " + metar + " ")
+        metar_time_key = time_match.group(1) if time_match else None
+        
+        print(f"[SYNC] Raw METAR: {str(metar)[:80]}...", file=sys.stderr)
+        if metar_time_key: print(f"[SYNC] Time Key: {metar_time_key}", file=sys.stderr)
 
         # =====================================================
         # GLOBAL CONTEXT: Fetch recent history directly from Sheets
@@ -2789,25 +2801,29 @@ def update_metar_data_and_sync(station="WARR"):
             df = pd.read_csv(CSV_FILE)
         
         # =====================================================
-        # LOGIKA ANTI-DUPLIKASI: Strict String Match
+        # LOGIKA ANTI-DUPLIKASI: Multi-Record Match
         # =====================================================
         should_save = True
         skip_reason = ""
         
         if len(df) > 0:
-            # Check only the MOST RECENT entry
-            last_row = df.iloc[-1]
-            last_metar_clean = normalize_metar(str(last_row["metar"]))
+            # 1. Cek isi string METAR di 10 data terakhir
+            # Gunakan list comprehension untuk normalisasi semua data pembanding
+            past_metars_clean = [normalize_metar(str(m)) for m in df["metar"].tolist()]
             
-            if metar_clean == last_metar_clean:
-                # METAR identik dengan data terakhir -> No need to save a new row
+            if metar_clean in past_metars_clean:
                 should_save = False
-                skip_reason = "Duplikat: METAR identik dengan data terakhir"
-            else:
-                # NEW DATA or SPECI (which has different timestamp) -> Save
-                should_save = True
-                skip_reason = ""
-        
+                skip_reason = "Duplikat: METAR identik dengan salah satu dari 10 data terakhir"
+            
+            # 2. Cek spesifik Kode Waktu (DDHHMMZ) jika ditemukan
+            if should_save and metar_time_key:
+                # Cari pola waktu di data history
+                for past_raw in df["metar"].tolist():
+                    past_time_match = re.search(r' (\d{6}Z) ', " " + str(past_raw) + " ")
+                    if past_time_match and past_time_match.group(1) == metar_time_key:
+                        should_save = False
+                        skip_reason = f"Duplikat: Kode waktu {metar_time_key} sudah ada di riwayat"
+                        break
         # =====================================================
         # EXECUTE SAVE OR SKIP
         # =====================================================
