@@ -10,9 +10,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Trigger Vercel Sync
+        env:
+          CRON_TOKEN: ${{ secrets.CRON_TOKEN }}
         run: |
           RESPONSE=$(curl -s -w "\n%{http_code}" \
-            "https://metar-auto-app-v2.vercel.app/api/cron/sync?auth=${{ secrets.CRON_TOKEN }}")
+            "https://metar-auto-app-v2.vercel.app/api/cron/sync?auth=$CRON_TOKEN")
           HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
           BODY=$(echo "$RESPONSE" | sed '$d')
           
