@@ -1277,7 +1277,12 @@ function handleMetarUpdate(data) {
 
     // Show toast untuk data baru (hanya jika konten METAR berubah)
     if (!isFirstLoad && data.raw && data.status === 'new' && isMetarChanged) {
-        showToast('New METAR Received', `${STATION} — ${new Date().toUTCString().slice(17, 25)} UTC`, 'success', 5000, allowToastSound);
+        showToast('New METAR Received', `${STATION} — ${new Date().toISOString().slice(11, 19)} UTC`, 'success', 5000, allowToastSound);
+        
+        // 🔔 TRIGGER NOTIFIKASI SUARA UNTUK DATA BARU
+        if (typeof playNotifySound === 'function') {
+            playNotifySound();
+        }
     }
 
     // Simpan data terakhir untuk perbandingan di polling berikutnya
@@ -1387,8 +1392,9 @@ function updateStatusPanel(data) {
     if (lastEl) {
         if (data.last_update) {
             const date = new Date(data.last_update);
-            const timeStr = date.getHours().toString().padStart(2, '0') + ':' +
-                date.getMinutes().toString().padStart(2, '0') + ' WIB';
+            // Strictly UTC for time display
+            const timeStr = date.getUTCHours().toString().padStart(2, '0') + ':' +
+                date.getUTCMinutes().toString().padStart(2, '0') + ' UTC';
 
             // 🔥 DATA FRESHNESS INDICATOR
             const ageMs = Date.now() - date.getTime();

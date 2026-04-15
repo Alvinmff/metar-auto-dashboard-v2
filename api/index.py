@@ -1955,10 +1955,10 @@ def home():
         today_str = now_utc.strftime("%Y-%m-%d")
         current_day = now_utc.strftime("%A")
         
-        # Filter for today's records (WIB date)
+        # Filter for today's records (UTC date)
         # Ensure time column is string for startswith comparison
         full_history['time'] = full_history['time'].astype(str)
-        history = full_history[full_history['time'].str.contains(today_str)].copy()
+        history = full_history[full_history['time'].str.startswith(today_str)].copy()
         
         # Update history source if data actually came from Sheets
         # (This is a bit redundant but helps UI accuracy)
@@ -2651,8 +2651,9 @@ def latest_data():
     _last_fetch_time = now_ts
     
     # Return with Edge Cache headers for Vercel optimization
+    # Return with short Edge Cache headers for real-time consistency
     response = make_response(jsonify(data))
-    response.headers['Cache-Control'] = 's-maxage=20, stale-while-revalidate=40'
+    response.headers['Cache-Control'] = 'public, max-age=5, s-maxage=10, stale-while-revalidate=20'
     return response
 
 # =========================
