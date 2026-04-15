@@ -4,6 +4,7 @@ import os
 import json
 import pandas as pd  # type: ignore
 from datetime import datetime
+import time
 import sys
 
 # Spreadsheet ID from user
@@ -17,6 +18,8 @@ class GoogleSheetHandler:
         ]
         self.client = None
         self.sheet = None
+        self._cache = {}
+        self._cache_ttl = 300  # 5 menit cache
         self._authenticate()
 
     def _authenticate(self):
@@ -106,53 +109,66 @@ class GoogleSheetHandler:
             print(f"[SHEETS] ❌ Error saving to Sheets: {e}", file=sys.stderr)
             return False
 
+    def _get_cached_or_fetch(self, cache_key, fetch_func, ttl=None):
+        """Helper untuk cache Sheets calls"""
+        ttl = ttl or self._cache_ttl
+        now = time.time()
+        
+        if cache_key in self._cache:
+            data, timestamp = self._cache[cache_key]
+            if now - timestamp < ttl:
+                print(f"[SHEETS] Cache hit for {cache_key}", file=sys.stderr)
+                return data
+        
+        # Fetch fresh
+        data = fetch_func()
+        self._cache[cache_key] = (data, now)
+        return data
+
     def get_recent_data(self, limit=20):
         """Fetch the last N records from Sheets for deduplication context"""
         if self.sheet is None:
             self._authenticate()
             
-        sheet = self.sheet
-        if sheet is None:
-            return []
-
-        try:
-            # Get total rows
-            all_rows = sheet.get_all_values()
-            if len(all_rows) <= 1: # Header only
+        def _fetch():
+            sheet = self.sheet
+            if sheet is None:
                 return []
-            
-            # Extract header
-            header = all_rows[0]
-            # Get last 'limit' rows
-            recent_rows = all_rows[-limit:]
-            
-            # Convert to list of dicts (like get_all_records)
-            data = []
-            for row in recent_rows:
-                if len(row) >= len(header):
-                    # Use comprehension with type ignore for persistent linter confusion
-                    row_dict = {header[i]: row[i] for i in range(len(header))}  # type: ignore
-                    data.append(row_dict)
-            return data
-        except Exception as e:
-            print(f"[SHEETS] ❌ Error fetching recent data: {e}", file=sys.stderr)
-            return []
+            try:
+                all_rows = sheet.get_all_values()
+                if len(all_rows) <= 1:
+                    return []
+                header = all_rows[0]
+                recent_rows = all_rows[-limit:]
+                data = []
+                for row in recent_rows:
+                    if len(row) >= len(header):
+                        row_dict = {header[i]: row[i] for i in range(len(header))}  # type: ignore
+                        data.append(row_dict)
+                return data
+            except Exception as e:
+                print(f"[SHEETS] ❌ Error fetching recent data: {e}", file=sys.stderr)
+                return []
+                
+        return self._get_cached_or_fetch(f'recent_{limit}', _fetch, ttl=60)
 
     def get_all_data(self):
         """Fetch all records from Sheets as a list of dicts"""
         if self.sheet is None:
             self._authenticate()
             
-        sheet = self.sheet
-        if sheet is None:
-            return []
-
-        try:
-            print("[SHEETS] Fetching all data records...", file=sys.stderr)
-            return sheet.get_all_records()
-        except Exception as e:
-            print(f"[SHEETS] ❌ Error fetching all data: {e}", file=sys.stderr)
-            return []
+        def _fetch():
+            sheet = self.sheet
+            if sheet is None:
+                return []
+            try:
+                print("[SHEETS] Fetching all data records...", file=sys.stderr)
+                return sheet.get_all_records()
+            except Exception as e:
+                print(f"[SHEETS] ❌ Error fetching all data: {e}", file=sys.stderr)
+                return []
+                
+        return self._get_cached_or_fetch('all_data', _fetch, ttl=300)
 
     def sync_to_local(self, local_path):
         """Fetch all data from Sheets and save to local CSV (for Vercel warmup)"""

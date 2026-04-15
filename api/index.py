@@ -20,10 +20,20 @@ try:
     from .sheets_handler import sheets_handler  # type: ignore
 except (ImportError, ValueError):
     from sheets_handler import sheets_handler  # type: ignore
-# Global Caching for Polling Efficiency
+# Global Caching for Polling Efficiency - VERCEL OPTIMIZED
 _last_fetch_time = 0
 _cached_metar = None
-CACHE_TTL = 60  # seconds
+CACHE_TTL = 300  # 5 menit
+
+# Tambahkan cache untuk history API
+_cached_history = None
+_history_cache_time = 0
+HISTORY_CACHE_TTL = 600  # 10 menit untuk history
+
+# Track last successful collection per station
+_last_collection = {
+    'WARR': {'time': None, 'metar': None, 'attempts': 0}
+}
 
 def format_indonesian_date(dt):
     """Format datetime ke format Indonesia: Kamis, 02 April 2026"""
@@ -1716,7 +1726,17 @@ def windrose_monthly_api(station):
 @app.route("/api/metar/history")
 def get_history_api():
     """Returns historical data in JSON format for charts and tables"""
-    global last_metar_update, auto_fetch
+    global last_metar_update, auto_fetch, _cached_history, _history_cache_time
+    
+    now_ts = time.time()
+    
+    # 🔥 CACHE HIT untuk history (jarang berubah)
+    if _cached_history and (now_ts - _history_cache_time < HISTORY_CACHE_TTL):
+        data = _cached_history.copy()
+        data['cached'] = True
+        response = make_response(jsonify(data))
+        response.headers['Cache-Control'] = 'public, max-age=600'  # 10 menit cache
+        return response
     
     # 🔥 VERCEL STALE CHECK:
     # Ensure history is relatively fresh from Sheets if on Vercel
@@ -1785,7 +1805,7 @@ def get_history_api():
         # In Vercel environment, data is synced from Sheets
         source_info = "Sheets" if IS_VERCEL else "Local CSV"
 
-        return jsonify({
+        result_dict = {
             "data": data_list,
             "labels": labels,
             "temps": temps,
@@ -1796,7 +1816,15 @@ def get_history_api():
             },
             "count": len(df),
             "source": source_info
-        })
+        }
+        
+        # Simpan ke cache
+        _cached_history = result_dict
+        _history_cache_time = now_ts
+        
+        response = make_response(jsonify(result_dict))
+        response.headers['Cache-Control'] = 'public, max-age=600, stale-while-revalidate=1200'
+        return response
     except Exception as e:
         print(f"[API] History error: {e}", file=sys.stderr)
         return jsonify({"error": str(e), "data": []}), 500
@@ -1874,58 +1902,45 @@ def home():
     try:
         print("\n=== HOME ROUTE CALLED ===", file=sys.stderr)
         
-        if request.method == "POST":
-            station = request.form["icao"].upper()
-            print(f"[HOME] POST request with station: {station}", file=sys.stderr)
-            fetch_needed = True
-        else:
-            fetch_needed = auto_fetch # Only fetch on GET if auto_fetch is enabled
-
-        if fetch_needed:
-            print(f"[HOME] Update triggered for {station}...", file=sys.stderr)
-            success = update_metar_data_and_sync(station)
-            if success:
-                print("[HOME] Live sync successful", file=sys.stderr)
-            else:
-                print("[HOME] Live sync failed or no new data", file=sys.stderr)
+        # 🔥 SELALU baca dari Sheets, bukan fetch live
+        # Fetch dari Sheets (cached 5 menit di sheets_handler)
+        all_data = sheets_handler.get_all_data()
         
-        # Pull global data for display
-        metar = str(latest_metar_data.get("raw") or "")
-        if metar:
-            parsed = parse_metar(metar)
-            qam = latest_metar_data.get("qam")
-            narrative = latest_metar_data.get("narrative")
-            
-            # Additional wind storage (robustness)
-            store_wind(parsed, station)
-            print("[HOME] Display data prepared from cache", file=sys.stderr)
+        if not all_data:
+            # Fallback: coba CSV lokal
+            df = pd.read_csv(CSV_FILE) if os.path.exists(CSV_FILE) else pd.DataFrame()
         else:
-            print("[HOME] No live data in cache, checking CSV history...", file=sys.stderr)
-            # Try to get last known METAR from CSV if live fetch fails
-            if os.path.exists(CSV_FILE):
-                df = pd.read_csv(CSV_FILE)
-                if len(df) > 0:
-                    # Get the most recent METAR
-                    last_row = df.iloc[-1]
-                    metar = last_row['metar']
-                    station = last_row['station']
-                    parsed = parse_metar(metar)
-                    qam = generate_qam(station, parsed, metar)
-                    narrative = generate_metar_narrative(parsed, metar)
-                    
-                    # Fallback successful
-                    metar_display = str(metar)
-                    # pyre-ignore[ID bbb2bbe8-27af-4647-8926-038ce0fe7de6, ID 474d23c6-9e67-4cb1-ba78-43551e199e15]
-                    metar_display = metar_display[:50]
-                    print(f"[HOME] Using historical METAR: {metar_display}...", file=sys.stderr)
-                    try:
-                        last_metar_update = pd.to_datetime(last_row["time"], format='mixed').isoformat() + "Z"
-                    except:
-                        last_metar_update = datetime.utcnow().isoformat() + "Z"
+            df = pd.DataFrame(all_data)
+        
+        if not df.empty:
+            # Gunakan data paling terbaru untuk display utama
+            latest_row = df.iloc[-1]
+            metar = str(latest_row['metar'])
+            station = str(latest_row['station'])
+            parsed = parse_metar(metar)
+            qam = generate_qam(station, parsed, metar)
+            narrative = generate_metar_narrative(parsed, metar)
+            
+            try:
+                last_metar_update = pd.to_datetime(latest_row["time"], format='mixed').isoformat() + "Z"
+            except:
+                pass
+            
+            store_wind(parsed, station)
+        else:
+            # No data today - show warning tapi tetap render
+            metar = None
+            qam = "No data available"
+            narrative = "Data collection may be delayed"
+            parsed = {}
+
+        if request.method == "POST":
+            # Just updating station filter if POST
+            station = request.form.get("icao", "WARR").upper()
+
     except Exception as e:
         print(f"[HOME] CRITICAL ERROR: {e}", file=sys.stderr)
         print(traceback.format_exc(), file=sys.stderr)
-        # Fallback will happen as metrics are pre-initialized to None
 
     # Read history and prepare chart data
     history_start = ""
@@ -2503,24 +2518,51 @@ def set_fetch():
 def favicon():
     return '', 204
 
+def _background_update_metar(station):
+    """Background update tanpa blocking response"""
+    try:
+        update_metar_data_and_sync(station)
+    except Exception as e:
+        print(f"[BG UPDATE] Error: {e}", file=sys.stderr)
+
 # =========================
 # POLLING ENDPOINT (replaces WebSocket)
 # =========================
 @app.route("/api/latest-data")
 def latest_data():
-    """Endpoint for frontend polling — returns latest METAR + system status"""
+    """Endpoint for frontend polling — heavily cached for Vercel"""
     global last_metar_update, auto_fetch, latest_metar_data, _last_fetch_time, _cached_metar
     
-    # 🔥 CACHE LAYER: Check if we have fresh data in memory (60s TTL)
     now_ts = time.time()
+    
+    # 🔥 CACHE HIT: Return cached data immediately jika masih fresh
     if _cached_metar and (now_ts - _last_fetch_time < CACHE_TTL):
-        # Return cached copy with real-time fetch status
         data = _cached_metar.copy()
         data.update({
             "auto_fetch": auto_fetch,
-            "cached": True
+            "cached": True,
+            "cache_age": int(now_ts - _last_fetch_time)
         })
-        return jsonify(data)
+        response = make_response(jsonify(data))
+        response.headers['Cache-Control'] = 'public, max-age=300'  # Browser cache 5 menit
+        return response
+    
+    # 🔥 STALE-WHILE-REVALIDATE: Return stale data sambil update background
+    if _cached_metar and auto_fetch:
+        # Return data yang ada dulu, update async
+        data = _cached_metar.copy()
+        data.update({
+            "auto_fetch": auto_fetch,
+            "stale": True,
+            "message": "Data being refreshed"
+        })
+        
+        # Trigger background update (non-blocking)
+        threading.Thread(target=_background_update_metar, args=("WARR",), daemon=True).start()
+        
+        response = make_response(jsonify(data))
+        response.headers['Cache-Control'] = 'public, max-age=60, stale-while-revalidate=300'
+        return response
     
     # 🔥 VERCEL SYNC TRIGGER:
     # If auto_fetch is on, check if we need to fetch fresh data
@@ -2605,32 +2647,70 @@ def latest_data():
 @app.route("/api/cron/sync")
 def cron_sync():
     """
-    Automated endpoint triggered by Vercel Cron or External Cron service.
+    24/7 Data Collection Endpoint
+    Didesign untuk reliability meski dipanggil multiple sources
     """
-    # 1. Check for Vercel Native Cron header
-    is_vercel_cron = request.headers.get('x-vercel-cron') == '1'
+    global _last_collection, _cached_metar, latest_metar_data
     
-    # 2. Check for Token-based auth
-    expected_token = os.environ.get('CRON_TOKEN', 'bmkg-juanda-secret-123')
-    provided_token = request.args.get('auth')
-    is_external_cron = provided_token == expected_token
-
-    if not is_vercel_cron and not is_external_cron:
-        print(f"[CRON] ❌ Unauthorized attempt from {request.remote_addr}. Token provided: {'YES' if provided_token else 'NO'}", file=sys.stderr)
+    # Auth check
+    is_vercel = request.headers.get('x-vercel-cron') == '1'
+    token = request.args.get('auth')
+    expected = os.environ.get('CRON_TOKEN', 'bmkg-juanda-secret-123')
+    
+    if not is_vercel and token != expected:
+        return jsonify({"error": "Unauthorized"}), 401
+    
+    station = "WARR"
+    now = datetime.utcnow()
+    last = _last_collection.get(station, {})
+    
+    # 🔥 ANTI-DUPLICATE: Jangan save jika sudah ada data < 2 menit yang lalu
+    if last.get('time'):
+        time_diff = (now - last['time']).total_seconds()
+        cached_raw = _cached_metar.get('raw') if isinstance(_cached_metar, dict) else None
+        if time_diff < 120 and last.get('metar') == cached_raw:
+            return jsonify({
+                "status": "skipped",
+                "reason": "Duplicate prevention",
+                "last_collection": last['time'].isoformat(),
+                "next_eligible": (last['time'] + timedelta(minutes=2)).isoformat()
+            }), 200
+    
+    # Execute collection
+    try:
+        success = update_metar_data_and_sync(station)
+        
+        if success:
+            _last_collection[station] = {
+                'time': now,
+                'metar': latest_metar_data.get('raw') if isinstance(latest_metar_data, dict) else None,
+                'attempts': 0
+            }
+            
+            # Safely get preview
+            raw_preview = ""
+            if isinstance(latest_metar_data, dict) and latest_metar_data.get('raw'):
+                raw_preview = latest_metar_data.get('raw')[:50] + "..."
+                
+            return jsonify({
+                "status": "success",
+                "collected_at": now.isoformat(),
+                "metar_preview": raw_preview,
+                "stored_to": "Google Sheets"
+            }), 200
+        else:
+            _last_collection[station]['attempts'] = last.get('attempts', 0) + 1
+            return jsonify({
+                "status": "failed",
+                "attempt": _last_collection[station]['attempts'],
+                "error": "Sync returned false"
+            }), 500
+            
+    except Exception as e:
         return jsonify({
-            "error": "Unauthorized", 
-            "hint": "Provide valid ?auth= token",
-            "received_token": provided_token[:3] + "..." if provided_token else None
-        }), 401
-
-    auth_type = 'Vercel' if is_vercel_cron else 'External'
-    print(f"[CRON] ⏰ Background sync triggered (Type: {auth_type})", file=sys.stderr)
-    success = update_metar_data_and_sync("WARR")
-    
-    if success:
-        return jsonify({"status": "success", "message": f"Sync complete via {auth_type}"}), 200
-    else:
-        return jsonify({"status": "failed", "message": "Sync failed or no new data"}), 500
+            "status": "error",
+            "message": str(e)
+        }), 500
 
 # =========================
 # HELPER: Normalize METAR for accurate comparison
@@ -2822,33 +2902,9 @@ def update_metar_data_and_sync(station="WARR"):
 # =========================
 
 def background_metar_loop():
-    print("✅ Background loop started")
-    global last_metar_update, auto_fetch, latest_metar_data
-
-    while True:
-        try:
-            if not auto_fetch:
-                print("[SYSTEM] Auto fetch is DISABLED - skipping METAR update")
-                time.sleep(80)
-                continue
-
-            station = "WARR"
-            print(f"\n=== Background loop iteration ===")
-            print(f"[LOOP] Triggering update for station: {station}")
-            
-            success = update_metar_data_and_sync(station)
-            if success:
-                print("[LOOP] Background sync successful", file=sys.stderr)
-            else:
-                print("[LOOP] Background sync failed or no new data", file=sys.stderr)
-
-        except Exception as e:
-            print(f"[LOOP] ERROR: {e}")
-            import traceback
-            traceback.print_exc()
-
-        print(f"[LOOP] Sleeping for 60 seconds...")
-        time.sleep(60)
+    """⚠️ DEPRECATED: Do not use in Vercel environment"""
+    print("[SYSTEM] Background loop disabled - use Vercel Cron instead", file=sys.stderr)
+    return  # Exit immediately
 
 @app.route("/download_history", methods=["POST"])
 def download_history():

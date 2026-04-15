@@ -131,16 +131,44 @@ async function pollLatestData() {
 // =======================
 // Optimized for Vercel CPU + SPECI detection
 let currentPollTimeout = null;
+let isTabVisible = !document.hidden;
+
+document.addEventListener("visibilitychange", () => {
+    isTabVisible = !document.hidden;
+    if (isTabVisible) {
+        console.log("[POLL] Tab active, resuming poll...");
+        adaptivePoll(); // Trigger immediate on return
+    } else {
+        console.log("[POLL] Tab hidden, pausing poll to save resources...");
+        if (currentPollTimeout) clearTimeout(currentPollTimeout);
+    }
+});
 
 async function adaptivePoll() {
+    if (!isTabVisible) return; // Jangan fetch kalau user gak buka tab
+
     await pollLatestData();
 
-    // Jika data baru saja berubah (dalam 5 detik terakhir), poll cepat (30s)
-    // Jika tidak ada perubahan, poll lambat (90s) untuk hemat resource
-    const isNewData = alarmState.lastUpdateTime > (Date.now() - 10000);
-    const nextInterval = isNewData ? 30000 : 90000;
+    // Hitung interval berdasarkan freshness dan cuaca (SPECI/COR/AMD)
+    let nextInterval = 60000; // Default 1 menit
 
-    console.log(`[POLL] Next poll in ${nextInterval / 1000}s${isNewData ? ' (Active)' : ' (Idle)'}`);
+    const metarStatus = lastMetarStatus || 'normal';
+    const isNewData = alarmState.lastUpdateTime > (Date.now() - 30000);
+
+    // Jika cuaca buruk/urgent, poll setiap 30 detik
+    if (metarStatus !== 'normal') {
+        nextInterval = 30000;
+    }
+    // Jika data baru keluar, tunggu 1 menit
+    else if (isNewData) {
+        nextInterval = 60000;
+    }
+    // Jika data sudah lama ngga update (idle season), poll 3 menit sekali!
+    else {
+        nextInterval = 180000;
+    }
+
+    console.log(`[POLL] Next poll in ${nextInterval / 1000}s`);
 
     if (currentPollTimeout) clearTimeout(currentPollTimeout);
     currentPollTimeout = setTimeout(adaptivePoll, nextInterval);
@@ -1085,19 +1113,19 @@ class WindCalculationLogger {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
         })
-        .then(async res => {
-            const dr = await res.json();
-            if (!res.ok) throw new Error(dr.error || 'Server error');
-            return dr;
-        })
-        .then(res => {
-            console.log(`[WIND LOG] Saved successfully: RWY ${runwayName}`, res);
-            showToast('Wind Log', `Berhasil simpan Log RWY ${runwayName}`, 'success', 5000, false);
-        })
-        .catch(err => {
-            console.error('[WIND LOG] Error saving log:', err);
-            showToast('Wind Log Error', `Gagal simpan: ${err.message}`, 'error');
-        });
+            .then(async res => {
+                const dr = await res.json();
+                if (!res.ok) throw new Error(dr.error || 'Server error');
+                return dr;
+            })
+            .then(res => {
+                console.log(`[WIND LOG] Saved successfully: RWY ${runwayName}`, res);
+                showToast('Wind Log', `Berhasil simpan Log RWY ${runwayName}`, 'success', 5000, false);
+            })
+            .catch(err => {
+                console.error('[WIND LOG] Error saving log:', err);
+                showToast('Wind Log Error', `Gagal simpan: ${err.message}`, 'error');
+            });
     }
 }
 
@@ -1361,7 +1389,21 @@ function updateStatusPanel(data) {
             const date = new Date(data.last_update);
             const timeStr = date.getHours().toString().padStart(2, '0') + ':' +
                 date.getMinutes().toString().padStart(2, '0') + ' WIB';
-            lastEl.textContent = timeStr;
+
+            // 🔥 DATA FRESHNESS INDICATOR
+            const ageMs = Date.now() - date.getTime();
+            const ageMins = Math.floor(ageMs / 60000);
+
+            let freshnessIndicator = '';
+            if (ageMins < 5) {
+                freshnessIndicator = ' <span style="color:#10b981;font-weight:bold;">( LIVE )</span>';
+            } else if (ageMins < 60) {
+                freshnessIndicator = ` <span style="color:#f59e0b;font-weight:bold;">( ${ageMins}m ago )</span>`;
+            } else {
+                freshnessIndicator = ` <span style="color:#ef4444;font-weight:bold;">( ${ageMins}m ago )</span>`;
+            }
+
+            lastEl.innerHTML = `${timeStr}${freshnessIndicator}`;
         } else {
             lastEl.textContent = "WAITING...";
         }
@@ -3400,7 +3442,7 @@ function refreshWindLogTable() {
             data.logs.forEach(log => {
                 const isDanger = log.crosswind_status === 'DANGER' || log.tailwind_status === 'DANGER';
                 if (isDanger) dangerCount++;
-                
+
                 let isBoundary = false;
                 if (lastMetarRawLocal && lastMetarRawLocal !== log.metar_raw) {
                     isBoundary = true;

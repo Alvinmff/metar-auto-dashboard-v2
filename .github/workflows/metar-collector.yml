@@ -1,0 +1,32 @@
+name: METAR 24h Collector
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'  # Primary: every 5 minutes
+  workflow_dispatch:
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Vercel Sync
+        run: |
+          RESPONSE=$(curl -s -w "\n%{http_code}" \
+            "https://metar-auto-app-v2.vercel.app/api/cron/sync?auth=${{ secrets.CRON_TOKEN }}")
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+          
+          echo "HTTP Code: $HTTP_CODE"
+          echo "Response: $BODY"
+          
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "::error::Cron failed with code $HTTP_CODE"
+            exit 1
+          fi
+      
+      - name: Verify Data Collection
+        run: |
+          # Check health
+          sleep 2
+          HEALTH=$(curl -s "https://metar-auto-app-v2.vercel.app/health")
+          echo "Health check: $HEALTH"
