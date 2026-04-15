@@ -1,7 +1,13 @@
 {
   "rewrites": [
-    { "source": "/api/(.*)", "destination": "/api" },
-    { "source": "/(.*)", "destination": "/api" }
+    {
+      "source": "/api/(.*)",
+      "destination": "/api"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/api"
+    }
   ],
   "crons": [
     {
@@ -11,7 +17,7 @@
   ],
   "functions": {
     "api/index.py": {
-      "maxDuration": 30
+      "maxDuration": 10
     }
   }
 }
