@@ -196,18 +196,19 @@ async function adaptivePoll() {
 
     // Determine next interval
     let nextInterval = 60000; // Default 1 minute
+    const isHunting = isAwaitingNewMetar();
 
-    if (!isTabVisible) {
-        // BACKGROUND POLL: Poll every 5 minutes when minimized
-        nextInterval = 300000;
+    if (isHunting) {
+        // PRIORITY: Keep hunting even if tab is hidden
+        nextInterval = 10000; 
+    } else if (!isTabVisible) {
+        // BACKGROUND POLL: Only slow down if not hunting
+        nextInterval = 300000; 
     } else {
-        const isHunting = isAwaitingNewMetar();
         const metarStatus = lastMetarStatus || 'normal';
         const isNewData = alarmState.lastUpdateTime > (Date.now() - 30000);
 
-        if (isHunting) {
-            nextInterval = 10000; // HUNT MODE: Fast pool during expected windows
-        } else if (metarStatus !== 'normal') {
+        if (metarStatus !== 'normal') {
             nextInterval = 30000; // Urgent/Critical
         } else if (isNewData) {
             nextInterval = 60000; // Fresh data
@@ -216,7 +217,7 @@ async function adaptivePoll() {
         }
     }
 
-    const huntStatus = !isTabVisible ? 'Background' : (isAwaitingNewMetar() ? 'HUNTING' : 'Active');
+    const huntStatus = isHunting ? 'HUNTING' : (!isTabVisible ? 'Background' : 'Active');
     console.log(`[POLL] Next poll in ${nextInterval / 1000}s (${huntStatus})`);
 
     if (currentPollTimeout) clearTimeout(currentPollTimeout);
