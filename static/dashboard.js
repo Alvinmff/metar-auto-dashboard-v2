@@ -150,44 +150,45 @@ document.addEventListener("visibilitychange", () => {
     isTabVisible = !document.hidden;
     if (isTabVisible) {
         console.log("[POLL] Tab active, resuming fast poll...");
-        // Trigger immediate poll on return
-        if (currentPollTimeout) clearTimeout(currentPollTimeout);
-        adaptivePoll();
     } else {
-        console.log("[POLL] Tab hidden, switching to background poll rate...");
-        // Don't clear here, let the next adaptivePoll handle the timing
+        console.log("[POLL] Tab hidden (Adaptive polling will adjust rate)");
     }
+    
+    // Recalculate and trigger immediately on ANY visibility change
+    // This ensures we recalculate sleep duration to target the next hunt window accurately
+    if (currentPollTimeout) clearTimeout(currentPollTimeout);
+    adaptivePoll();
 });
 
 /**
  * Detect if we are waiting for a new scheduled METAR report.
- * Scheduled reports are expected at :00 and :30 (+ few minutes lag).
- * 'Hunt Mode' activates 2 minutes after expected time if data hasn't arrived.
+ * Strictly active during :05-10 and :35-40 to capture updates (+ COR/AMD).
+ * This ignores data content to ensure full window coverage.
  */
 function isAwaitingNewMetar() {
     const now = new Date();
     const mins = now.getUTCMinutes();
+    
+    // Hunt Windows: :05-10 and :35-40 past the hour
+    return (mins >= 5 && mins <= 10) || (mins >= 35 && mins <= 40);
+}
 
-    // Hunt Windows: Activating at minute 5 and 35
-    const window00 = (mins >= 5 && mins <= 15);
-    const window30 = (mins >= 35 && mins <= 45);
-
-    if (!window00 && !window30) return false;
-
-    // If we have no data at all, we should always 'hunt' in these windows
-    if (!lastMetarRaw) return true;
-
-    // Extract minutes group from METAR (DDHHMMZ)
-    const timeMatch = lastMetarRaw.match(/(\d{2})(\d{2})(\d{2})Z/);
-    if (timeMatch) {
-        const metarMins = parseInt(timeMatch[3]);
-        // If we're in the :05-15 window, we want data matching :00
-        if (window00 && metarMins !== 0) return true;
-        // If we're in the :35-45 window, we want data matching :30
-        if (window30 && metarMins !== 30) return true;
-    }
-
-    return false;
+/**
+ * Calculates seconds until the start of the next Hunt Window (minute 5 or 35).
+ * Used for proactive wake-up when tab is hidden.
+ */
+function getSecondsUntilNextHunt() {
+    const now = new Date();
+    const mins = now.getUTCMinutes();
+    const secs = now.getUTCSeconds();
+    
+    let targetMin = -1;
+    if (mins < 5) targetMin = 5;
+    else if (mins < 35) targetMin = 35;
+    else targetMin = 65; // Minute 5 of next hour
+    
+    const diffMins = targetMin - mins;
+    return (diffMins * 60) - secs;
 }
 
 async function adaptivePoll() {
@@ -199,12 +200,25 @@ async function adaptivePoll() {
     const isHunting = isAwaitingNewMetar();
 
     if (isHunting) {
-        // PRIORITY: Keep hunting even if tab is hidden
+        // PRIORITY 1: Keep hunting every 10s during windows regardless of tab visibility
         nextInterval = 10000; 
     } else if (!isTabVisible) {
-        // BACKGROUND POLL: Only slow down if not hunting
-        nextInterval = 300000; 
+        // PRIORITY 2: Background mode with proactive targeting
+        const secondsToHunt = getSecondsUntilNextHunt();
+        
+        if (secondsToHunt <= 60) {
+            // If hunt window is very close (within 60s), wake up every 30s to prepare
+            nextInterval = 30000;
+        } else {
+            // Normally sleep until the next hunt starts, capped at 5 minutes
+            // We sleep 5s before the target to ensure we hit the boundary correctly
+            nextInterval = Math.min(300000, (secondsToHunt - 5) * 1000);
+            
+            // Safety: Ensure we don't spam if calculation is weird
+            if (nextInterval < 30000) nextInterval = 30000;
+        }
     } else {
+        // PRIORITY 3: Active tab normal adaptive polling
         const metarStatus = lastMetarStatus || 'normal';
         const isNewData = alarmState.lastUpdateTime > (Date.now() - 30000);
 
@@ -213,12 +227,12 @@ async function adaptivePoll() {
         } else if (isNewData) {
             nextInterval = 60000; // Fresh data
         } else {
-            nextInterval = 180000; // Idle season (3 mins)
+            nextInterval = 180000; // Idle (3 mins)
         }
     }
 
-    const huntStatus = isHunting ? 'HUNTING' : (!isTabVisible ? 'Background' : 'Active');
-    console.log(`[POLL] Next poll in ${nextInterval / 1000}s (${huntStatus})`);
+    const huntStatus = isHunting ? 'HUNTING' : (!isTabVisible ? 'Background (Targeting)' : 'Active');
+    console.log(`[POLL] Status: ${huntStatus}, Next in: ${nextInterval / 1000}s`);
 
     if (currentPollTimeout) clearTimeout(currentPollTimeout);
     currentPollTimeout = setTimeout(adaptivePoll, nextInterval);
