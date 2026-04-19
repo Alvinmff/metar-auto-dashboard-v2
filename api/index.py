@@ -2748,74 +2748,87 @@ def update_metar_data_and_sync(station="WARR", is_cron=False):
     """
     global last_metar_update, latest_metar_data, auto_fetch
     
+    # 🔥 UNIQUE REQUEST ID (For Traceability)
+    req_id = "".join(random.choices("0123456789ABCDEF", k=4))
+    
     # 🔥 STAGGERED DELAY (Anti-Collision)
-    # Jika dipicu oleh browser, beri jeda acak agar tidak bertabrakan dengan Cron
-    if not is_cron:
-        time.sleep(random.uniform(1.0, 3.0))
+    # Cron punya prioritas tinggi (0-1s delay)
+    # Browser punya delay lebih besar (3-7s) agar Cron selalu menang jika terjadi tabrakan
+    delay = random.uniform(0.1, 1.0) if is_cron else random.uniform(3.0, 7.0)
+    print(f"[SYNC][{req_id}] Initial delay: {delay:.2f}s (is_cron={is_cron})", file=sys.stderr)
+    time.sleep(delay)
     
     try:
-        print(f"[SYNC] Starting update for {station}...", file=sys.stderr)
+        print(f"[SYNC][{req_id}] Starting update for {station}...", file=sys.stderr)
         metar = get_metar(station)
         
         if not metar:
-            print("[SYNC] ❌ No METAR received", file=sys.stderr)
+            print(f"[SYNC][{req_id}] ❌ No METAR received", file=sys.stderr)
             return False
         
         # Normalisasi untuk comparison
         metar_clean = normalize_metar(metar)
         
-        # Ekstrak Time Group (misal: 151430Z) untuk key unik
-        time_match = re.search(r' (\d{6}Z) ', " " + metar + " ")
+        # Ekstrak Time Group (misal: 191430Z) untuk key unik
+        # Handle case METAR AMD/COR yang mungkin punya spasi berbeda
+        time_match = re.search(r'\b(\d{6}Z)\b', metar)
         metar_time_key = time_match.group(1) if time_match else None
         
-        print(f"[SYNC] Raw METAR: {str(metar)[:80]}...", file=sys.stderr)
-        if metar_time_key: print(f"[SYNC] Time Key: {metar_time_key}", file=sys.stderr)
+        print(f"[SYNC][{req_id}] Raw METAR: {str(metar)[:80]}...", file=sys.stderr)
+        if metar_time_key: print(f"[SYNC][{req_id}] Time Key: {metar_time_key}", file=sys.stderr)
 
         # =====================================================
-        # GLOBAL CONTEXT: Fetch recent history directly from Sheets
-        # ensures deduplication works across isolated Vercel containers.
-        # 🔥 bypass_cache=True memastikan kita melihat data terbaru dari Sheets
+        # STAGE 1: First check of Google Sheets context
         # =====================================================
-        print("[SYNC] Fetching global context from Google Sheets (Bypassing Cache)...", file=sys.stderr)
+        print(f"[SYNC][{req_id}] STAGE 1: Checking Sheets history...", file=sys.stderr)
         recent_data = sheets_handler.get_recent_data(limit=15, bypass_cache=True)
         
-        if recent_data:
-            df = pd.DataFrame(recent_data)
-        else:
-            # Fallback to local CSV if Sheets fetch fails or is empty
-            if not os.path.exists(CSV_FILE):
-                pd.DataFrame(columns=["station", "time", "metar"]).to_csv(CSV_FILE, index=False)
-            df = pd.read_csv(CSV_FILE)
-        
-        # =====================================================
-        # LOGIKA ANTI-DUPLIKASI: Multi-Record Match
-        # =====================================================
-        should_save = True
-        skip_reason = ""
-        
-        if len(df) > 0:
-            # 1. Cek isi string METAR di 10 data terakhir
-            # Gunakan list comprehension untuk normalisasi semua data pembanding
-            past_metars_clean = [normalize_metar(str(m)) for m in df["metar"].tolist()]
+        def check_duplicate(data_list):
+            if not data_list: return False, ""
+            df_check = pd.DataFrame(data_list)
             
+            # Check 1: Identical METAR string
+            past_metars_clean = [normalize_metar(str(m)) for m in df_check["metar"].tolist()]
             if metar_clean in past_metars_clean:
-                should_save = False
-                skip_reason = "Duplikat: METAR identik dengan salah satu dari 10 data terakhir"
+                return True, "METAR identik ditemukan"
+                
+            # Check 2: Same Time Key
+            if metar_time_key:
+                for past_raw in df_check["metar"].tolist():
+                    past_match = re.search(r'\b(\d{6}Z)\b', str(past_raw))
+                    if past_match and past_match.group(1) == metar_time_key:
+                        return True, f"Time key {metar_time_key} sudah ada"
+            return False, ""
+
+        is_dup, reason = check_duplicate(recent_data)
+        if is_dup:
+            print(f"[SYNC][{req_id}] ⏭️ SKIP (Stage 1): {reason}", file=sys.stderr)
+            should_save = False
+            skip_reason = reason
+        else:
+            # =====================================================
+            # STAGE 2: The "Double-Verify" Safety Buffer
+            # Tunggu 2 detik ekstra dan cek sekali lagi, kalau-kalau ada 
+            # perangkat lain baru saja 'commit' ke Sheets tapi belum terindeks
+            # =====================================================
+            print(f"[SYNC][{req_id}] STAGE 2: Double-Verifying (Safety Cooldown)...", file=sys.stderr)
+            time.sleep(2.0)
+            fresh_context = sheets_handler.get_recent_data(limit=10, bypass_cache=True)
             
-            # 2. Cek spesifik Kode Waktu (DDHHMMZ) jika ditemukan
-            if should_save and metar_time_key:
-                # Cari pola waktu di data history
-                for past_raw in df["metar"].tolist():
-                    past_time_match = re.search(r' (\d{6}Z) ', " " + str(past_raw) + " ")
-                    if past_time_match and past_time_match.group(1) == metar_time_key:
-                        should_save = False
-                        skip_reason = f"Duplikat: Kode waktu {metar_time_key} sudah ada di riwayat"
-                        break
+            is_dup_final, reason_final = check_duplicate(fresh_context)
+            if is_dup_final:
+                print(f"[SYNC][{req_id}] ⏭️ SKIP (Stage 2): {reason_final}", file=sys.stderr)
+                should_save = False
+                skip_reason = reason_final
+            else:
+                should_save = True
+                skip_reason = ""
+
         # =====================================================
         # EXECUTE SAVE OR SKIP
         # =====================================================
         if not should_save:
-            print(f"[SYNC] ⏭️ SKIP: {skip_reason}", file=sys.stderr)
+            print(f"[SYNC][{req_id}] ⏭️ FINAL SKIP: {skip_reason}", file=sys.stderr)
             # Update timestamp and cache even if skip saving
             last_metar_update = datetime.utcnow().isoformat() + "Z"
             
@@ -2851,7 +2864,7 @@ def update_metar_data_and_sync(station="WARR", is_cron=False):
         # =====================================================
         # SAVE NEW DATA
         # =====================================================
-        print("[SYNC] ✨ NEW/REFRESHED METAR detected! Saving...", file=sys.stderr)
+        print(f"[SYNC][{req_id}] ✨ NEW/REFRESHED METAR detected! Saving...", file=sys.stderr)
         
         new_row = {
             "station": station,
@@ -2860,22 +2873,24 @@ def update_metar_data_and_sync(station="WARR", is_cron=False):
         }
         
         # 🔥 SERVER-SIDE WIND LOGGING: Perekaman otomatis tanpa dashboard
+        print(f"[SYNC][{req_id}] Processing server-side wind log...", file=sys.stderr)
         process_server_wind_log(metar)
         
         # Format waktu tanpa milliseconds untuk consistency
         new_row_df = pd.DataFrame([new_row])
         new_row_df["time"] = pd.to_datetime(new_row_df["time"]).dt.strftime("%Y-%m-%d %H:%M:%S")
+        time_str = new_row_df["time"].iloc[0]
         
         df = pd.concat([df, new_row_df], ignore_index=True)
         df.to_csv(CSV_FILE, index=False)
         
         # 🔥 SYNC TO GOOGLE SHEETS
         try:
-            print(f"[SYNC] Pushing to Google Sheets...", file=sys.stderr)
-            sheets_handler.save_metar(station, new_row["time"], metar)
-            print(f"[SYNC] ✅ Google Sheets synced", file=sys.stderr)
+            print(f"[SYNC][{req_id}] Pushing to Google Sheets...", file=sys.stderr)
+            sheets_handler.save_metar(station, time_str, metar)
+            print(f"[SYNC][{req_id}] ✅ Google Sheets synced", file=sys.stderr)
         except Exception as e:
-            print(f"[SYNC] ❌ Google Sheets Error: {e}", file=sys.stderr)
+            print(f"[SYNC][{req_id}] ❌ Google Sheets Error: {e}", file=sys.stderr)
             # Tetap lanjut meski Sheets gagal, data sudah di CSV
         
         # Update cache dengan data baru
