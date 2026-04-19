@@ -104,6 +104,13 @@ class GoogleSheetHandler:
             print(f"[SHEETS] Appending row: {station}, {time_str}", file=sys.stderr)
             sheet.append_row([station, time_str, metar])
             print(f"[SHEETS] ✅ Data successfully saved to Google Sheets for {station}", file=sys.stderr)
+            
+            # --- CACHE INVALIDATION ---
+            # Extremely important: clear cache to ensure subsequent requests on the same instance see the new row automatically
+            keys_to_delete = [k for k in self._cache.keys() if k.startswith('recent_') or k == 'all_data']
+            for k in keys_to_delete:
+                self._cache.pop(k, None)
+                
             return True
         except Exception as e:
             print(f"[SHEETS] ❌ Error saving to Sheets: {e}", file=sys.stderr)
@@ -125,7 +132,7 @@ class GoogleSheetHandler:
         self._cache[cache_key] = (data, now)
         return data
 
-    def get_recent_data(self, limit=20):
+    def get_recent_data(self, limit=20, bypass_cache=False):
         """Fetch the last N records from Sheets for deduplication context"""
         if self.sheet is None:
             self._authenticate()
@@ -150,6 +157,9 @@ class GoogleSheetHandler:
                 print(f"[SHEETS] ❌ Error fetching recent data: {e}", file=sys.stderr)
                 return []
                 
+        if bypass_cache:
+            return _fetch()
+            
         return self._get_cached_or_fetch(f'recent_{limit}', _fetch, ttl=60)
 
     def get_all_data(self):

@@ -2768,9 +2768,10 @@ def update_metar_data_and_sync(station="WARR", is_cron=False):
         # =====================================================
         # GLOBAL CONTEXT: Fetch recent history directly from Sheets
         # ensures deduplication works across isolated Vercel containers.
+        # 🔥 bypass_cache=True memastikan kita melihat data terbaru dari Sheets
         # =====================================================
-        print("[SYNC] Fetching global context from Google Sheets...", file=sys.stderr)
-        recent_data = sheets_handler.get_recent_data(limit=10)
+        print("[SYNC] Fetching global context from Google Sheets (Bypassing Cache)...", file=sys.stderr)
+        recent_data = sheets_handler.get_recent_data(limit=15, bypass_cache=True)
         
         if recent_data:
             df = pd.DataFrame(recent_data)
