@@ -2802,51 +2802,32 @@ def update_metar_data_and_sync(station="WARR", is_cron=False):
         if metar_time_key: print(f"[SYNC][{req_id}] Time Key: {metar_time_key}", file=sys.stderr)
 
         # =====================================================
-        # STAGE 1: First check of Google Sheets context
+        # PRE-WRITE CHECK: Quick dedup dari Sheets context
+        # Ini adalah filter cepat. Jika lolos, data akan disimpan,
+        # lalu post-write dedup di sheets_handler.save_metar() 
+        # akan membersihkan duplikat yang mungkin lolos karena race condition.
         # =====================================================
-        print(f"[SYNC][{req_id}] STAGE 1: Checking Sheets history...", file=sys.stderr)
+        print(f"[SYNC][{req_id}] Checking Sheets for duplicates...", file=sys.stderr)
         recent_data = sheets_handler.get_recent_data(limit=15, bypass_cache=True)
         
-        def check_duplicate(data_list):
-            if not data_list: return False, ""
-            df_check = pd.DataFrame(data_list)
-            
+        should_save = True
+        skip_reason = ""
+        
+        if recent_data:
             # Check 1: Identical METAR string
-            past_metars_clean = [normalize_metar(str(m)) for m in df_check["metar"].tolist()]
+            past_metars_clean = [normalize_metar(str(row.get('metar', ''))) for row in recent_data]
             if metar_clean in past_metars_clean:
-                return True, "METAR identik ditemukan"
-                
-            # Check 2: Same Time Key
-            if metar_time_key:
-                for past_raw in df_check["metar"].tolist():
-                    past_match = re.search(r'\b(\d{6}Z)\b', str(past_raw))
-                    if past_match and past_match.group(1) == metar_time_key:
-                        return True, f"Time key {metar_time_key} sudah ada"
-            return False, ""
-
-        is_dup, reason = check_duplicate(recent_data)
-        if is_dup:
-            print(f"[SYNC][{req_id}] ⏭️ SKIP (Stage 1): {reason}", file=sys.stderr)
-            should_save = False
-            skip_reason = reason
-        else:
-            # =====================================================
-            # STAGE 2: The "Double-Verify" Safety Buffer
-            # Tunggu 2 detik ekstra dan cek sekali lagi, kalau-kalau ada 
-            # perangkat lain baru saja 'commit' ke Sheets tapi belum terindeks
-            # =====================================================
-            print(f"[SYNC][{req_id}] STAGE 2: Double-Verifying (Safety Cooldown)...", file=sys.stderr)
-            time.sleep(1.0)
-            fresh_context = sheets_handler.get_recent_data(limit=10, bypass_cache=True)
-            
-            is_dup_final, reason_final = check_duplicate(fresh_context)
-            if is_dup_final:
-                print(f"[SYNC][{req_id}] ⏭️ SKIP (Stage 2): {reason_final}", file=sys.stderr)
                 should_save = False
-                skip_reason = reason_final
-            else:
-                should_save = True
-                skip_reason = ""
+                skip_reason = "METAR identik ditemukan di riwayat Sheets"
+            
+            # Check 2: Same Time Key (DDHHMMZ)
+            if should_save and metar_time_key:
+                for row in recent_data:
+                    past_match = re.search(r'\b(\d{6}Z)\b', str(row.get('metar', '')))
+                    if past_match and past_match.group(1) == metar_time_key:
+                        should_save = False
+                        skip_reason = f"Time key {metar_time_key} sudah ada di Sheets"
+                        break
 
         # =====================================================
         # EXECUTE SAVE OR SKIP

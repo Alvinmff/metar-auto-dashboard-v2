@@ -84,9 +84,8 @@ class GoogleSheetHandler:
             traceback.print_exc()
 
     def save_metar(self, station, time, metar):
-        """Append a new METAR record to Google Sheets"""
+        """Append a new METAR record to Google Sheets, then auto-deduplicate."""
         if self.sheet is None:
-            # Try to re-authenticate if missing (lazy auth)
             self._authenticate()
             
         sheet = self.sheet
@@ -106,15 +105,93 @@ class GoogleSheetHandler:
             print(f"[SHEETS] ✅ Data successfully saved to Google Sheets for {station}", file=sys.stderr)
             
             # --- CACHE INVALIDATION ---
-            # Extremely important: clear cache to ensure subsequent requests on the same instance see the new row automatically
             keys_to_delete = [k for k in self._cache.keys() if k.startswith('recent_') or k == 'all_data']
             for k in keys_to_delete:
                 self._cache.pop(k, None)
+            
+            # --- POST-WRITE DEDUPLICATION ---
+            # Nuclear option: setelah setiap save, bersihkan duplikat di Sheets
+            # Ini menangani race condition antar container Vercel yang terisolasi
+            try:
+                self.deduplicate_recent()
+            except Exception as dedup_err:
+                print(f"[SHEETS] ⚠️ Post-write dedup warning: {dedup_err}", file=sys.stderr)
                 
             return True
         except Exception as e:
             print(f"[SHEETS] ❌ Error saving to Sheets: {e}", file=sys.stderr)
             return False
+
+    def deduplicate_recent(self, lookback=25):
+        """
+        POST-WRITE DEDUPLICATION: Scan baris terakhir di Sheets dan hapus duplikat.
+        
+        Duplikat diidentifikasi berdasarkan Time Key METAR (DDHHMMZ).
+        Jika ada beberapa baris dengan Time Key yang sama, hanya baris PERTAMA yang dipertahankan.
+        
+        Ini adalah jaring pengaman terakhir yang menjamin tidak ada data ganda
+        meskipun banyak container Vercel menulis bersamaan.
+        """
+        import re as _re
+        
+        if self.sheet is None:
+            self._authenticate()
+        sheet = self.sheet
+        if sheet is None:
+            return
+        
+        try:
+            all_values = sheet.get_all_values()
+            total_rows = len(all_values)
+            
+            if total_rows <= 2:  # Header + max 1 data row, nothing to dedup
+                return
+            
+            # Ambil lookback baris terakhir (beserta nomor baris asli di sheet)
+            # Baris di gspread 1-indexed, baris 1 = header
+            start_idx = max(1, total_rows - lookback)  # Skip header (index 0)
+            recent_rows = []
+            for i in range(start_idx, total_rows):
+                row = all_values[i]
+                # Kolom: [station, time, metar]
+                metar_str = row[2] if len(row) > 2 else ""
+                # Ekstrak time key (DDHHMMZ)
+                match = _re.search(r'\b(\d{6}Z)\b', str(metar_str))
+                time_key = match.group(1) if match else None
+                recent_rows.append({
+                    'sheet_row': i + 1,  # gspread 1-indexed
+                    'time_key': time_key,
+                    'metar': metar_str
+                })
+            
+            # Cari duplikat berdasarkan time_key
+            seen_keys = {}  # time_key -> first sheet_row
+            rows_to_delete = []
+            
+            for entry in recent_rows:
+                tk = entry['time_key']
+                if not tk:
+                    continue
+                    
+                if tk in seen_keys:
+                    # Duplikat ditemukan! Tandai baris INI untuk dihapus (keep yang pertama)
+                    rows_to_delete.append(entry['sheet_row'])
+                    print(f"[SHEETS] 🗑️ Duplicate found: row {entry['sheet_row']} "
+                          f"(time_key={tk}, keeping row {seen_keys[tk]})", file=sys.stderr)
+                else:
+                    seen_keys[tk] = entry['sheet_row']
+            
+            # Hapus dari bawah ke atas agar nomor baris tidak bergeser
+            if rows_to_delete:
+                rows_to_delete.sort(reverse=True)
+                for row_num in rows_to_delete:
+                    sheet.delete_rows(row_num)
+                print(f"[SHEETS] ✅ Deduplication complete: removed {len(rows_to_delete)} duplicate(s)", file=sys.stderr)
+            else:
+                print(f"[SHEETS] ✅ No duplicates found in last {lookback} rows", file=sys.stderr)
+                
+        except Exception as e:
+            print(f"[SHEETS] ❌ Deduplication error: {e}", file=sys.stderr)
 
     def _get_cached_or_fetch(self, cache_key, fetch_func, ttl=None):
         """Helper untuk cache Sheets calls"""
