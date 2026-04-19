@@ -2776,9 +2776,9 @@ def update_metar_data_and_sync(station="WARR", is_cron=False):
     req_id = "".join(random.choices("0123456789ABCDEF", k=4))
     
     # 🔥 STAGGERED DELAY (Anti-Collision)
-    # Cron punya prioritas tinggi (0-1s delay)
-    # Browser punya delay lebih besar (3-7s) agar Cron selalu menang jika terjadi tabrakan
-    delay = random.uniform(0.1, 1.0) if is_cron else random.uniform(3.0, 7.0)
+    # Cron: minimal delay | Browser: short delay to let Cron win if simultaneous
+    # PENTING: Total execution HARUS < 10s agar tidak timeout di Vercel
+    delay = random.uniform(0.1, 0.5) if is_cron else random.uniform(1.0, 2.0)
     print(f"[SYNC][{req_id}] Initial delay: {delay:.2f}s (is_cron={is_cron})", file=sys.stderr)
     time.sleep(delay)
     
@@ -2836,7 +2836,7 @@ def update_metar_data_and_sync(station="WARR", is_cron=False):
             # perangkat lain baru saja 'commit' ke Sheets tapi belum terindeks
             # =====================================================
             print(f"[SYNC][{req_id}] STAGE 2: Double-Verifying (Safety Cooldown)...", file=sys.stderr)
-            time.sleep(2.0)
+            time.sleep(1.0)
             fresh_context = sheets_handler.get_recent_data(limit=10, bypass_cache=True)
             
             is_dup_final, reason_final = check_duplicate(fresh_context)
@@ -2922,8 +2922,16 @@ def update_metar_data_and_sync(station="WARR", is_cron=False):
         new_row_df["time"] = pd.to_datetime(new_row_df["time"]).dt.strftime("%Y-%m-%d %H:%M:%S")
         time_str = new_row_df["time"].iloc[0]
         
+        # 🔥 FIX: Bangun df dari recent_data (atau kosong) untuk CSV backup
+        if recent_data:
+            df = pd.DataFrame(recent_data)
+        else:
+            df = pd.DataFrame(columns=["station", "time", "metar"])
         df = pd.concat([df, new_row_df], ignore_index=True)
-        df.to_csv(CSV_FILE, index=False)
+        try:
+            df.to_csv(CSV_FILE, index=False)
+        except Exception as csv_err:
+            print(f"[SYNC][{req_id}] CSV write warning: {csv_err}", file=sys.stderr)
         
         # 🔥 SYNC TO GOOGLE SHEETS
         try:
