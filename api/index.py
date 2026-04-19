@@ -510,61 +510,85 @@ def detect_thunderstorm(raw_metar: str) -> bool:
 # GET METAR FROM NOAA
 # =========================
 def get_metar(station_code):
-    # Headers to mimic browser request
+    """
+    Fetch METAR with Cache Busting and Smart Source Switching.
+    Prioritizes NOAA but falls back to AVWX if NOAA is stale or fails.
+    """
+    station_code = station_code.upper()
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.5',
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
     }
     
-    # Try primary NOAA source
-    url = f"https://tgftp.nws.noaa.gov/data/observations/metar/stations/{station_code.upper()}.TXT"
-    print(f"[DEBUG] Fetching METAR from: {url}")
+    def get_time_key(metar_str):
+        if not metar_str: return None
+        m = re.search(r'\b(\d{6}Z)\b', metar_str)
+        return m.group(1) if m else None
+
+    # 1. Try NOAA with Cache Busting
+    # Adding timestamp query param to defeat Edge/CDN caching
+    cache_buster = int(time.time())
+    url = f"https://tgftp.nws.noaa.gov/data/observations/metar/stations/{station_code}.TXT?t={cache_buster}"
     
+    noaa_metar = None
     try:
-        response = requests.get(url, timeout=15, headers=headers)
-        print(f"[DEBUG] Response status: {response.status_code}")
+        print(f"[DEBUG] Fetching NOAA METAR (Buster: {cache_buster})", file=sys.stderr)
+        response = requests.get(url, timeout=10, headers=headers)
         if response.status_code == 200:
             lines = response.text.strip().split("\n")
-            print(f"[DEBUG] Raw response lines: {lines}")
-            
-            # Find the METAR line (usually the last line that starts with station code)
-            for line in lines:
-                line = line.strip()
-                if line and line.startswith(station_code.upper()):
-                    print(f"[DEBUG] METAR retrieved: {line}")
-                    return line
-            
-            # Fallback: if no line starts with station, take last non-empty line
+            # Usually the METAR is on the last line matching station
             for line in reversed(lines):
                 line = line.strip()
-                if line:
-                    print(f"[DEBUG] METAR retrieved (fallback): {line}")
-                    return line
-                    
-    except requests.exceptions.Timeout:
-        print("[ERROR] Request timeout while fetching METAR from NOAA")
-    except requests.exceptions.ConnectionError as e:
-        print(f"[ERROR] Connection error while fetching METAR from NOAA: {e}")
+                if line.startswith(station_code):
+                    noaa_metar = line
+                    break
     except Exception as e:
-        print(f"[ERROR] Exception while fetching METAR from NOAA: {e}")
-    
-    # Try alternative source - AVWX (backup)
-    print("[DEBUG] Trying alternative METAR source...")
-    alt_url = f"https://avwx.rest/api/metar/{station_code.upper()}"
-    try:
-        response = requests.get(alt_url, timeout=15, headers=headers)
-        if response.status_code == 200:
-            data = response.json()
-            if "raw" in data:
-                metar = data["raw"]
-                print(f"[DEBUG] METAR from alternative source: {metar}")
-                return metar
-    except Exception as e:
-        print(f"[DEBUG] Alternative source also failed: {e}")
-    
-    print("[ERROR] All METAR sources failed!")
-    return None
+        print(f"[DEBUG] NOAA Fetch Error: {e}", file=sys.stderr)
+
+    # 2. Check Freshness of NOAA data
+    # If report is older than ~45 minutes, check alternative source
+    is_stale = True
+    if noaa_metar:
+        time_key = get_time_key(noaa_metar)
+        if time_key:
+            try:
+                # Basic check: is the report from the current hour or last 15-45 mins?
+                now_utc = datetime.utcnow()
+                report_min = int(time_key[4:6])
+                report_hour = int(time_key[2:4])
+                # If report hour matches current or previous hour, we consider it "potentially fresh"
+                # but if we are at minute 10 of a new hour and have a :30 report, it might be stale.
+                if report_hour == now_utc.hour or (now_utc.minute < 10 and report_hour == (now_utc.hour - 1) % 24):
+                    is_stale = False
+            except: pass
+
+    # 3. Try AVWX if NOAA failed or is stale
+    if not noaa_metar or is_stale:
+        print(f"[DEBUG] NOAA is {'stale' if noaa_metar else 'unavailable'}. Trying AVWX...", file=sys.stderr)
+        alt_url = f"https://avwx.rest/api/metar/{station_code}?t={cache_buster}"
+        try:
+            resp = requests.get(alt_url, timeout=10, headers=headers)
+            if resp.status_code == 200:
+                alt_data = resp.json()
+                alt_metar = alt_data.get("raw")
+                
+                if not noaa_metar: return alt_metar
+                
+                # Compare timestamps if we have both
+                noaa_key = get_time_key(noaa_metar)
+                alt_key = get_time_key(alt_metar)
+                
+                if alt_key and noaa_key:
+                    # Very simple chronological check (works within same day)
+                    if int(alt_key[:6]) > int(noaa_key[:6]):
+                        print(f"[DEBUG] AVWX has newer data ({alt_key}) than NOAA ({noaa_key})", file=sys.stderr)
+                        return alt_metar
+        except Exception as e:
+            print(f"[DEBUG] AVWX Fallback Error: {e}", file=sys.stderr)
+
+    return noaa_metar
 
 # =========================
 # WEATHER CODES
@@ -2829,12 +2853,29 @@ def update_metar_data_and_sync(station="WARR", is_cron=False):
         # =====================================================
         if not should_save:
             print(f"[SYNC][{req_id}] ⏭️ FINAL SKIP: {skip_reason}", file=sys.stderr)
-            # Update timestamp and cache even if skip saving
-            last_metar_update = datetime.utcnow().isoformat() + "Z"
             
-            # 🔥 CRITICAL: Update global cache with freshly fetched data 
-            # even if we didn't save a new row to the database.
-            # This prevents "flip-flop" in serverless environments.
+            # 🔥 CHRONOLOGICAL CONSISTENCY: 
+            # Jika skip karena duplikat, cari timestamp asli dari data yang sudah ada
+            # agar last_metar_update tidak "lompat" ke waktu sekarang (mencegah stale warning di browser)
+            existing_time_str = None
+            if recent_data:
+                for row in recent_data:
+                    # Cek apakah metar row ini cocok dengan yang baru kita ambil
+                    if normalize_metar(str(row.get('metar', ''))) == metar_clean:
+                        existing_time_str = row.get('time')
+                        break
+            
+            if existing_time_str:
+                # Gunakan waktu asli dari DB
+                try:
+                    last_metar_update = pd.to_datetime(existing_time_str).isoformat() + "Z"
+                except:
+                    last_metar_update = datetime.utcnow().isoformat() + "Z"
+            else:
+                # Fallback ke waktu sekarang jika tidak ketemu di context terbatas
+                last_metar_update = datetime.utcnow().isoformat() + "Z"
+            
+            # Update cache even if skip saving
             parsed = parse_metar(metar)
             qam = generate_qam(station, parsed, metar)
             narrative = generate_metar_narrative(parsed, metar)
