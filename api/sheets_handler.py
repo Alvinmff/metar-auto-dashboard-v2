@@ -162,7 +162,7 @@ class GoogleSheetHandler:
             
         return self._get_cached_or_fetch(f'recent_{limit}', _fetch, ttl=60)
 
-    def get_all_data(self):
+    def get_all_data(self, bypass_cache=False):
         """Fetch all records from Sheets as a list of dicts"""
         if self.sheet is None:
             self._authenticate()
@@ -178,6 +178,9 @@ class GoogleSheetHandler:
                 print(f"[SHEETS] ❌ Error fetching all data: {e}", file=sys.stderr)
                 return []
                 
+        if bypass_cache:
+            return _fetch()
+            
         return self._get_cached_or_fetch('all_data', _fetch, ttl=300)
 
     def sync_to_local(self, local_path):

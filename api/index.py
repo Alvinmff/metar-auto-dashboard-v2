@@ -2349,19 +2349,25 @@ def history_by_date():
         print(f"[HISTORY] Station: {station}, Start: {start_date}, End: {end_date}")
 
         if start_date and end_date:
-            # 🔥 SYNC: Ensure latest data is pulled from Google Sheets before search
-            # This is critical on Vercel where /tmp/ storage might be stale
+            # 🔥 DIRECT FETCH: Ambil data langsung dari Google Sheets (Bypass Cache)
+            # Menjamin data yang dicari adalah yang paling terbaru di Sheets
             try:
-                print(f"[HISTORY] Syncing latest data from Sheets for {station}...", file=sys.stderr)
-                sheets_handler.sync_to_local(CSV_FILE)
-            except Exception as sync_err:
-                print(f"[HISTORY] Sync warning (proceeding with local data): {sync_err}", file=sys.stderr)
+                print(f"[HISTORY] Fetching fresh data from Sheets for {station}...", file=sys.stderr)
+                all_records = sheets_handler.get_all_data(bypass_cache=True)
+                if not all_records:
+                    print("[HISTORY] No data returned from Sheets", file=sys.stderr)
+                    df = pd.DataFrame()
+                else:
+                    df = pd.DataFrame(all_records)
+                    print(f"[HISTORY] Loaded {len(df)} rows from Sheets memory", file=sys.stderr)
+            except Exception as sheets_err:
+                print(f"[HISTORY] Sheets fetch error: {sheets_err}", file=sys.stderr)
+                # Fallback to local CSV as a last resort
+                df = pd.read_csv(CSV_FILE) if os.path.exists(CSV_FILE) else pd.DataFrame()
 
-            # Read CSV
-            if os.path.exists(CSV_FILE):
+            # Process DataFrame
+            if not df.empty:
                 try:
-                    df = pd.read_csv(CSV_FILE)
-                    print(f"[HISTORY] Loaded {len(df)} rows from CSV", file=sys.stderr)
                     
                     # 1. Cleaning: Drop completely empty rows and handle NaT
                     df = df.dropna(subset=["time", "metar"])
@@ -3231,7 +3237,8 @@ def get_yesterday_records():
     y_end = yesterday.replace(hour=23, minute=59, second=59)
     
     try:
-        all_records = sheets_handler.get_all_data()
+        # 🔥 BYPASS CACHE: Menjamin data "Kemarin" selalu sinkron dengan Sheets
+        all_records = sheets_handler.get_all_data(bypass_cache=True)
         df = pd.DataFrame(all_records)
         
         records = []
