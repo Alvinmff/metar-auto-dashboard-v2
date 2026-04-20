@@ -161,8 +161,8 @@ app = Flask(__name__,
 application = app # Alias for compatibility
 
 # ============ ADMIN AUTH CONFIGURATION ============
-# Default fallback password hash adalah representasi aman dari "juanda$202"
-DEFAULT_HASH = "scrypt:32768:8:1$TeM8OAyDrMMQAVAV$192802f97a71a230addbf2fdf10a4c0b49775ef002eb660754c80a9ab130617e9318e091022c375f0becefc84b19e6811cd3e5cc1945a534d2e3a666d8db3879"
+# Default fallback password hash adalah representasi aman dari "juanda$2026"
+DEFAULT_HASH = "scrypt:32768:8:1$BtddDVF5DqG1GpWk$6aa36ddf49dd394f7e37ced0ff5bc61eab47fa4054b2397497b781d2d6e571992f4ee3c58b456b9548431e272e142e78a2199f99ca1ab3a87bdba8dce17b840b"
 
 ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME", "admin")
 ADMIN_PASSWORD_HASH = os.environ.get("ADMIN_PASSWORD_HASH", DEFAULT_HASH)
