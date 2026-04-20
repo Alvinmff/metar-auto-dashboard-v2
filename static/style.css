@@ -3087,17 +3087,12 @@ body.rain-active::after {
   color: #166534;
 }
 
-.badge-cor {
+.badge-speci {
   background: #fef3c7;
   color: #92400e;
 }
 
-.badge-amd {
-  background: #dbeafe;
-  color: #1e40af;
-}
-
-.badge-speci {
+.badge-invalid {
   background: #fee2e2;
   color: #991b1b;
 }
@@ -3107,17 +3102,12 @@ body.rain-active::after {
   color: #dcfce7;
 }
 
-[data-theme="dark"] .badge-cor {
+[data-theme="dark"] .badge-speci {
   background: #92400e;
   color: #fef3c7;
 }
 
-[data-theme="dark"] .badge-amd {
-  background: #1e40af;
-  color: #dbeafe;
-}
-
-[data-theme="dark"] .badge-speci {
+[data-theme="dark"] .badge-invalid {
   background: #991b1b;
   color: #fee2e2;
 }

@@ -152,7 +152,7 @@
 
                 <a href="/manual_parser" class="sidebar-link {% block nav_active_parser %}{% endblock %}" id="nav-qam">
                     <span class="icon">🔧</span>
-                    <span class="label">Parser Manual</span>
+                    <span class="label">METAR Converter</span>
                 </a>
 
                 <div class="sidebar-divider desktop-hidden"></div>
@@ -196,7 +196,8 @@
     <style>
         .wind-log-fab {
             position: fixed;
-            bottom: 84px; /* 60px above the help-fab (24px + 60px) */
+            bottom: 84px;
+            /* 60px above the help-fab (24px + 60px) */
             right: 20px;
             background: #ef4444;
             color: white;
@@ -581,10 +582,13 @@
                     Apa itu METAR Dashboard?
                 </h4>
                 <p class="help-text">
-                    <strong>METAR Auto Dashboard</strong> merupakan platform pengolahan data cuaca penerbangan (METAR)
-                    yang terintegrasi dengan sistem BMKG. Dashboard ini dirancang untuk menyediakan informasi
-                    cuaca bandara secara <em>real-time</em> bagi operasional penerbangan dan prakira cuaca,
-                    menggabungkan data METAR, analisis visual, dan peringatan dini dalam satu tampilan interaktif.
+                    <strong>METAR Auto Dashboard v2.0</strong> merupakan platform pengolahan data cuaca penerbangan
+                    (METAR)
+                    yang terintegrasi penuh dengan sistem BMKG dan Google Sheets. Dashboard ini dirancang untuk
+                    menyediakan informasi
+                    cuaca Bandara Juanda secara <em>real-time</em> bagi operasional penerbangan dan prakirawan cuaca,
+                    menggabungkan data METAR, analisis visual, narasi cuaca otomatis, dan sistem peringatan dini
+                    dalam satu tampilan interaktif yang modern.
                 </p>
             </div>
 
@@ -597,9 +601,12 @@
                         Data METAR Real-time
                     </h5>
                     <ul class="help-list">
-                        <li>Pengambilan data otomatis dari NOAA setiap 30 menit</li>
-                        <li>Highlight sintaks METAR dengan warna kategori</li>
+                        <li>Pengambilan data otomatis dari NOAA setiap 15 detik (polling)</li>
+                        <li>Highlight sintaks METAR dengan warna per kategori (angin, visibility, cuaca, awan, dll)</li>
                         <li>Validasi format METAR 10 grup standar ICAO</li>
+                        <li>Deteksi otomatis tipe laporan: METAR, COR (Koreksi), SPECI (Khusus)</li>
+                        <li>Anti-duplikasi cerdas: tidak menyimpan data METAR yang sama dalam 30 menit</li>
+                        <li>Sinkronisasi otomatis ke Google Sheets sebagai backup cloud</li>
                     </ul>
                 </div>
 
@@ -607,13 +614,14 @@
                 <div class="help-card">
                     <h5 class="help-card-title">
                         <span class="help-icon">📊</span>
-                        Visualisasi Data
+                        Visualisasi & Grafik
                     </h5>
                     <ul class="help-list">
-                        <li>Grafik trend suhu, tekanan, dan angin</li>
-                        <li>Wind Compass arah angin real-time</li>
-                        <li>Wind Rose 24 jam & bulanan</li>
-                        <li>Crosswind Calculator untuk runway</li>
+                        <li>Grafik trend suhu, tekanan udara (QNH), dan kecepatan angin</li>
+                        <li>Wind Compass arah angin real-time dengan indikator gust</li>
+                        <li>Dual Wind Rose: 24 jam terakhir &amp; 1 bulan penuh sebelumnya</li>
+                        <li>Crosswind &amp; Tailwind Calculator untuk RWY 10/28</li>
+                        <li>Semua grafik dan wind rose dapat di-download sebagai PNG</li>
                     </ul>
                 </div>
 
@@ -621,13 +629,17 @@
                 <div class="help-card">
                     <h5 class="help-card-title">
                         <span class="help-icon">🚨</span>
-                        Sistem Peringatan
+                        Sistem Peringatan Dini
                     </h5>
                     <ul class="help-list">
-                        <li>Alert suara untuk visibility &lt; 3000m</li>
-                        <li>Deteksi thunderstorm (TS, TSRA, CB)</li>
-                        <li>Notifikasi perubahan cuaca signifikan</li>
-                        <li>Status warna: Hijau (aman), Kuning (waspada), Merah (bahaya)</li>
+                        <li>Alarm suara otomatis untuk visibility &lt; 3000m</li>
+                        <li>Alarm suara otomatis untuk thunderstorm (TS, TSRA, +TSRA, VCTS)</li>
+                        <li>Deteksi METAR telat (stale data) — notifikasi jika data tidak update</li>
+                        <li>Alarm persisten lintas halaman (tidak berbunyi ulang jika data belum berubah)</li>
+                        <li>Efek visual cuaca: animasi hujan 🌧️ dan kabut/haze 🌫️ di layar</li>
+                        <li>Status warna panel: <strong style="color:#059669">Hijau</strong> (aman), <strong
+                                style="color:#d97706">Kuning</strong> (waspada), <strong
+                                style="color:#dc2626">Merah</strong> (bahaya)</li>
                     </ul>
                 </div>
 
@@ -638,15 +650,85 @@
                         Tools & Utilitas
                     </h5>
                     <ul class="help-list">
-                        <li>QAM Generator (MET Report format)</li>
-                        <li>Narasi cuaca otomatis (Bahasa Indonesia)</li>
-                        <li>Manual METAR Parser</li>
-                        <li>Export data ke CSV dan Google Sheets</li>
+                        <li>QAM/MET Report Generator otomatis</li>
+                        <li>Narasi cuaca otomatis dalam Bahasa Indonesia (termasuk TEMPO)</li>
+                        <li>Manual METAR Parser — decode METAR secara mandiri</li>
+                        <li>Riwayat data METAR berdasarkan tanggal dengan filter WIB/UTC</li>
+                        <li>Export data ke CSV dan sinkronisasi Google Sheets</li>
+                        <li>Wind Investigation Log — catatan crosswind per runway</li>
                     </ul>
                 </div>
             </div>
 
-            <!-- Section 3: Cara Penggunaan -->
+            <!-- Section 3: Halaman Navigasi -->
+            <div class="help-section">
+                <h4 class="help-section-title">
+                    <span class="help-icon">🗂️</span>
+                    Halaman yang Tersedia
+                </h4>
+                <div class="help-usage-grid">
+                    <div class="help-usage-item">
+                        <span class="help-step">🏠</span>
+                        <div>
+                            <strong>Dashboard</strong>
+                            <p>Tampilan utama dengan data METAR real-time, grafik, wind compass, wind rose, narasi
+                                cuaca, dan QAM.</p>
+                        </div>
+                    </div>
+                    <div class="help-usage-item">
+                        <span class="help-step">📋</span>
+                        <div>
+                            <strong>METAR</strong>
+                            <p>Halaman decode METAR lengkap dengan detail setiap grup data cuaca.</p>
+                        </div>
+                    </div>
+                    <div class="help-usage-item">
+                        <span class="help-step">📄</span>
+                        <div>
+                            <strong>QAM/MET Report</strong>
+                            <p>Generate laporan MET Report resmi untuk keperluan operasional penerbangan.</p>
+                        </div>
+                    </div>
+                    <div class="help-usage-item">
+                        <span class="help-step">📈</span>
+                        <div>
+                            <strong>Parameter Cuaca</strong>
+                            <p>Grafik trend suhu, tekanan udara, dan kecepatan angin dalam format visual interaktif.</p>
+                        </div>
+                    </div>
+                    <div class="help-usage-item">
+                        <span class="help-step">🧭</span>
+                        <div>
+                            <strong>Analisis Angin</strong>
+                            <p>Wind Rose, Wind Compass, dan Crosswind Calculator untuk analisis profil angin bandara.
+                            </p>
+                        </div>
+                    </div>
+                    <div class="help-usage-item">
+                        <span class="help-step">📅</span>
+                        <div>
+                            <strong>Cari Riwayat</strong>
+                            <p>Cari data METAR berdasarkan rentang tanggal, dilengkapi grafik dan tabel riwayat.</p>
+                        </div>
+                    </div>
+                    <div class="help-usage-item">
+                        <span class="help-step">🔧</span>
+                        <div>
+                            <strong>Parser Manual</strong>
+                            <p>Input kode METAR secara manual untuk di-decode, validasi, dan generate QAM/narasi.</p>
+                        </div>
+                    </div>
+                    <div class="help-usage-item">
+                        <span class="help-step">🛬</span>
+                        <div>
+                            <strong>Wind Log Histor7</strong>
+                            <p>Tombol melayang di kanan bawah — catatan crosswind/tailwind untuk evaluasi runway.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Section 4: Cara Penggunaan -->
             <div class="help-section">
                 <h4 class="help-section-title">
                     <span class="help-icon">🔧</span>
@@ -657,34 +739,35 @@
                         <span class="help-step">1</span>
                         <div>
                             <strong>Pilih Navigasi</strong>
-                            <p>Gunakan menu sidebar di sebelah kiri untuk berpindah fitur dengan cepat.</p>
+                            <p>Gunakan menu sidebar di sebelah kiri untuk berpindah halaman dengan cepat.</p>
                         </div>
                     </div>
                     <div class="help-usage-item">
                         <span class="help-step">2</span>
                         <div>
                             <strong>Aktifkan Sound</strong>
-                            <p>Klik tombol 🔇 Sound untuk enable notifikasi suara peringatan dini.</p>
+                            <p>Klik tombol 🔇 Sound untuk mengaktifkan alarm peringatan dini cuaca berbahaya.</p>
                         </div>
                     </div>
                     <div class="help-usage-item">
                         <span class="help-step">3</span>
                         <div>
                             <strong>Monitor Status</strong>
-                            <p>Perhatikan warna panel: Hijau (aman), Kuning (waspada), Merah (bahaya).</p>
+                            <p>Perhatikan warna panel METAR dan indikator LIVE di header untuk memastikan data terkini.
+                            </p>
                         </div>
                     </div>
                     <div class="help-usage-item">
                         <span class="help-step">4</span>
                         <div>
-                            <strong>Analisis Wind</strong>
-                            <p>Gunakan menu Wind Analysis untuk memantai profil angin secara grafis.</p>
+                            <strong>Download Data</strong>
+                            <p>Klik tombol 📥 pada grafik atau wind rose untuk menyimpan visualisasi sebagai PNG.</p>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Section 4: Kontrol -->
+            <!-- Section 5: Kontrol -->
             <div class="help-section">
                 <h4 class="help-section-title">
                     <span class="help-icon">🎛️</span>
@@ -693,20 +776,28 @@
                 <div class="help-controls">
                     <div class="help-control-item">
                         <span class="help-key">☰</span>
-                        <span>Toggle Sidebar (collapse/expand menu)</span>
+                        <span>Toggle Sidebar — collapse/expand menu navigasi</span>
                     </div>
                     <div class="help-control-item">
                         <span class="help-key">🌙</span>
-                        <span>Dark/Light Mode (ubah tema tampilan)</span>
+                        <span>Dark/Light Mode — ubah tema tampilan (preferensi tersimpan)</span>
                     </div>
                     <div class="help-control-item">
                         <span class="help-key">🔊</span>
-                        <span>Sound ON/OFF (aktifkan alarm)</span>
+                        <span>Sound ON/OFF — aktifkan alarm suara peringatan dini</span>
+                    </div>
+                    <div class="help-control-item">
+                        <span class="help-key">🛬</span>
+                        <span>Wind Log — buka Wind Investigation Log untuk analisis crosswind</span>
+                    </div>
+                    <div class="help-control-item">
+                        <span class="help-key">❓</span>
+                        <span>Bantuan — buka panduan penggunaan (halaman ini)</span>
                     </div>
                 </div>
             </div>
 
-            <!-- Section 5: Keterangan Status -->
+            <!-- Section 6: Keterangan Status & Badge -->
             <div class="help-section">
                 <h4 class="help-section-title">
                     <span class="help-icon">🚦</span>
@@ -714,13 +805,13 @@
                 </h4>
                 <div class="help-badges">
                     <span class="help-badge badge-metar">🟢 METAR</span>
-                    <span class="help-badge badge-cor">🟡 COR</span>
-                    <span class="help-badge badge-amd">🔵 AMD</span>
-                    <span class="help-badge badge-speci">🔴 SPECI</span>
+                    <span class="help-badge badge-speci">🟡 SPECI</span>
+                    <span class="help-badge badge-invalid">🔴 INVALID</span>
                 </div>
                 <p class="help-text-small">
-                    <strong>METAR</strong>: Laporan rutin | <strong>COR</strong>: Koreksi |
-                    <strong>AMD</strong>: Amandemen | <strong>SPECI</strong>: Laporan khusus (cuaca berubah signifikan)
+                    <strong>METAR</strong>: Laporan cuaca rutin (setiap 00 dan 30 menit UTC) |
+                    <strong>SPECI</strong>: Laporan khusus di luar jadwal rutin karena perubahan cuaca signifikan |
+                    <strong>INVALID</strong>: Data tidak memenuhi syarat (salah format/kelengkapan)
                 </p>
             </div>
         </div>
