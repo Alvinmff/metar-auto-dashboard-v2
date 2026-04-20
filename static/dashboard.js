@@ -2804,9 +2804,8 @@ document.addEventListener('DOMContentLoaded', function () {
                 console.error('[INIT] Failed to sync fetch status:', err);
                 if (err.message === 'Unauthorized') AuthManager.handleUnauthorized();
                 else if (typeof adaptivePoll === 'function') setTimeout(adaptivePoll, 1000); // Fallback to poll anyway
-            });
+        });
     });
-})
 
     // Initial poll will handle first load
     // setInterval(fetchMetar, 60000); // 🗑️ REMOVED REDUNDANT LOOP
