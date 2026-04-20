@@ -34,7 +34,7 @@ class GoogleSheetHandler:
                     creds = Credentials.from_service_account_info(info, scopes=self.scope)
                     print(f"[SHEETS] Credentials for {info.get('client_email')} parsed successfully", file=sys.stderr)
                 except Exception as json_err:
-                    print(f"[SHEETS] ❌ JSON Parse Error on Credentials: {json_err}", file=sys.stderr)
+                    print(f"[SHEETS] [ERROR] JSON Parse Error on Credentials: {json_err}", file=sys.stderr)
                     return
             else:
                 # Local fallback
@@ -43,7 +43,7 @@ class GoogleSheetHandler:
                     print(f"[SHEETS] Authenticating via {creds_path}", file=sys.stderr)
                     creds = Credentials.from_service_account_file(creds_path, scopes=self.scope)
                 else:
-                    print("[SHEETS] ❌ No credentials found: GOOGLE_SHEETS_CREDENTIALS env var is MISSING", file=sys.stderr)
+                    print("[SHEETS] [ERROR] No credentials found: GOOGLE_SHEETS_CREDENTIALS env var is MISSING", file=sys.stderr)
             
             if not creds:
                 return
@@ -61,7 +61,7 @@ class GoogleSheetHandler:
                     worksheet = spreadsheet.get_worksheet(0)
                     if worksheet is not None:
                         self.sheet = worksheet
-                        print("[SHEETS] ✅ Connected to spreadsheet successfully", file=sys.stderr)
+                        print("[SHEETS] [SUCCESS] Connected to spreadsheet successfully", file=sys.stderr)
                         
                         # Initialization Check: Ensure headers exist if sheet is empty
                         try:
@@ -72,15 +72,15 @@ class GoogleSheetHandler:
                         except Exception as header_err:
                              print(f"[SHEETS] Header check skip: {header_err}", file=sys.stderr)
                     else:
-                        print("[SHEETS] ❌ Could not find worksheet in spreadsheet", file=sys.stderr)
+                        print("[SHEETS] [ERROR] Could not find worksheet in spreadsheet", file=sys.stderr)
                 else:
-                    print("[SHEETS] ❌ Could not open spreadsheet", file=sys.stderr)
+                    print("[SHEETS] [ERROR] Could not open spreadsheet", file=sys.stderr)
             else:
-                print("[SHEETS] ❌ Failed to authorize client", file=sys.stderr)
+                print("[SHEETS] [ERROR] Failed to authorize client", file=sys.stderr)
 
         except Exception as e:
             import traceback
-            print(f"[SHEETS] ❌ Authentication Error: {e}", file=sys.stderr)
+            print(f"[SHEETS] [ERROR] Authentication Error: {e}", file=sys.stderr)
             traceback.print_exc()
 
     def save_metar(self, station, time, metar):
@@ -90,7 +90,7 @@ class GoogleSheetHandler:
             
         sheet = self.sheet
         if sheet is None:
-            print("[SHEETS] ❌ Cannot save: Final authentication check failed", file=sys.stderr)
+            print("[SHEETS] [ERROR] Cannot save: Final authentication check failed", file=sys.stderr)
             return False
 
         try:
@@ -102,7 +102,7 @@ class GoogleSheetHandler:
 
             print(f"[SHEETS] Appending row: {station}, {time_str}", file=sys.stderr)
             sheet.append_row([station, time_str, metar])
-            print(f"[SHEETS] ✅ Data successfully saved to Google Sheets for {station}", file=sys.stderr)
+            print(f"[SHEETS] [SUCCESS] Data successfully saved to Google Sheets for {station}", file=sys.stderr)
             
             # --- CACHE INVALIDATION ---
             keys_to_delete = [k for k in self._cache.keys() if k.startswith('recent_') or k == 'all_data']
@@ -115,11 +115,11 @@ class GoogleSheetHandler:
             try:
                 self.deduplicate_recent()
             except Exception as dedup_err:
-                print(f"[SHEETS] ⚠️ Post-write dedup warning: {dedup_err}", file=sys.stderr)
+                print(f"[SHEETS] [WARNING] Post-write dedup warning: {dedup_err}", file=sys.stderr)
                 
             return True
         except Exception as e:
-            print(f"[SHEETS] ❌ Error saving to Sheets: {e}", file=sys.stderr)
+            print(f"[SHEETS] [ERROR] Error saving to Sheets: {e}", file=sys.stderr)
             return False
 
     def deduplicate_recent(self, lookback=25):
@@ -176,7 +176,7 @@ class GoogleSheetHandler:
                 if tk in seen_keys:
                     # Duplikat ditemukan! Tandai baris INI untuk dihapus (keep yang pertama)
                     rows_to_delete.append(entry['sheet_row'])
-                    print(f"[SHEETS] 🗑️ Duplicate found: row {entry['sheet_row']} "
+                    print(f"[SHEETS] [DELETE] Duplicate found: row {entry['sheet_row']} "
                           f"(time_key={tk}, keeping row {seen_keys[tk]})", file=sys.stderr)
                 else:
                     seen_keys[tk] = entry['sheet_row']
@@ -186,12 +186,12 @@ class GoogleSheetHandler:
                 rows_to_delete.sort(reverse=True)
                 for row_num in rows_to_delete:
                     sheet.delete_rows(row_num)
-                print(f"[SHEETS] ✅ Deduplication complete: removed {len(rows_to_delete)} duplicate(s)", file=sys.stderr)
+                print(f"[SHEETS] [SUCCESS] Deduplication complete: removed {len(rows_to_delete)} duplicate(s)", file=sys.stderr)
             else:
-                print(f"[SHEETS] ✅ No duplicates found in last {lookback} rows", file=sys.stderr)
+                print(f"[SHEETS] [SUCCESS] No duplicates found in last {lookback} rows", file=sys.stderr)
                 
         except Exception as e:
-            print(f"[SHEETS] ❌ Deduplication error: {e}", file=sys.stderr)
+            print(f"[SHEETS] [ERROR] Deduplication error: {e}", file=sys.stderr)
 
     def _get_cached_or_fetch(self, cache_key, fetch_func, ttl=None):
         """Helper untuk cache Sheets calls"""
@@ -231,7 +231,7 @@ class GoogleSheetHandler:
                         data.append(row_dict)
                 return data
             except Exception as e:
-                print(f"[SHEETS] ❌ Error fetching recent data: {e}", file=sys.stderr)
+                print(f"[SHEETS] [ERROR] Error fetching recent data: {e}", file=sys.stderr)
                 return []
                 
         if bypass_cache:
@@ -252,7 +252,7 @@ class GoogleSheetHandler:
                 print("[SHEETS] Fetching all data records...", file=sys.stderr)
                 return sheet.get_all_records()
             except Exception as e:
-                print(f"[SHEETS] ❌ Error fetching all data: {e}", file=sys.stderr)
+                print(f"[SHEETS] [ERROR] Error fetching all data: {e}", file=sys.stderr)
                 return []
                 
         if bypass_cache:
@@ -267,7 +267,7 @@ class GoogleSheetHandler:
             
         sheet = self.sheet
         if sheet is None:
-            print("[SHEETS] ❌ Cannot sync: Authentication failed", file=sys.stderr)
+            print("[SHEETS] [ERROR] Cannot sync: Authentication failed", file=sys.stderr)
             return False
 
         try:
@@ -282,10 +282,10 @@ class GoogleSheetHandler:
             if "time" in df.columns:
                 df["time"] = pd.to_datetime(df["time"], format='mixed').dt.strftime("%Y-%m-%d %H:%M:%S")
             df.to_csv(local_path, index=False)
-            print(f"[SHEETS] ✅ Sync complete: {len(df)} rows saved to local", file=sys.stderr)
+            print(f"[SHEETS] [SUCCESS] Sync complete: {len(df)} rows saved to local", file=sys.stderr)
             return True
         except Exception as e:
-            print(f"[SHEETS] ❌ Error syncing from Sheets: {e}", file=sys.stderr)
+            print(f"[SHEETS] [ERROR] Error syncing from Sheets: {e}", file=sys.stderr)
             return False
 
     def save_wind_calculation(self, data: dict) -> bool:

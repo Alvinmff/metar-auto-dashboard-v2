@@ -88,6 +88,10 @@
                     <span class="connection-dot" id="connectionDot"></span>
                     <span id="connectionText">OFFLINE</span>
                 </div>
+                <a href="/logout" class="logout-btn" title="Logout">
+                    <span class="logout-icon">🚪</span>
+                    <span class="logout-text mobile-hidden">Logout</span>
+                </a>
             </div>
         </header>
 
@@ -170,6 +174,23 @@
 
         <!-- ========== MAIN CONTENT ========== -->
         <main class="app-main">
+            <!-- Flash Messages (session expired, etc.) -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+            <div class="flash-container">
+                {% for category, message in messages %}
+                <div class="flash-msg flash-{{ category }}">
+                    {% if category == 'danger' %}🔴
+                    {% elif category == 'warning' %}⚠️
+                    {% elif category == 'info' %}ℹ️
+                    {% else %}✅{% endif %}
+                    {{ message }}
+                    <button class="flash-close" onclick="this.parentElement.remove()">✕</button>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+            {% endwith %}
             {% block content %}{% endblock %}
         </main>
 

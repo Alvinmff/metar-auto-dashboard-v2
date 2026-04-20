@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, send_file, jsonify, make_response  # pyre-ignore
+from flask import Flask, render_template, request, send_file, jsonify, make_response, session, redirect, url_for, flash  # pyre-ignore
 import json
 import random
 import requests  # pyre-ignore
@@ -16,6 +16,9 @@ from collections import deque
 import sys
 import traceback
 import csv
+from functools import wraps
+from werkzeug.security import generate_password_hash, check_password_hash
+import secrets
 from typing import Optional, List, Dict, Any, Union
 try:
     from .sheets_handler import sheets_handler  # type: ignore
@@ -156,6 +159,74 @@ app = Flask(__name__,
             template_folder=template_dir, 
             static_folder=static_dir)
 application = app # Alias for compatibility
+
+# ============ ADMIN AUTH CONFIGURATION ============
+# Default fallback password hash adalah representasi aman dari "juanda$202"
+DEFAULT_HASH = "scrypt:32768:8:1$TeM8OAyDrMMQAVAV$192802f97a71a230addbf2fdf10a4c0b49775ef002eb660754c80a9ab130617e9318e091022c375f0becefc84b19e6811cd3e5cc1945a534d2e3a666d8db3879"
+
+ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME", "admin")
+ADMIN_PASSWORD_HASH = os.environ.get("ADMIN_PASSWORD_HASH", DEFAULT_HASH)
+
+# Session secret tetap agar session tidak expired saat cold start
+app.secret_key = os.environ.get("SECRET_KEY", "46f05c593c66cab7e02c330ec1671298d03bedfdb08350bf485aed4a8b0d2b82")
+
+# Session timeout (30 menit idle)
+SESSION_TIMEOUT = 30 * 60
+
+# Session cookie configuration (production-grade)
+app.config.update(
+    PERMANENT_SESSION_LIFETIME=timedelta(minutes=30),
+    SESSION_COOKIE_NAME='metar_session',
+    SESSION_COOKIE_HTTPONLY=True,       # Tidak bisa diakses JavaScript
+    SESSION_COOKIE_SAMESITE='Lax',      # CSRF protection
+    SESSION_COOKIE_PATH='/',            # Berlaku untuk seluruh domain
+)
+
+# Hanya set SECURE cookie di production (HTTPS)
+if os.environ.get("VERCEL") or os.environ.get("VERCEL_ENV"):
+    app.config['SESSION_COOKIE_SECURE'] = True
+
+def login_required(f):
+    """Decorator proteksi untuk akses web/UI — redirect ke /login"""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'admin_logged_in' not in session:
+            if request.is_json or request.path.startswith('/api/'):
+                return jsonify({"error": "Unauthorized", "login_required": True}), 401
+            return redirect(url_for('login_page'))
+        
+        last_activity = session.get('last_activity', 0)
+        if time.time() - last_activity > SESSION_TIMEOUT:
+            session.clear()
+            flash('Sesi berakhir karena tidak aktif selama 30 menit. Silakan login kembali.', 'warning')
+            return redirect(url_for('login_page'))
+        
+        session['last_activity'] = time.time()
+        return f(*args, **kwargs)
+    return decorated_function
+
+def admin_only_api(f):
+    """Decorator proteksi khusus untuk endpoint API — return 401 JSON"""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        # Allow Vercel/External Cron to bypass session checks via header/token
+        is_vercel_cron = request.headers.get('x-vercel-cron') == '1'
+        valid_cron_token = request.args.get('auth') == os.environ.get('CRON_TOKEN', 'bmkg-juanda-secret-123')
+        
+        if is_vercel_cron or valid_cron_token:
+            return f(*args, **kwargs)
+
+        if 'admin_logged_in' not in session:
+            return jsonify({"error": "Unauthorized", "login_required": True}), 401
+        
+        last_activity = session.get('last_activity', 0)
+        if time.time() - last_activity > SESSION_TIMEOUT:
+            session.clear()
+            return jsonify({"error": "Session expired", "login_required": True}), 401
+            
+        session['last_activity'] = time.time()
+        return f(*args, **kwargs)
+    return decorated_function
 
 # ============ KONFIGURASI UNTUK VERCEL ============
 # Vercel Environment Detection
@@ -353,7 +424,7 @@ def process_server_wind_log(metar_raw):
         # DEBUG LOGGING UNTUK INVESTIGASI
         print(f"[SERVER WIND] Calculated: Spd={wind_speed}, Dir={wind_dir}, Angle={angle_deg}deg", file=sys.stderr)
         print(f"[SERVER WIND] Results: Lat={raw_headwind:.1f}, Cross={raw_crosswind:.1f}", file=sys.stderr)
-        print(f"[SERVER WIND] ✨ SAVED Wind Forensics for: {metar_raw[:40]}...", file=sys.stderr)
+        print(f"[SERVER WIND] [NEW] SAVED Wind Forensics for: {metar_raw[:40]}...", file=sys.stderr)
         return True
     except Exception as e:
         print(f"[SERVER LOG] Failed: {e}", file=sys.stderr)
@@ -484,9 +555,9 @@ def load_wind_history():
                     count += 1
                 except (ValueError, TypeError):
                     continue
-        print(f"✅ Loaded {count} wind records from {CSV_FILE} for Wind Rose")
+        print(f"[SUCCESS] Loaded {count} wind records from {CSV_FILE} for Wind Rose")
     except Exception as e:
-        print(f"❌ Failed to load wind history: {e}")
+        print(f"[ERROR] Failed to load wind history: {e}")
 
 
 
@@ -1171,6 +1242,7 @@ def extract_pressure(metar):
 
 
 @app.route("/api/metar/<station_code>")
+@admin_only_api
 def api_metar_single(station_code):
 
     metar = get_metar(station_code.upper())
@@ -1215,6 +1287,7 @@ def api_metar_single(station_code):
 # API GET NARRATIVE
 # =========================
 @app.route("/api/narrative/<station_code>")
+@admin_only_api
 def api_narrative(station_code):
     """API endpoint to get narrative text for a station"""
     metar = get_metar(station_code.upper())
@@ -1233,6 +1306,7 @@ def api_narrative(station_code):
 # API CROSSWIND CALCULATOR
 # =========================
 @app.route("/api/crosswind")
+@admin_only_api
 def api_crosswind():
     """Calculate crosswind components"""
     wind_dir = request.args.get('wind_dir', type=int)
@@ -1263,6 +1337,7 @@ LAST_LOGGED_WIND = {
 }
 
 @app.route("/api/log-crosswind", methods=["POST"])
+@admin_only_api
 def log_crosswind():
     global LAST_LOGGED_WIND
     """Endpoint untuk menyimpan perhitungan crosswind dari frontend"""
@@ -1312,6 +1387,7 @@ def log_crosswind():
         return jsonify({"error": str(e)}), 500
 
 @app.route("/api/wind-logs")
+@admin_only_api
 def get_wind_logs():
     """Ambil history perhitungan crosswind (hybrid)"""
     try:
@@ -1411,6 +1487,7 @@ def get_wind_logs():
         return jsonify({"error": str(e)}), 500
 
 @app.route("/api/wind-logs/by-metar")
+@admin_only_api
 def get_wind_logs_by_metar():
     """Ambil wind logs yang dikelompokkan per METAR timestamp"""
     try:
@@ -1456,6 +1533,7 @@ def get_wind_logs_by_metar():
         return jsonify({"error": str(e)}), 500
 
 @app.route("/api/wind-logs/export")
+@admin_only_api
 def export_wind_logs():
     """Export wind logs ke CSV untuk investigasi"""
     try:
@@ -1500,6 +1578,7 @@ def export_wind_logs():
 # API WIND ROSE - Dual Time Range Filter
 # =========================
 @app.route("/api/windrose/<station>")
+@admin_only_api
 def windrose_api(station):
     """API endpoint untuk Wind Rose 24 jam terakhir - FETCH FROM SHEETS for Real-time Sync"""
     global CSV_FILE
@@ -1627,6 +1706,7 @@ def windrose_api(station):
     })
 
 @app.route("/api/windrose-monthly/<station>")
+@admin_only_api
 def windrose_monthly_api(station):
     """API endpoint untuk Wind Rose 1 bulan penuh (bulan sebelumnya) - FETCH FROM SHEETS"""
     now = datetime.utcnow()
@@ -1749,6 +1829,7 @@ def windrose_monthly_api(station):
 @app.route("/api/latest")
 @app.route("/api/history")
 @app.route("/api/metar/history")
+@admin_only_api
 def get_history_api():
     """Returns historical data in JSON format for charts and tables"""
     global last_metar_update, auto_fetch, _cached_history, _history_cache_time
@@ -1855,6 +1936,7 @@ def get_history_api():
         return jsonify({"error": str(e), "data": []}), 500
 
 @app.route("/api/metar/<station>")
+@admin_only_api
 def get_single_metar_api(station):
     """Returns the latest single METAR data for a station"""
     metar = get_metar(station)
@@ -1902,14 +1984,60 @@ def fetch_history_from_source():
             return pd.read_csv(CSV_FILE)
             
     except Exception as e:
-        print(f"[DATA] ❌ Error fetching history: {e}", file=sys.stderr)
+        print(f"[DATA] [ERROR] Error fetching history: {e}", file=sys.stderr)
         
     return pd.DataFrame(columns=["station", "time", "metar"])
+
+# ============ AUTH ROUTES ============
+@app.route("/login", methods=["GET", "POST"])
+def login_page():
+    if 'admin_logged_in' in session:
+        return redirect(url_for('home'))
+    
+    if request.method == "POST":
+        username = request.form.get("username", "").strip()
+        password = request.form.get("password", "")
+        
+        # Validasi menggunakan werkzeug security (salted hash)
+        if username == ADMIN_USERNAME and check_password_hash(ADMIN_PASSWORD_HASH, password):
+            session['admin_logged_in'] = True
+            session['admin_user'] = username
+            session['last_activity'] = time.time()
+            session.permanent = True
+            
+            print(f"[AUTH] Admin '{username}' login sukses dari {request.remote_addr}", file=sys.stderr)
+            return redirect(request.args.get('next') or url_for('home'))
+        else:
+            flash('Username atau password salah', 'danger')
+            print(f"[AUTH] Login gagal dari {request.remote_addr}", file=sys.stderr)
+    
+    return render_template("login.html")
+
+@app.route("/logout")
+def logout():
+    user = session.get('admin_user', 'unknown')
+    session.clear()
+    flash('Anda telah berhasil logout', 'info')
+    print(f"[AUTH] Admin '{user}' logged out", file=sys.stderr)
+    return redirect(url_for('login_page'))
+
+@app.route("/api/auth/status")
+def auth_status():
+    """Cek status autentikasi untuk frontend AuthManager"""
+    is_logged_in = 'admin_logged_in' in session
+    if is_logged_in:
+        session['last_activity'] = time.time()
+        
+    return jsonify({
+        "authenticated": is_logged_in,
+        "user": session.get('admin_user') if is_logged_in else None
+    })
 
 # =========================
 # HOME ROUTE
 # =========================
 @app.route("/", methods=["GET", "POST"])
+@login_required
 def home():
     global last_metar_update, auto_fetch
     station = "WARR"
@@ -2239,14 +2367,17 @@ def common_view_context(template_name):
     return response
 
 @app.route("/charts")
+@login_required
 def charts_view():
     return common_view_context("charts.html")
 
 @app.route("/wind_analysis")
+@login_required
 def wind_analysis_view():
     return common_view_context("wind_analysis.html")
 
 @app.route("/metar", methods=["GET", "POST"])
+@login_required
 def metar_view():
     # Reuse manual parser logic inside the METAR view
     raw_metar = None
@@ -2275,6 +2406,7 @@ def metar_view():
     return response
 
 @app.route("/qam_report", methods=["GET", "POST"])
+@login_required
 def qam_report_view():
     raw_metar = None
     parsed_qam = None
@@ -2302,6 +2434,7 @@ def qam_report_view():
     return response
 
 @app.route("/weather_analysis")
+@login_required
 def weather_analysis_view():
     return common_view_context("weather_analysis.html")
 
@@ -2309,6 +2442,7 @@ def weather_analysis_view():
 # DOWNLOAD QAM
 # =========================
 @app.route("/download_qam")
+@login_required
 def download_qam():
     station = request.args.get("station")
     qam = request.args.get("qam")
@@ -2330,6 +2464,7 @@ def download_qam():
 # DOWNLOAD CSV HISTORY
 # =========================
 @app.route("/download_csv")
+@login_required
 def download_csv():
     if not os.path.exists(CSV_FILE):
         return "CSV belum tersedia", 400
@@ -2350,6 +2485,7 @@ def download_csv():
 # HISTORY BY DATE RANGE
 # =========================
 @app.route("/history_by_date", methods=["GET", "POST"])
+@login_required
 def history_by_date():
 
     results = None
@@ -2532,6 +2668,7 @@ def health():
     })
 
 @app.route("/api/toggle_fetch", methods=["POST"])
+@admin_only_api
 def toggle_fetch():
     """System Control ON/OFF"""
     global auto_fetch
@@ -2544,6 +2681,7 @@ def toggle_fetch():
     })
 
 @app.route("/api/set_fetch", methods=["POST"])
+@admin_only_api
 def set_fetch():
     """Explicitly set system status from client"""
     global auto_fetch
@@ -2574,6 +2712,7 @@ def _background_update_metar(station):
 # POLLING ENDPOINT (replaces WebSocket)
 # =========================
 @app.route("/api/latest-data")
+@admin_only_api
 def latest_data():
     """Endpoint for frontend polling — optimized for VERCEL serverless consistency"""
     global last_metar_update, auto_fetch, latest_metar_data, _last_fetch_time, _cached_metar
@@ -2787,7 +2926,7 @@ def update_metar_data_and_sync(station="WARR", is_cron=False):
         metar = get_metar(station)
         
         if not metar:
-            print(f"[SYNC][{req_id}] ❌ No METAR received", file=sys.stderr)
+            print(f"[SYNC][{req_id}] [ERROR] No METAR received", file=sys.stderr)
             return False
         
         # Normalisasi untuk comparison
@@ -2833,7 +2972,7 @@ def update_metar_data_and_sync(station="WARR", is_cron=False):
         # EXECUTE SAVE OR SKIP
         # =====================================================
         if not should_save:
-            print(f"[SYNC][{req_id}] ⏭️ FINAL SKIP: {skip_reason}", file=sys.stderr)
+            print(f"[SYNC][{req_id}] [SKIP] FINAL SKIP: {skip_reason}", file=sys.stderr)
             
             # 🔥 CHRONOLOGICAL CONSISTENCY: 
             # Jika skip karena duplikat, cari timestamp asli dari data yang sudah ada
@@ -2886,7 +3025,7 @@ def update_metar_data_and_sync(station="WARR", is_cron=False):
         # =====================================================
         # SAVE NEW DATA
         # =====================================================
-        print(f"[SYNC][{req_id}] ✨ NEW/REFRESHED METAR detected! Saving...", file=sys.stderr)
+        print(f"[SYNC][{req_id}] [NEW] NEW/REFRESHED METAR detected! Saving...", file=sys.stderr)
         
         new_row = {
             "station": station,
@@ -2918,9 +3057,9 @@ def update_metar_data_and_sync(station="WARR", is_cron=False):
         try:
             print(f"[SYNC][{req_id}] Pushing to Google Sheets...", file=sys.stderr)
             sheets_handler.save_metar(station, time_str, metar)
-            print(f"[SYNC][{req_id}] ✅ Google Sheets synced", file=sys.stderr)
+            print(f"[SYNC][{req_id}] [SUCCESS] Google Sheets synced", file=sys.stderr)
         except Exception as e:
-            print(f"[SYNC][{req_id}] ❌ Google Sheets Error: {e}", file=sys.stderr)
+            print(f"[SYNC][{req_id}] [ERROR] Google Sheets Error: {e}", file=sys.stderr)
             # Tetap lanjut meski Sheets gagal, data sudah di CSV
         
         # Update cache dengan data baru
@@ -2953,11 +3092,11 @@ def update_metar_data_and_sync(station="WARR", is_cron=False):
         }
         last_metar_update = latest_metar_data["last_update"]
         
-        print(f"[SYNC] ✅ Data saved successfully at {last_metar_update}", file=sys.stderr)
+        print(f"[SYNC] [SUCCESS] Data saved successfully at {last_metar_update}", file=sys.stderr)
         return True
         
     except Exception as e:
-        print(f"[SYNC] ❌ Critical Update Error: {e}", file=sys.stderr)
+        print(f"[SYNC] [ERROR] Critical Update Error: {e}", file=sys.stderr)
         import traceback
         traceback.print_exc()
         return False
@@ -2970,6 +3109,7 @@ def background_metar_loop():
     return  # Exit immediately
 
 @app.route("/download_history", methods=["POST"])
+@login_required
 def download_history():
     station = request.form["icao"].upper()
     start_date = request.form["start_date"]
@@ -3151,6 +3291,7 @@ def validate_metar(metar: str) -> list[str]:
     return errors
 
 @app.route("/api/validate", methods=["POST"])
+@admin_only_api
 def api_validate():
     data = request.get_json()
     if not data or "metar" not in data:
@@ -3164,6 +3305,7 @@ def api_validate():
 # MANUAL METAR PARSER
 # =========================
 @app.route("/manual_parser", methods=["GET", "POST"])
+@login_required
 def manual_parser():
 
     station = "WARR"
@@ -3192,6 +3334,7 @@ def manual_parser():
 # DAILY METAR RECORD MANAGER - BACKEND
 # ============================================
 @app.route("/api/records/today")
+@admin_only_api
 def get_today_records():
     """Mengambil data METAR khusus hari ini (Reset otomatis 00:00 UTC)"""
     now_utc = datetime.utcnow()
@@ -3274,6 +3417,7 @@ def get_today_records():
         return jsonify({"error": str(e)}), 500
 
 @app.route("/api/records/yesterday")
+@admin_only_api
 def get_yesterday_records():
     """Mengambil data METAR lengkap dari hari kemarin"""
     now_utc = datetime.utcnow()
@@ -3382,4 +3526,4 @@ if __name__ == "__main__":
     # Use environment variables for production binding and debug mode
     debug_mode = os.environ.get("FLASK_DEBUG", "False") == "True"
     port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port, debug=debug_mode, use_reloader=False)
+    app.run(host="0.0.0.0", port=port, debug=True)
