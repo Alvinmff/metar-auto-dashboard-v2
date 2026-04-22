@@ -3232,7 +3232,7 @@ def validate_metar(metar: str) -> list[str]:
     
     for t in remaining_tokens:
         # 🔥 Detect TS/VCTS for cross-validation
-        if "TS" in t or "VCTS" in t:
+        if ("TS" in t or "VCTS" in t) and not t.startswith("RE"):
             has_ts = True
 
         # Track weather for visibility rule
