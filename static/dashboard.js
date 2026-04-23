@@ -3650,3 +3650,34 @@ function logCurrentWind() {
     // Refresh table after short delay
     setTimeout(refreshWindLogTable, 1000);
 }
+
+// ============================================
+// INITIALIZATION ON PAGE LOAD
+// ============================================
+document.addEventListener('DOMContentLoaded', () => {
+    // Check if we are on a page with METAR data already loaded (like the dashboard)
+    const rawEl = document.getElementById('metarRawCode');
+    if (rawEl && rawEl.textContent) {
+        // Remove any DOM text content that might include badges or extra spaces
+        const rawMetar = rawEl.textContent.replace(/⚠️.*/g, '').trim();
+        if (rawMetar && !window.isManualSession) {
+            console.log('[INIT] Checking initial weather effects for:', rawMetar.substring(0, 50));
+            // Set lastMetarRaw so other functions have access to it
+            lastMetarRaw = rawMetar;
+            window.lastProcessedMetar = rawMetar;
+            
+            // Run fog check
+            if (typeof checkAndActivateFog === 'function') {
+                checkAndActivateFog(rawMetar);
+            }
+            // Run rain check
+            if (typeof checkRainStatus === 'function') {
+                checkRainStatus(rawMetar);
+            }
+            // Thunderstorm module
+            if (typeof updateThunderstormModule === 'function') {
+                updateThunderstormModule(rawMetar);
+            }
+        }
+    }
+});
