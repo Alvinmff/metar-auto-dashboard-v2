@@ -2003,7 +2003,7 @@ def login_page():
             session['admin_logged_in'] = True
             session['admin_user'] = username
             session['last_activity'] = time.time()
-            session.permanent = True
+            session.permanent = True if request.form.get("remember") else False
             
             print(f"[AUTH] Admin '{username}' login sukses dari {request.remote_addr}", file=sys.stderr)
             return redirect(request.args.get('next') or url_for('home'))
