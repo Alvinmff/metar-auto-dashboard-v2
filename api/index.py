@@ -2011,15 +2011,25 @@ def login_page():
             flash('Username atau password salah', 'danger')
             print(f"[AUTH] Login gagal dari {request.remote_addr}", file=sys.stderr)
     
-    return render_template("login.html")
+    response = make_response(render_template("login.html"))
+    response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    return response
 
 @app.route("/logout")
 def logout():
     user = session.get('admin_user', 'unknown')
     session.clear()
+    session.permanent = False
+    
+    response = make_response(redirect(url_for('login_page')))
+    # Hapus cookie secara eksplisit untuk keamanan tambahan
+    response.set_cookie('metar_session', '', expires=0)
+    
     flash('Anda telah berhasil logout', 'info')
     print(f"[AUTH] Admin '{user}' logged out", file=sys.stderr)
-    return redirect(url_for('login_page'))
+    return response
 
 @app.route("/api/auth/status")
 def auth_status():
@@ -2039,6 +2049,14 @@ def auth_status():
 @app.route("/", methods=["GET", "POST"])
 @login_required
 def home():
+    # Tambahkan header untuk mencegah caching halaman dashboard yang sensitif
+    # agar setelah logout, tombol 'Back' atau 'Refresh' tidak menampilkan data lama
+    response_headers = {
+        'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+    }
+
     global last_metar_update, auto_fetch
     station = "WARR"
     metar = None
@@ -2218,7 +2236,7 @@ def home():
         except:
             pass
 
-    response = make_response(render_template(
+    res = make_response(render_template(
         "index.html",
         station=station,
         latest=latest,
@@ -2243,10 +2261,10 @@ def home():
         latest_wind=json.dumps(latest_wind_obj)
     ))
     
-    if request.method == "GET":
-        response.headers['Cache-Control'] = 'public, max-age=15, s-maxage=60, stale-while-revalidate=120'
+    for k, v in response_headers.items():
+        res.headers[k] = v
         
-    return response
+    return res
 
 def common_view_context_data():
     """Helper to get common metrics for all templates without rendering"""
