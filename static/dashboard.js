@@ -125,12 +125,12 @@ async function pollLatestData() {
 
     try {
         const response = await fetch('/api/latest-data');
-        
+
         if (response.status === 401) {
             AuthManager.handleUnauthorized();
             return;
         }
-        
+
         if (!response.ok) throw new Error('Polling failed');
         const data = await response.json();
 
@@ -192,7 +192,7 @@ document.addEventListener("visibilitychange", () => {
     } else {
         console.log("[POLL] Tab hidden (Adaptive polling will adjust rate)");
     }
-    
+
     // Recalculate and trigger immediately on ANY visibility change
     // This ensures we recalculate sleep duration to target the next hunt window accurately
     if (currentPollTimeout) clearTimeout(currentPollTimeout);
@@ -207,7 +207,7 @@ document.addEventListener("visibilitychange", () => {
 function isAwaitingNewMetar() {
     const now = new Date();
     const mins = now.getUTCMinutes();
-    
+
     // Hunt Windows: :05-10 and :35-40 past the hour
     return (mins >= 5 && mins <= 10) || (mins >= 35 && mins <= 40);
 }
@@ -220,12 +220,12 @@ function getSecondsUntilNextHunt() {
     const now = new Date();
     const mins = now.getUTCMinutes();
     const secs = now.getUTCSeconds();
-    
+
     let targetMin = -1;
     if (mins < 5) targetMin = 5;
     else if (mins < 35) targetMin = 35;
     else targetMin = 65; // Minute 5 of next hour
-    
+
     const diffMins = targetMin - mins;
     return (diffMins * 60) - secs;
 }
@@ -242,11 +242,11 @@ async function adaptivePoll() {
 
     if (isHunting) {
         // PRIORITY 1: Keep hunting every 10s during windows regardless of tab visibility
-        nextInterval = 10000; 
+        nextInterval = 10000;
     } else if (!isTabVisible) {
         // PRIORITY 2: Background mode with proactive targeting
         const secondsToHunt = getSecondsUntilNextHunt();
-        
+
         if (secondsToHunt <= 60) {
             // If hunt window is very close (within 60s), wake up every 30s to prepare
             nextInterval = 30000;
@@ -254,7 +254,7 @@ async function adaptivePoll() {
             // Normally sleep until the next hunt starts, capped at 5 minutes
             // We sleep 5s before the target to ensure we hit the boundary correctly
             nextInterval = Math.min(300000, (secondsToHunt - 5) * 1000);
-            
+
             // Safety: Ensure we don't spam if calculation is weird
             if (nextInterval < 30000) nextInterval = 30000;
         }
@@ -2777,14 +2777,14 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // 7. Sync System Fetch Status and trigger first poll
     console.log('[INIT] Syncing system fetch status with server...');
-    
+
     // Validasi Auth Status sebelum memulai polling
     AuthManager.init().then(isAuthenticated => {
         if (!isAuthenticated) {
             console.warn('[INIT] User not authenticated, polling will not start.');
             return;
         }
-        
+
         fetch("/api/set_fetch", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -2804,7 +2804,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 console.error('[INIT] Failed to sync fetch status:', err);
                 if (err.message === 'Unauthorized') AuthManager.handleUnauthorized();
                 else if (typeof adaptivePoll === 'function') setTimeout(adaptivePoll, 1000); // Fallback to poll anyway
-        });
+            });
     });
 
     // Initial poll will handle first load
@@ -3077,12 +3077,12 @@ window.updateDOM = updateDOM;
 window.updateWindCompass = updateWindCompassDisplay;
 
 // ============================================
-// STALE DATA DETECTOR - 10 MINUTE THRESHOLD
+// STALE DATA DETECTOR - 15 MINUTE THRESHOLD
 // ============================================
 
 class MetarStaleMonitor {
     constructor(options = {}) {
-        this.graceMinutes = options.graceMinutes || 10;
+        this.graceMinutes = options.graceMinutes || 15;
         this.checkInterval = options.checkInterval || 30 * 1000;
         this.lastMetarTimestamp = null;
         this.lastMetarRaw = null;
@@ -3324,11 +3324,16 @@ class MetarStaleMonitor {
         // Browser notification
         if ('Notification' in window && Notification.permission === 'granted') {
             try {
-                new Notification('🔔 Data METAR Tidak Update', {
+                new Notification('🔔 METAR TELAT - Data Tidak Update', {
                     body: `Observasi ${expectedTime} UTC belum diterima! Data masih ${metarTime} UTC (terlambat ${minutes}m ${seconds}s).`,
                     requireInteraction: true
                 });
             } catch (e) { /* ignore notification errors */ }
+        }
+
+        // Also show a toast for consistency
+        if (typeof showToast === 'function') {
+            showToast('METAR TELAT', `Observasi ${expectedTime} UTC belum diterima!`, 'danger', 10000);
         }
     }
 
@@ -3362,7 +3367,7 @@ class MetarStaleMonitor {
 
 // Initialize and expose globally
 const metarStaleMonitor = new MetarStaleMonitor({
-    graceMinutes: 10,          // Alert if data not updated 10 min past observation time
+    graceMinutes: 15,          // Alert if data not updated 15 min past observation time
     checkInterval: 30 * 1000  // Check every 30 seconds
 });
 metarStaleMonitor.start();
@@ -3665,7 +3670,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // Set lastMetarRaw so other functions have access to it
             lastMetarRaw = rawMetar;
             window.lastProcessedMetar = rawMetar;
-            
+
             // Run fog check
             if (typeof checkAndActivateFog === 'function') {
                 checkAndActivateFog(rawMetar);
