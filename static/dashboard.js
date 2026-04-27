@@ -972,7 +972,7 @@ function updateWindCompassDisplay(windDir, windSpeed) {
                 showarrow: false,
                 font: { color: subTextColor, family: 'Inter', size: 13 },
                 x: 0.5,
-                y: 0.88,  // <--- Ubah angka ini untuk menaik/turunkan kalimatnya saja
+                y: 0.82,  // <--- Dinaikkan/Diturunkan
                 xref: 'paper', yref: 'paper',
                 xanchor: 'center', yanchor: 'middle'
             },
@@ -982,7 +982,7 @@ function updateWindCompassDisplay(windDir, windSpeed) {
                 showarrow: false,
                 font: { color: textColor, family: 'Inter', size: 24 },
                 x: 0.5,
-                y: 0.80,  // <--- Posisi angka kecepatan
+                y: 0.74,  // <--- Posisi angka kecepatan
                 xref: 'paper', yref: 'paper',
                 xanchor: 'center', yanchor: 'middle'
             },
@@ -992,7 +992,7 @@ function updateWindCompassDisplay(windDir, windSpeed) {
                 showarrow: false,
                 font: { color: textColor, family: 'Inter' },
                 x: 0.5,
-                y: 0.20,  // <--- Posisi angka arah angin
+                y: 0.26,  // <--- Posisi angka arah angin
                 xref: 'paper', yref: 'paper',
                 xanchor: 'center', yanchor: 'middle'
             },
@@ -1002,7 +1002,7 @@ function updateWindCompassDisplay(windDir, windSpeed) {
                 showarrow: false,
                 font: { color: subTextColor, family: 'Inter', size: 13 },
                 x: 0.5,
-                y: 0.12,  // <--- Ubah angka ini untuk menaik/turunkan tulisan 'Direction'
+                y: 0.18,  // <--- Dinaikkan/Diturunkan
                 xref: 'paper', yref: 'paper',
                 xanchor: 'center', yanchor: 'middle'
             }
