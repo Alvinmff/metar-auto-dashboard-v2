@@ -3456,6 +3456,7 @@ body.fog-active .rain-indicator.active {
   height: 120px;
   pointer-events: none;
   animation: drop 0.5s linear infinite;
+  will-change: transform;
 }
 
 @keyframes drop {
@@ -3513,6 +3514,7 @@ body.fog-active .rain-indicator.active {
   animation: splat 0.5s linear infinite;
   display: block;
   /* Aktifkan cipratan/splat */
+  will-change: transform;
 }
 
 @keyframes splat {
