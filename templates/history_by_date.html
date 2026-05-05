@@ -203,6 +203,8 @@
     const wind_dirs = JSON.parse('{{ wind_dirs | tojson | safe }}');
     const utc_wib_labels = JSON.parse('{{ utc_wib_labels | tojson | safe }}');
 
+    document.addEventListener('DOMContentLoaded', function() {
+
     const gridColor = 'rgba(0,0,0,0.06)';
     const tickColor = '#64748B';
 
@@ -488,6 +490,7 @@
             }
         }
     }
+    }); // end DOMContentLoaded
 
     function downloadChart(chartId) {
         if (chartId === 'windRoseHistory') {
