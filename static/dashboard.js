@@ -3689,38 +3689,89 @@ document.addEventListener('DOMContentLoaded', () => {
 
 /**
  * Filter baris tabel berdasarkan tipe laporan (METAR/SPECI).
- * Dapat dipicu manual atau otomatis saat isi tabel berubah.
+ * Menggunakan row class dan status indicator untuk deteksi yang akurat.
+ * Bekerja pada tabel #metar-daily-table (index/metar) dan #history-results-table (history_by_date).
  */
 function filterReportType() {
-    const filter = document.getElementById('reportTypeFilter').value;
-    const rows = document.querySelectorAll('#metar-daily-table tbody tr');
-    let visibleCount = 0;
+    const filterEl = document.getElementById('reportTypeFilter');
+    if (!filterEl) return;
+    
+    const filter = filterEl.value;
+    
+    // Support kedua tabel: metar-daily-table (dashboard/metar) dan history-results-table (history_by_date)
+    const tables = ['metar-daily-table', 'history-results-table'];
+    let totalVisibleCount = 0;
 
-    rows.forEach(function(row) {
-        const metarCell = row.querySelector('.col-metar');
-        if (!metarCell) return;
+    tables.forEach(function(tableId) {
+        const rows = document.querySelectorAll('#' + tableId + ' tbody tr');
+        
+        rows.forEach(function(row) {
+            // Skip empty/placeholder rows
+            if (row.querySelector('.empty') || row.querySelector('td[colspan]')) {
+                return;
+            }
 
-        const metarText = metarCell.textContent.toUpperCase().trim();
-        let show = true;
+            let isSpeci = false;
 
-        if (filter === 'METAR') {
-            // Tampilkan METAR biasa, sembunyikan yang mengandung SPECI
-            show = metarText.includes('METAR') && !metarText.includes('SPECI');
-        } else if (filter === 'SPECI') {
-            // Tampilkan hanya SPECI
-            show = metarText.includes('SPECI');
-        }
-        // filter === 'all' -> tampilkan semua
+            // Method 1: Check row class (paling reliable untuk tabel dinamis dari loadView)
+            if (row.classList.contains('metar-row-speci')) {
+                isSpeci = true;
+            }
 
-        row.style.display = show ? '' : 'none';
-        if (show) visibleCount++;
+            // Method 2: Check status indicator label di kolom STATUS
+            if (!isSpeci) {
+                const statusCell = row.querySelector('.col-status');
+                if (statusCell) {
+                    const statusText = statusCell.textContent.toUpperCase().trim();
+                    if (statusText.includes('SPECI')) {
+                        isSpeci = true;
+                    }
+                }
+            }
+
+            // Method 3: Check METAR data content for "SPECI" keyword
+            if (!isSpeci) {
+                const metarCell = row.querySelector('.col-metar');
+                if (metarCell) {
+                    const metarText = metarCell.textContent.toUpperCase().trim();
+                    if (metarText.includes('SPECI')) {
+                        isSpeci = true;
+                    }
+                }
+            }
+
+            // Method 4: Check data-metar attribute (for history_by_date server-rendered rows)
+            if (!isSpeci && row.hasAttribute('data-metar')) {
+                const dataMetar = row.getAttribute('data-metar').toUpperCase();
+                if (dataMetar.includes('SPECI')) {
+                    isSpeci = true;
+                }
+            }
+
+            let show = true;
+            if (filter === 'METAR') {
+                show = !isSpeci; // Tampilkan hanya yang BUKAN SPECI
+            } else if (filter === 'SPECI') {
+                show = isSpeci;  // Tampilkan hanya SPECI
+            }
+            // filter === 'all' -> tampilkan semua
+
+            row.style.display = show ? '' : 'none';
+            if (show) totalVisibleCount++;
+        });
     });
 
-    // Update badge count pada tombol aktif (Today/Yesterday)
+    // Update badge count pada tombol aktif (Today/Yesterday) jika ada
     const activeBtn = document.querySelector('.manager-controls .toggle-btn.active');
     if (activeBtn) {
         const badge = activeBtn.querySelector('.badge');
-        if (badge) badge.textContent = visibleCount;
+        if (badge) badge.textContent = totalVisibleCount;
+    }
+    
+    // Update count info untuk history_by_date jika ada
+    const historyCountEl = document.getElementById('filtered-count-display');
+    if (historyCountEl) {
+        historyCountEl.textContent = totalVisibleCount;
     }
 }
 
@@ -3729,15 +3780,24 @@ function filterReportType() {
  * setelah loadView('today') / loadView('yesterday') mengganti data tabel.
  */
 document.addEventListener('DOMContentLoaded', function() {
+    // Observer untuk tabel dinamis (index.html / metar.html)
     const tbody = document.getElementById('table-body');
     if (tbody) {
-        const observer = new MutationObserver(function(mutations) {
-            // Terapkan filter setiap kali baris tabel berubah
-            filterReportType();
+        const observer = new MutationObserver(function() {
+            // Delay sedikit agar row class sudah di-assign oleh loadView
+            setTimeout(filterReportType, 50);
         });
         observer.observe(tbody, { childList: true, subtree: true });
+    }
+    
+    // Untuk history_by_date: terapkan filter langsung setelah DOM ready
+    const historyTable = document.getElementById('history-results-table');
+    if (historyTable) {
+        // Delay agar status indicators sudah di-inject oleh script di history_by_date.html
+        setTimeout(filterReportType, 500);
     }
 });
 
 // Expose globally
 window.filterReportType = filterReportType;
+

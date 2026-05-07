@@ -116,14 +116,32 @@
 
 <!-- Table -->
 <div class="card fade-in" style="margin-top: 20px;">
-    <div class="card-header">
+    <div class="card-header" style="flex-wrap: wrap; gap: 12px;">
         <h3 class="card-title"><span class="icon">📋</span> History Results — {{ station }}</h3>
-        <form method="post" action="/download_history" style="margin:0;">
-            <input type="hidden" name="icao" value="{{ station }}">
-            <input type="hidden" name="start_date" value="{{ request.form.start_date }}">
-            <input type="hidden" name="end_date" value="{{ request.form.end_date }}">
-            <button class="btn btn-sm btn-outline">📥 Download CSV</button>
-        </form>
+        <div style="display: flex; align-items: center; gap: 12px; margin-left: auto;">
+            <!-- DROPDOWN FILTER METAR / SPECI -->
+            <div class="filter-dropdown-wrapper" style="display: flex; align-items: center; gap: 8px;">
+                <label for="reportTypeFilter" style="font-size: 0.85rem; color: var(--text-secondary); font-weight: 600; white-space: nowrap;">
+                    Tipe Laporan:
+                </label>
+                <select id="reportTypeFilter" class="form-select" onchange="filterReportType()" 
+                    style="padding: 6px 30px 6px 12px; border-radius: 6px; border: 1px solid var(--border-color); 
+                           background-color: var(--bg-card); color: var(--text-primary); font-size: 0.85rem; 
+                           cursor: pointer; appearance: none; min-width: 130px;
+                           background-image: url('data:image/svg+xml;charset=UTF-8,%3csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%2364748b\' stroke-width=\'2\' stroke-linecap=\'round\' stroke-linejoin=\'round\'%3e%3cpolyline points=\'6 9 12 15 18 9\'%3e%3c/polyline%3e%3c/svg%3e'); 
+                           background-repeat: no-repeat; background-position: right 10px center; background-size: 14px;">
+                    <option value="all">📋 Semua Data</option>
+                    <option value="METAR">📡 METAR</option>
+                    <option value="SPECI">⚠️ SPECI</option>
+                </select>
+            </div>
+            <form method="post" action="/download_history" style="margin:0;">
+                <input type="hidden" name="icao" value="{{ station }}">
+                <input type="hidden" name="start_date" value="{{ request.form.start_date }}">
+                <input type="hidden" name="end_date" value="{{ request.form.end_date }}">
+                <button class="btn btn-sm btn-outline">📥 Download CSV</button>
+            </form>
+        </div>
     </div>
     <div class="table-responsive">
         <table class="data-table modern-table" id="history-results-table">
