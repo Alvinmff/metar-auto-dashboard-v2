@@ -3686,3 +3686,58 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 });
+
+/**
+ * Filter baris tabel berdasarkan tipe laporan (METAR/SPECI).
+ * Dapat dipicu manual atau otomatis saat isi tabel berubah.
+ */
+function filterReportType() {
+    const filter = document.getElementById('reportTypeFilter').value;
+    const rows = document.querySelectorAll('#metar-daily-table tbody tr');
+    let visibleCount = 0;
+
+    rows.forEach(function(row) {
+        const metarCell = row.querySelector('.col-metar');
+        if (!metarCell) return;
+
+        const metarText = metarCell.textContent.toUpperCase().trim();
+        let show = true;
+
+        if (filter === 'METAR') {
+            // Tampilkan METAR biasa, sembunyikan yang mengandung SPECI
+            show = metarText.includes('METAR') && !metarText.includes('SPECI');
+        } else if (filter === 'SPECI') {
+            // Tampilkan hanya SPECI
+            show = metarText.includes('SPECI');
+        }
+        // filter === 'all' -> tampilkan semua
+
+        row.style.display = show ? '' : 'none';
+        if (show) visibleCount++;
+    });
+
+    // Update badge count pada tombol aktif (Today/Yesterday)
+    const activeBtn = document.querySelector('.manager-controls .toggle-btn.active');
+    if (activeBtn) {
+        const badge = activeBtn.querySelector('.badge');
+        if (badge) badge.textContent = visibleCount;
+    }
+}
+
+/**
+ * Pantau perubahan pada tbody agar filter tetap diterapkan
+ * setelah loadView('today') / loadView('yesterday') mengganti data tabel.
+ */
+document.addEventListener('DOMContentLoaded', function() {
+    const tbody = document.getElementById('table-body');
+    if (tbody) {
+        const observer = new MutationObserver(function(mutations) {
+            // Terapkan filter setiap kali baris tabel berubah
+            filterReportType();
+        });
+        observer.observe(tbody, { childList: true, subtree: true });
+    }
+});
+
+// Expose globally
+window.filterReportType = filterReportType;
