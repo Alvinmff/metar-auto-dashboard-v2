@@ -1763,7 +1763,16 @@ function chartDefaults() {
                 padding: 12,
                 cornerRadius: 8,
                 borderColor: 'rgba(232,179,57,0.3)',
-                borderWidth: 1
+                borderWidth: 1,
+                callbacks: {
+                    title: function(context) {
+                        let title = context[0].label || '';
+                        if (title && !title.includes('UTC')) {
+                            return title + ' UTC';
+                        }
+                        return title;
+                    }
+                }
             }
         },
         layout: {
@@ -1784,7 +1793,14 @@ function chartDefaults() {
                     color: getDynamicChartColors().ticks,
                     font: { family: 'Inter', size: 10 },
                     maxTicksLimit: 10,
-                    maxRotation: 45
+                    maxRotation: 45,
+                    callback: function(value, index, values) {
+                        let label = this.getLabelForValue(value);
+                        if (label && !label.includes('UTC')) {
+                            return label + ' UTC';
+                        }
+                        return label;
+                    }
                 }
             }
         }
