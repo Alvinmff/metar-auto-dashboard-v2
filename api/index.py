@@ -167,6 +167,11 @@ DEFAULT_HASH = "scrypt:32768:8:1$BtddDVF5DqG1GpWk$6aa36ddf49dd394f7e37ced0ff5bc6
 ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME", "admin")
 ADMIN_PASSWORD_HASH = os.environ.get("ADMIN_PASSWORD_HASH", DEFAULT_HASH)
 
+# GUEST AUTH CONFIGURATION (Public access)
+GUEST_USERNAME = "guest"
+GUEST_PASSWORD_HASH = "scrypt:32768:8:1$h5GjkYvtTBvYwzoZ$84a0e7593507070235793c04e16977f83400e7b9038c399a24d704cd49b5241be10bd1a6c5a8f681d5a2d76691f60c680b121e8a838cd0a6286425b856a5bfff"
+
+
 # Session secret tetap agar session tidak expired saat cold start
 app.secret_key = os.environ.get("SECRET_KEY", "46f05c593c66cab7e02c330ec1671298d03bedfdb08350bf485aed4a8b0d2b82")
 
@@ -1998,14 +2003,18 @@ def login_page():
         username = request.form.get("username", "").strip()
         password = request.form.get("password", "")
         
-        # Validasi menggunakan werkzeug security (salted hash)
-        if username == ADMIN_USERNAME and check_password_hash(ADMIN_PASSWORD_HASH, password):
+        # Validasi kredensial (Admin atau Guest)
+        is_admin = (username == ADMIN_USERNAME and check_password_hash(ADMIN_PASSWORD_HASH, password))
+        is_guest = (username == GUEST_USERNAME and check_password_hash(GUEST_PASSWORD_HASH, password))
+
+        if is_admin or is_guest:
             session['admin_logged_in'] = True
             session['admin_user'] = username
             session['last_activity'] = time.time()
             session.permanent = True if request.form.get("remember") else False
             
-            print(f"[AUTH] Admin '{username}' login sukses dari {request.remote_addr}", file=sys.stderr)
+            role = "Admin" if is_admin else "Guest"
+            print(f"[AUTH] {role} '{username}' login sukses dari {request.remote_addr}", file=sys.stderr)
             return redirect(request.args.get('next') or url_for('home'))
         else:
             flash('Username atau password salah', 'danger')
