@@ -1582,7 +1582,11 @@ function copyMetar() {
 function copyQam() {
     const el = document.getElementById('qamDisplay');
     if (!el) return;
-    navigator.clipboard.writeText(el.textContent).then(() => {
+    // Wrap in triple backticks so WhatsApp renders it in monospace font
+    // This ensures the ":" alignment is preserved in proportional-font apps
+    const rawText = el.textContent.trim();
+    const wrappedText = '```\n' + rawText + '\n```';
+    navigator.clipboard.writeText(wrappedText).then(() => {
         const fb = document.getElementById('qamCopyFeedback');
         if (fb) { fb.classList.add('visible'); setTimeout(() => fb.classList.remove('visible'), 2000); }
     });

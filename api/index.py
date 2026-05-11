@@ -46,7 +46,7 @@ def format_indonesian_date(dt):
               "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
     
     day_name = days[dt.weekday()]
-    month_name = months[dt.month - 1]
+    month_name = months[dt.month - 1]   
     
     return f"{day_name}, {dt.day:02d} {month_name} {dt.year}"
 
@@ -966,40 +966,60 @@ def generate_qam(station, parsed, raw_metar):
     
     # Extract supplementary info
     supp_info = extract_supplementary_info(raw_metar)
-    # Add trailing dot if not NIL to match example "RA."
     if supp_info != "NIL":
         supp_info += "."
-    
-    # Get time from raw METAR if not in parsed
+
+    # Get time from raw METAR
     match = re.search(r'(\d{2})(\d{2})(\d{2})Z', raw_metar)
     if match:
         day, hour, minute = match.groups()
-        now = datetime.utcnow()
-        date_str = f"{day}/{now.strftime('%m/%Y')}"
-        time_str = f"{hour}.{minute}"
+        date_str = f"{day}/{datetime.utcnow().strftime('%m/%Y')}"
+        time_str = f"{hour}.{minute} UTC"
     elif display["day"] != "-":
         date_str = f"{display['day']}/{datetime.utcnow().strftime('%m/%Y')}"
-        time_str = f"{display['hour']}.{display['minute']}"
+        time_str = f"{display['hour']}.{display['minute']} UTC"
     else:
         date_str = "-"
         time_str = "-"
 
-    qam = f"""MET REPORT (QAM)
-BANDARA JUANDA ({station})
-DATE     : {date_str}
-TIME     : {time_str} UTC
-========================
-WIND     : {display['wind']}
-VIS      : {display['visibility']}
-WEATHER  : {display['weather']}
-CLOUD    : {display['cloud']}
-TT/TD    : {display['temp_td']}
-QNH      : {display['qnh']} MB
-QFE      : {display['qfe']} MB
-REW¹W²   : {supp_info}
-TREND    : {display['trend']}
-"""
-    return qam
+    # ==========================================================
+    # 🔥 WHATSAPP-FRIENDLY: Left-align dengan kolom tetap
+    # Semua label di-left-align dalam lebar 9 karakter,
+    # sehingga ':' selalu sejajar di posisi ke-10.
+    # Saat di-copy, teks dibungkus triple backtick (```)
+    # agar WhatsApp merender dengan font monospace.
+    # ==========================================================
+    
+    # (label, value) — label None = baris tanpa label (separator)
+    items = [
+        ("DATE", date_str),
+        ("TIME", time_str),
+        (None, "=" * 25),
+        ("WIND", display['wind']),
+        ("VIS", display['visibility']),
+        ("WEATHER", display['weather']),
+        ("CLOUD", display['cloud']),
+        ("TT/TD", display['temp_td']),
+        ("QNH", f"{display['qnh']} MB"),
+        ("QFE", f"{display['qfe']} MB"),
+        ("REW¹W²", supp_info),
+        ("TREND", display['trend']),
+    ]
+    
+    lines = [
+        "MET REPORT (QAM)",
+        f"BANDARA JUANDA ({station})",
+    ]
+    
+    for label, value in items:
+        if label is None:
+            lines.append(value)
+        else:
+            # ljust(9) = left-align, pad spasi ke kanan sampai total 9 karakter
+            # sehingga ':' yang ditulis setelahnya selalu sejajar
+            lines.append(f"{label.ljust(9)}: {value}")
+    
+    return "\n".join(lines)
 
 # =========================
 # GENERATE NARRATIVE TEXT - FINAL IMPROVED VERSION

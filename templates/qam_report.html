@@ -143,11 +143,14 @@
         const pEl = document.getElementById('parsedQamDisplay');
 
         // Prioritize copying parsed result if available
-        const textToCopy = pEl ? pEl.textContent : (el ? el.textContent : '');
+        const rawText = pEl ? pEl.textContent.trim() : (el ? el.textContent.trim() : '');
 
-        if (!textToCopy) return;
+        if (!rawText) return;
 
-        navigator.clipboard.writeText(textToCopy).then(() => {
+        // Wrap in triple backticks so WhatsApp renders it in monospace font
+        // This ensures the ":" alignment is preserved in proportional-font apps
+        const wrappedText = '```\n' + rawText + '\n```';
+        navigator.clipboard.writeText(wrappedText).then(() => {
             const fb = document.getElementById('qamCopyFeedback');
             if (fb) {
                 fb.classList.add('visible');
