@@ -159,6 +159,11 @@
                     <span class="label">METAR Converter</span>
                 </a>
 
+                <a href="#" class="sidebar-link" id="nav-manual" onclick="openManualModal(); return false;">
+                    <span class="icon">📖</span>
+                    <span class="label">Manual Ebook</span>
+                </a>
+
                 <div class="sidebar-divider desktop-hidden"></div>
 
                 <button class="sidebar-link desktop-hidden" id="themeToggleSidebar" onclick="toggleTheme()">
@@ -575,6 +580,38 @@
     </div>
 
     <!-- ============================================
+         MANUAL EBOOK MODAL
+         ============================================ -->
+    <div class="manual-overlay" id="manualOverlay" onclick="closeManualModal()"></div>
+    <div class="manual-panel" id="manualPanel">
+        <div class="manual-header">
+            <h3>
+                <span>📖</span>
+                Manual Ebook — Panduan Penggunaan
+            </h3>
+            <button class="manual-close" onclick="closeManualModal()">✕</button>
+        </div>
+        <div class="manual-body">
+            <!-- Ganti src dengan path PDF Anda -->
+            <iframe 
+                src="{{ url_for('static', filename='files/manual_ebook.pdf') }}" 
+                class="manual-iframe"
+                title="Manual Ebook"
+                frameborder="0">
+            </iframe>
+            <!-- Fallback jika browser tidak support iframe PDF -->
+            <div class="manual-fallback">
+                <p>Browser Anda tidak dapat menampilkan PDF secara langsung.</p>
+                <a href="{{ url_for('static', filename='files/manual_ebook.pdf') }}" 
+                   target="_blank" 
+                   class="btn btn-primary">
+                   📥 Download PDF
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================
          FLOATING HELP BUTTON & MODAL
          ============================================ -->
     {% block help_modal %}
@@ -847,6 +884,31 @@
         </div>
     </div>
     {% endblock %}
+
+    <!-- ============================================
+         MANUAL EBOOK MODAL JAVASCRIPT
+         ============================================ -->
+    <script>
+        // ========== MANUAL EBOOK MODAL ==========
+        function openManualModal() {
+            document.getElementById('manualOverlay').classList.add('active');
+            document.getElementById('manualPanel').classList.add('active');
+            document.body.style.overflow = 'hidden'; // Prevent background scrolling
+        }
+
+        function closeManualModal() {
+            document.getElementById('manualOverlay').classList.remove('active');
+            document.getElementById('manualPanel').classList.remove('active');
+            document.body.style.overflow = '';
+        }
+
+        // Close with Escape key
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closeManualModal();
+            }
+        });
+    </script>
 
     {% block extra_scripts_bottom %}{% endblock %}
 </body>
