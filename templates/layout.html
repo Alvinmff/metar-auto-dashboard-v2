@@ -58,7 +58,8 @@
         <header class="app-header">
             <div class="header-left">
                 <button class="sidebar-toggle" id="sidebarToggle" title="Toggle Sidebar">☰</button>
-                <img src="{{ url_for('static', filename='images/BMKG_LOGO.png') }}" alt="BMKG Logo" class="header-logo" width="40" height="40">
+                <img src="{{ url_for('static', filename='images/BMKG_LOGO.png') }}" alt="BMKG Logo" class="header-logo"
+                    width="40" height="40">
                 <div class="header-title">
                     <h1>METAR Monitoring</h1>
                     <div class="station-badge">
@@ -593,19 +594,15 @@
         </div>
         <div class="manual-body">
             <!-- Ganti src dengan path PDF Anda -->
-            <iframe 
-                src="{{ url_for('static', filename='files/manual_ebook.pdf') }}" 
-                class="manual-iframe"
-                title="Manual Ebook"
-                frameborder="0">
+            <iframe src="{{ url_for('static', filename='files/Manual Book Metar.pdf') }}" class="manual-iframe"
+                title="Manual Ebook" frameborder="0">
             </iframe>
             <!-- Fallback jika browser tidak support iframe PDF -->
             <div class="manual-fallback">
                 <p>Browser Anda tidak dapat menampilkan PDF secara langsung.</p>
-                <a href="{{ url_for('static', filename='files/manual_ebook.pdf') }}" 
-                   target="_blank" 
-                   class="btn btn-primary">
-                   📥 Download PDF
+                <a href="{{ url_for('static', filename='files/Manual Book Metar.pdf') }}" target="_blank"
+                    class="btn btn-primary">
+                    📥 Download PDF
                 </a>
             </div>
         </div>
@@ -903,7 +900,7 @@
         }
 
         // Close with Escape key
-        document.addEventListener('keydown', function(e) {
+        document.addEventListener('keydown', function (e) {
             if (e.key === 'Escape') {
                 closeManualModal();
             }
