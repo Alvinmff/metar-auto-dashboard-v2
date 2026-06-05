@@ -155,16 +155,29 @@
             </thead>
             <tbody>
                 {% for row in results.itertuples() %}
-                <tr class="history-row" 
+                <tr class="history-row {% if getattr(row, 'is_missing', False) %}metar-row-missing{% endif %}" 
                     data-metar="{{ row.metar }}" 
                     data-time="{{ row.time }}" 
-                    data-validation='{{ row.validation_json | safe }}'>
+                    data-validation='{{ row.validation_json | safe }}'
+                    {% if getattr(row, 'is_missing', False) %}data-missing="true"{% endif %}>
                     <td class="col-time">{{ row.time }}</td>
                     <td class="col-station">{{ row.station }}</td>
-                    <td class="metar-cell col-metar">{{ row.metar }}{% if not row.metar.endswith('=') %}={% endif %}</td>
+                    <td class="metar-cell col-metar">
+                        {% if getattr(row, 'is_missing', False) %}
+                            <span class="missing-placeholder-text" style="color: #ef4444; font-weight: bold; display: flex; align-items: center; gap: 6px;">
+                                ⚠️ DATA METAR TIDAK MASUK
+                            </span>
+                        {% else %}
+                            {{ row.metar }}{% if not row.metar.endswith('=') %}={% endif %}
+                        {% endif %}
+                    </td>
                     <td class="col-status">
-                        <!-- Status will be injected by JS for consistency -->
-                        <span class="loading-status">...</span>
+                        {% if getattr(row, 'is_missing', False) %}
+                            <span class="badge" style="background-color: #ef4444; color: white;">MISSING</span>
+                        {% else %}
+                            <!-- Status will be injected by JS for consistency -->
+                            <span class="loading-status">...</span>
+                        {% endif %}
                     </td>
                 </tr>
                 {% endfor %}
@@ -179,6 +192,10 @@
         const rows = document.querySelectorAll('.history-row');
         rows.forEach(row => {
             try {
+                if (row.getAttribute('data-missing') === 'true') {
+                    row.style.backgroundColor = 'rgba(239, 68, 68, 0.08)';
+                    return;
+                }
                 const metar = row.getAttribute('data-metar');
                 const time = row.getAttribute('data-time');
                 const validationJson = row.getAttribute('data-validation');
@@ -203,6 +220,54 @@
                 console.error("[HISTORY] Error processing row status:", e);
             }
         });
+
+        // Trigger red toasts/popups for missing METAR data
+        const missingRows = document.querySelectorAll('.history-row[data-missing="true"]');
+        if (missingRows.length > 0) {
+            const missingTimes = Array.from(missingRows).map(row => {
+                const timeStr = row.getAttribute('data-time');
+                try {
+                    const parts = timeStr.split(' ');
+                    const dateParts = parts[0].split('-');
+                    const timeParts = parts[1].split(':');
+                    const utcDate = new Date(Date.UTC(
+                        parseInt(dateParts[0]),
+                        parseInt(dateParts[1]) - 1,
+                        parseInt(dateParts[2]),
+                        parseInt(timeParts[0]),
+                        parseInt(timeParts[1]),
+                        parseInt(timeParts[2] || 0)
+                    ));
+                    
+                    const timeFormatter = new Intl.DateTimeFormat('id-ID', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        hour12: false,
+                        timeZone: 'Asia/Jakarta'
+                    });
+                    const dateFormatter = new Intl.DateTimeFormat('id-ID', {
+                        day: '2-digit',
+                        month: 'short',
+                        timeZone: 'Asia/Jakarta'
+                    });
+                    return `${timeFormatter.format(utcDate)} WIB (${dateFormatter.format(utcDate)})`;
+                } catch (e) {
+                    return timeStr + ' UTC';
+                }
+            });
+            
+            if (missingTimes.length <= 3) {
+                missingTimes.forEach(t => {
+                    if (typeof showToast === 'function') {
+                        showToast('⚠️ DATA METAR HILANG', `Data METAR di jam ${t} tidak masuk!`, 'danger', 15000, false);
+                    }
+                });
+            } else {
+                if (typeof showToast === 'function') {
+                    showToast('⚠️ DATA METAR HILANG', `Terdapat ${missingTimes.length} data METAR yang tidak masuk pada pencarian ini!`, 'danger', 15000, false);
+                }
+            }
+        }
     });
 </script>
 {% endif %}

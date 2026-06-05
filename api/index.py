@@ -2612,6 +2612,53 @@ def history_by_date():
                     
                     print(f"[HISTORY] Found {len(results)} matching records", file=sys.stderr)
                     
+                    # Identify missing 30-minute intervals
+                    if results is not None and not results.empty:
+                        def get_scheduled_time(dt):
+                            minute = dt.minute
+                            if minute >= 45:
+                                minute = 0
+                                dt = dt + timedelta(hours=1)
+                            elif minute >= 15:
+                                minute = 30
+                            else:
+                                minute = 0
+                            return dt.replace(minute=minute, second=0, microsecond=0)
+
+                        existing_slots = set()
+                        for t in results["time"]:
+                            existing_slots.add(get_scheduled_time(t))
+
+                        min_time = results["time"].min()
+                        max_time = results["time"].max()
+                        
+                        start_slot = get_scheduled_time(min_time)
+                        end_slot = get_scheduled_time(max_time)
+                        
+                        missing_slots = []
+                        curr_slot = start_slot
+                        while curr_slot <= end_slot:
+                            if curr_slot not in existing_slots:
+                                missing_slots.append(curr_slot)
+                            curr_slot += timedelta(minutes=30)
+                        
+                        results = results.copy()
+                        results["is_missing"] = False
+                        
+                        if missing_slots:
+                            missing_rows = []
+                            for slot in missing_slots:
+                                missing_rows.append({
+                                    "station": station_clean,
+                                    "time": slot,
+                                    "metar": "DATA METAR TIDAK MASUK",
+                                    "validation_json": json.dumps({"errors": [], "warnings": [], "status": "danger"}),
+                                    "is_missing": True
+                                })
+                            df_missing = pd.DataFrame(missing_rows)
+                            df_missing["time"] = pd.to_datetime(df_missing["time"])
+                            results = pd.concat([results, df_missing], ignore_index=True)
+
                     # Extract chart data if results exist
                     if results is not None and not results.empty:
                         results = results.sort_values("time")  # Sort by time for chart
@@ -2653,9 +2700,11 @@ def history_by_date():
                         
                         # Pre-calculate validation for table display (allows for status badges/row colors)
                         if results is not None and not results.empty:
-                            # We'll add this column so the template can access it
                             results = results.copy() # Avoid SettingWithCopyWarning
-                            results["validation_json"] = results["metar"].apply(lambda x: json.dumps(validate_metar(str(x))))
+                            results["validation_json"] = results.apply(
+                                lambda r: r["validation_json"] if r["is_missing"] else json.dumps(validate_metar(str(r["metar"]))),
+                                axis=1
+                            )
                         
                         print(f"[HISTORY] Chart data extracted: {len(labels)} points")
                         

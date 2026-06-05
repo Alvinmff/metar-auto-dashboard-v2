@@ -47,7 +47,7 @@
     <audio id="lowVisSound" src="{{ url_for('static', filename='alarm.mp3') }}" preload="auto"></audio>
     <audio id="newDataSound" src="{{ url_for('static', filename='notify.mp3') }}" preload="auto"></audio>
     <audio id="validationErrorSound" src="{{ url_for('static', filename='metarsalah.mp3') }}" preload="auto"></audio>
-    <audio id="staleDataSound" src="{{ url_for('static', filename='metartelat.mp3') }}" preload="auto"></audio>
+    <!-- <audio id="staleDataSound" src="{{ url_for('static', filename='metartelat.mp3') }}" preload="auto"></audio> -->
 
     <!-- Overlay untuk mobile sidebar -->
     <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
@@ -693,7 +693,7 @@
                     <ul class="help-list">
                         <li>Alarm suara otomatis untuk visibility &lt; 3000m</li>
                         <li>Alarm suara otomatis untuk thunderstorm (TS, TSRA, +TSRA, VCTS)</li>
-                        <li>Deteksi METAR telat (stale data) — notifikasi jika data tidak update</li>
+                        <!-- <li>Deteksi METAR telat (stale data) — notifikasi jika data tidak update</li> -->
                         <li>Alarm persisten lintas halaman (tidak berbunyi ulang jika data belum berubah)</li>
                         <li>Efek visual cuaca: animasi hujan 🌧️ dan kabut/haze 🌫️ di layar</li>
                         <li>Status warna panel: <strong style="color:#059669">Hijau</strong> (aman), <strong

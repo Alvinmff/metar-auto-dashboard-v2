@@ -3385,13 +3385,15 @@ class MetarStaleMonitor {
     }
 }
 
-// Initialize and expose globally
+// Initialize and expose globally (Deactivated as requested)
+/*
 const metarStaleMonitor = new MetarStaleMonitor({
     graceMinutes: 15,          // Alert if data not updated 15 min past observation time
     checkInterval: 30 * 1000  // Check every 30 seconds
 });
 metarStaleMonitor.start();
 window.metarStaleMonitor = metarStaleMonitor;
+*/
 
 // Request notification permission on first interaction
 document.addEventListener('click', () => {
@@ -3400,13 +3402,15 @@ document.addEventListener('click', () => {
     }
 }, { once: true });
 
-// Seed stale monitor from server-rendered METAR on page load
+// Seed stale monitor from server-rendered METAR on page load (Deactivated as requested)
 (function initStaleMonitorFromDOM() {
     const rawEl = document.getElementById('metarRawCode');
     if (rawEl && rawEl.textContent.trim()) {
         const rawText = rawEl.textContent.trim().replace(/=/g, '');
-        metarStaleMonitor.updateFromMetar(rawText);
-        console.log('[STALE] Seeded from server-rendered METAR');
+        if (typeof metarStaleMonitor !== 'undefined') {
+            metarStaleMonitor.updateFromMetar(rawText);
+            console.log('[STALE] Seeded from server-rendered METAR');
+        }
     }
 })();
 
