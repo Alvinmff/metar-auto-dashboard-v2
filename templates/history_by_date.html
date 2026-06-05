@@ -29,6 +29,17 @@
         color: #ef4444 !important;
         font-weight: 600;
     }
+    .metar-status-missing {
+        background: #FEF2F2;
+        color: #991B1B;
+        border: 1px solid #FCA5A5;
+        animation: pulseInvalid 2s ease-in-out infinite;
+    }
+    [data-theme="dark"] .metar-status-missing {
+        background: rgba(239, 68, 68, 0.2);
+        color: #FCA5A5;
+        border-color: rgba(239, 68, 68, 0.4);
+    }
 </style>
 {% endblock %}
 
@@ -193,7 +204,17 @@
                     </td>
                     <td class="col-status">
                         {% if row.is_missing %}
-                            <span class="badge" style="background-color: #ef4444; color: white;">MISSING</span>
+                            <div class="metar-status-indicator metar-status-missing">
+                                <span class="metar-status-icon">⚠️</span>
+                                <span>MISSING</span>
+                                <div class="metar-status-tooltip">
+                                    <div class="tooltip-title">
+                                        <span>⚠️</span>
+                                        <span>Data Missing</span>
+                                    </div>
+                                    <div class="tooltip-desc">Data METAR pada jam ini tidak masuk/diterima oleh sistem.</div>
+                                </div>
+                            </div>
                         {% else %}
                             <!-- Status will be injected by JS for consistency -->
                             <span class="loading-status">...</span>
