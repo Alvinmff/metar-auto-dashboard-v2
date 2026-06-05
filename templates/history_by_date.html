@@ -10,6 +10,26 @@
 {% block nav_active_history %}active{% endblock %}
 
 {% block head %}
+<style>
+    @keyframes redPulse {
+        0% {
+            background-color: rgba(239, 68, 68, 0.05);
+        }
+        50% {
+            background-color: rgba(239, 68, 68, 0.2);
+        }
+        100% {
+            background-color: rgba(239, 68, 68, 0.05);
+        }
+    }
+    .metar-row-missing {
+        animation: redPulse 2s infinite ease-in-out;
+    }
+    .metar-row-missing td {
+        color: #ef4444 !important;
+        font-weight: 600;
+    }
+</style>
 {% endblock %}
 
 {% block content %}
@@ -193,7 +213,6 @@
         rows.forEach(row => {
             try {
                 if (row.getAttribute('data-missing') === 'true') {
-                    row.style.backgroundColor = 'rgba(239, 68, 68, 0.08)';
                     return;
                 }
                 const metar = row.getAttribute('data-metar');

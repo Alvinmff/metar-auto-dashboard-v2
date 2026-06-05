@@ -2614,7 +2614,38 @@ def history_by_date():
                     
                     # Identify missing 30-minute intervals
                     if results is not None and not results.empty:
+                        def get_metar_obs_time(row_time, metar_str):
+                            if not metar_str:
+                                return None
+                            match = re.search(r'\b(\d{2})(\d{2})(\d{2})Z\b', str(metar_str))
+                            if not match:
+                                return None
+                            day = int(match.group(1))
+                            hour = int(match.group(2))
+                            minute = int(match.group(3))
+                            try:
+                                # Standard case: construct datetime using current row's year and month
+                                obs_dt = datetime(row_time.year, row_time.month, day, hour, minute, 0)
+                                diff = (row_time - obs_dt).total_seconds()
+                                # Handle month transitions (e.g., if METAR day is 31 but row_time is day 1)
+                                if abs(diff) > 15 * 24 * 3600:
+                                    if obs_dt > row_time:
+                                        # obs_dt is in the past month
+                                        month = row_time.month - 1 if row_time.month > 1 else 12
+                                        year = row_time.year if row_time.month > 1 else row_time.year - 1
+                                        obs_dt = datetime(year, month, day, hour, minute, 0)
+                                    else:
+                                        # obs_dt is in the next month
+                                        month = row_time.month + 1 if row_time.month < 12 else 1
+                                        year = row_time.year if row_time.month < 12 else row_time.year + 1
+                                        obs_dt = datetime(year, month, day, hour, minute, 0)
+                                return obs_dt
+                            except:
+                                return None
+
                         def get_scheduled_time(dt):
+                            if not dt:
+                                return None
                             minute = dt.minute
                             if minute >= 45:
                                 minute = 0
@@ -2626,38 +2657,43 @@ def history_by_date():
                             return dt.replace(minute=minute, second=0, microsecond=0)
 
                         existing_slots = set()
-                        for t in results["time"]:
-                            existing_slots.add(get_scheduled_time(t))
+                        for _, row in results.iterrows():
+                            obs_time = get_metar_obs_time(row["time"], row["metar"])
+                            if obs_time:
+                                sched_time = get_scheduled_time(obs_time)
+                                existing_slots.add(sched_time)
+                            else:
+                                existing_slots.add(get_scheduled_time(row["time"]))
 
-                        min_time = results["time"].min()
-                        max_time = results["time"].max()
+                        existing_slots = {s for s in existing_slots if s is not None}
                         
-                        start_slot = get_scheduled_time(min_time)
-                        end_slot = get_scheduled_time(max_time)
-                        
-                        missing_slots = []
-                        curr_slot = start_slot
-                        while curr_slot <= end_slot:
-                            if curr_slot not in existing_slots:
-                                missing_slots.append(curr_slot)
-                            curr_slot += timedelta(minutes=30)
-                        
-                        results = results.copy()
-                        results["is_missing"] = False
-                        
-                        if missing_slots:
-                            missing_rows = []
-                            for slot in missing_slots:
-                                missing_rows.append({
-                                    "station": station_clean,
-                                    "time": slot,
-                                    "metar": "DATA METAR TIDAK MASUK",
-                                    "validation_json": json.dumps({"errors": [], "warnings": [], "status": "danger"}),
-                                    "is_missing": True
-                                })
-                            df_missing = pd.DataFrame(missing_rows)
-                            df_missing["time"] = pd.to_datetime(df_missing["time"])
-                            results = pd.concat([results, df_missing], ignore_index=True)
+                        if existing_slots:
+                            start_slot = min(existing_slots)
+                            end_slot = max(existing_slots)
+                            
+                            missing_slots = []
+                            curr_slot = start_slot
+                            while curr_slot <= end_slot:
+                                if curr_slot not in existing_slots:
+                                    missing_slots.append(curr_slot)
+                                curr_slot += timedelta(minutes=30)
+                            
+                            results = results.copy()
+                            results["is_missing"] = False
+                            
+                            if missing_slots:
+                                missing_rows = []
+                                for slot in missing_slots:
+                                    missing_rows.append({
+                                        "station": station_clean,
+                                        "time": slot,
+                                        "metar": "DATA METAR TIDAK MASUK",
+                                        "validation_json": json.dumps({"errors": [], "warnings": [], "status": "danger"}),
+                                        "is_missing": True
+                                    })
+                                df_missing = pd.DataFrame(missing_rows)
+                                df_missing["time"] = pd.to_datetime(df_missing["time"])
+                                results = pd.concat([results, df_missing], ignore_index=True)
 
                     # Extract chart data if results exist
                     if results is not None and not results.empty:
