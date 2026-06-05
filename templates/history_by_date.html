@@ -101,6 +101,7 @@
         <div class="chart-container" style="height: 300px;">
             <canvas id="tempChart"></canvas>
         </div>
+        <div id="tempChart-minmax" class="chart-minmax-row loading"></div>
     </div>
 
     <!-- Chart 2: Pressure -->
@@ -112,6 +113,7 @@
         <div class="chart-container" style="height: 300px;">
             <canvas id="pressureChart"></canvas>
         </div>
+        <div id="pressureChart-minmax" class="chart-minmax-row loading"></div>
     </div>
 
     <!-- Chart 3: Wind Speed -->
@@ -123,6 +125,7 @@
         <div class="chart-container" style="height: 300px;">
             <canvas id="windChart"></canvas>
         </div>
+        <div id="windChart-minmax" class="chart-minmax-row loading"></div>
     </div>
 </div>
 
@@ -641,6 +644,9 @@
                     subLabel: subLabel
                 });
             }
+        // Trigger min/max indicators update
+        if (typeof updateChartMinMax === 'function') {
+            updateChartMinMax(labels, temps, pressures, winds, gusts);
         }
     }
     }); // end DOMContentLoaded

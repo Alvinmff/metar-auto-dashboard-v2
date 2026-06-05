@@ -1983,6 +1983,9 @@ async function loadHistory() {
             if (el) el.textContent = infoText;
         });
 
+        // Trigger min/max indicators update
+        updateChartMinMax(labels, temps, pressures, winds, gusts);
+
         console.log('[CHART] Charts successfully updated with summary info');
     } catch (e) {
         console.error('[CHART] Error updating charts:', e);
@@ -2014,11 +2017,100 @@ function updateCharts(labels, temps, pressures, winds, gusts) {
             }
             windChart.update();
         }
+        // Trigger min/max indicators update
+        updateChartMinMax(labels, temps, pressures, winds, gusts);
     } else {
         loadHistory();
     }
 }
 window.updateCharts = updateCharts;
+
+// =======================
+// CHART MIN/MAX INDICATORS
+// =======================
+/**
+ * Calculate and display min/max indicators for all charts.
+ * Called after chart data is updated.
+ * @param {string[]} labels - Time labels
+ * @param {number[]} temps - Temperature values
+ * @param {number[]} pressures - Pressure values
+ * @param {number[]} winds - Wind speed values
+ * @param {number[]} gusts - Wind gust values (optional)
+ */
+function updateChartMinMax(labels, temps, pressures, winds, gusts) {
+    // Helper: find min/max with index from numeric array
+    function findMinMax(dataArr, labelArr) {
+        const validPairs = [];
+        for (let i = 0; i < dataArr.length; i++) {
+            const val = parseFloat(dataArr[i]);
+            if (!isNaN(val) && dataArr[i] !== null && dataArr[i] !== undefined) {
+                validPairs.push({ value: val, label: labelArr[i] || '-', index: i });
+            }
+        }
+        if (validPairs.length === 0) return null;
+
+        let minItem = validPairs[0], maxItem = validPairs[0];
+        for (const item of validPairs) {
+            if (item.value < minItem.value) minItem = item;
+            if (item.value > maxItem.value) maxItem = item;
+        }
+        return { min: minItem, max: maxItem };
+    }
+
+    // Helper: render a min/max row into a container
+    function renderMinMaxRow(containerId, result, unit, lowIcon, highIcon) {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+
+        if (!result) {
+            container.innerHTML = '<div style="padding: 8px 14px; color: var(--text-muted); font-size: 0.85rem;">No data available</div>';
+            container.classList.remove('loading');
+            return;
+        }
+
+        const minTimeLabel = result.min.label ? `at ${result.min.label}` : '';
+        const maxTimeLabel = result.max.label ? `at ${result.max.label}` : '';
+
+        container.innerHTML = `
+            <div class="chart-minmax-item minmax-low">
+                <div class="minmax-icon">${lowIcon}</div>
+                <div class="minmax-content">
+                    <span class="minmax-label">Terendah</span>
+                    <span class="minmax-value">${result.min.value} ${unit}</span>
+                    <span class="minmax-time">${minTimeLabel}</span>
+                </div>
+            </div>
+            <div class="chart-minmax-item minmax-high">
+                <div class="minmax-icon">${highIcon}</div>
+                <div class="minmax-content">
+                    <span class="minmax-label">Tertinggi</span>
+                    <span class="minmax-value">${result.max.value} ${unit}</span>
+                    <span class="minmax-time">${maxTimeLabel}</span>
+                </div>
+            </div>
+        `;
+        container.classList.remove('loading');
+    }
+
+    // Temperature
+    if (temps && temps.length > 0) {
+        const tempResult = findMinMax(temps, labels);
+        renderMinMaxRow('tempChart-minmax', tempResult, '°C', '❄️', '🔥');
+    }
+
+    // Pressure
+    if (pressures && pressures.length > 0) {
+        const pressResult = findMinMax(pressures, labels);
+        renderMinMaxRow('pressureChart-minmax', pressResult, 'hPa', '⬇️', '⬆️');
+    }
+
+    // Wind Speed
+    if (winds && winds.length > 0) {
+        const windResult = findMinMax(winds, labels);
+        renderMinMaxRow('windChart-minmax', windResult, 'KT', '🍃', '🌪️');
+    }
+}
+window.updateChartMinMax = updateChartMinMax;
 
 // =======================
 // FETCH METAR DATA
