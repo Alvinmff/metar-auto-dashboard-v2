@@ -1805,6 +1805,42 @@ button.sidebar-link {
   }
 }
 
+/* Missing data row pulse animation */
+@keyframes redPulse {
+  0% {
+    background-color: rgba(239, 68, 68, 0.05);
+  }
+  50% {
+    background-color: rgba(239, 68, 68, 0.2);
+  }
+  100% {
+    background-color: rgba(239, 68, 68, 0.05);
+  }
+}
+
+.metar-row-missing {
+  animation: redPulse 2s infinite ease-in-out;
+}
+
+.metar-row-missing td {
+  color: #ef4444 !important;
+  font-weight: 600;
+}
+
+/* Status: Missing */
+.metar-status-missing {
+  background: #FEF2F2;
+  color: #991B1B;
+  border: 1px solid #FCA5A5;
+  animation: pulseInvalid 2s ease-in-out infinite;
+}
+
+[data-theme="dark"] .metar-status-missing {
+  background: rgba(239, 68, 68, 0.2);
+  color: #FCA5A5;
+  border-color: rgba(239, 68, 68, 0.4);
+}
+
 @keyframes shake {
 
   0%,
