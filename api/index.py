@@ -2700,6 +2700,9 @@ def history_by_date():
                         results = results.sort_values("time")  # Sort by time for chart
                         
                         for _, row in results.iterrows():
+                            if bool(row.get("is_missing", False)):
+                                continue
+                            
                             metar = str(row["metar"]) if pd.notna(row["metar"]) else ""
                             
                             # Format time for label
@@ -3627,18 +3630,14 @@ def get_today_records():
         
         for _, row in chart_df.iterrows():
             is_missing = bool(row.get("is_missing", False))
-            chart_labels.append(row["time"].strftime("%H:%M"))
             if is_missing:
-                chart_temps.append(None)
-                chart_pressures.append(None)
-                chart_winds.append(None)
-                chart_gusts.append(None)
-            else:
-                p = parse_metar(str(row["metar"]))
-                chart_temps.append(float(p.get("temperature_c")) if p.get("temperature_c") else None)
-                chart_pressures.append(float(p.get("pressure_hpa")) if p.get("pressure_hpa") else None)
-                chart_winds.append(float(p.get("wind_speed_kt")) if p.get("wind_speed_kt") else None)
-                chart_gusts.append(float(p.get("wind_gust_kt")) if p.get("wind_gust_kt") else None)
+                continue
+            chart_labels.append(row["time"].strftime("%H:%M"))
+            p = parse_metar(str(row["metar"]))
+            chart_temps.append(float(p.get("temperature_c")) if p.get("temperature_c") else None)
+            chart_pressures.append(float(p.get("pressure_hpa")) if p.get("pressure_hpa") else None)
+            chart_winds.append(float(p.get("wind_speed_kt")) if p.get("wind_speed_kt") else None)
+            chart_gusts.append(float(p.get("wind_gust_kt")) if p.get("wind_gust_kt") else None)
 
         return jsonify({
             "date": format_indonesian_date(now_utc),
@@ -3746,18 +3745,14 @@ def get_yesterday_records():
         
         for _, row in chart_df.iterrows():
             is_missing = bool(row.get("is_missing", False))
-            chart_labels.append(row["time"].strftime("%H:%M"))
             if is_missing:
-                chart_temps.append(None)
-                chart_pressures.append(None)
-                chart_winds.append(None)
-                chart_gusts.append(None)
-            else:
-                p = parse_metar(str(row["metar"]))
-                chart_temps.append(float(p.get("temperature_c")) if p.get("temperature_c") else None)
-                chart_pressures.append(float(p.get("pressure_hpa")) if p.get("pressure_hpa") else None)
-                chart_winds.append(float(p.get("wind_speed_kt")) if p.get("wind_speed_kt") else None)
-                chart_gusts.append(float(p.get("wind_gust_kt")) if p.get("wind_gust_kt") else None)
+                continue
+            chart_labels.append(row["time"].strftime("%H:%M"))
+            p = parse_metar(str(row["metar"]))
+            chart_temps.append(float(p.get("temperature_c")) if p.get("temperature_c") else None)
+            chart_pressures.append(float(p.get("pressure_hpa")) if p.get("pressure_hpa") else None)
+            chart_winds.append(float(p.get("wind_speed_kt")) if p.get("wind_speed_kt") else None)
+            chart_gusts.append(float(p.get("wind_gust_kt")) if p.get("wind_gust_kt") else None)
 
         return jsonify({
             "date": format_indonesian_date(yesterday),
