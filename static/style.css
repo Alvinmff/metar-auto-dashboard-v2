@@ -1106,13 +1106,13 @@ button.sidebar-link {
 }
 
 .chart-minmax-item.minmax-low {
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.08) 0%, rgba(59, 130, 246, 0.03) 100%);
-  border: 1px solid rgba(59, 130, 246, 0.18);
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.08) 0%, rgba(239, 68, 68, 0.03) 100%);
+  border: 1px solid rgba(239, 68, 68, 0.18);
 }
 
 .chart-minmax-item.minmax-high {
-  background: linear-gradient(135deg, rgba(239, 68, 68, 0.08) 0%, rgba(239, 68, 68, 0.03) 100%);
-  border: 1px solid rgba(239, 68, 68, 0.18);
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(16, 185, 129, 0.03) 100%);
+  border: 1px solid rgba(16, 185, 129, 0.18);
 }
 
 .minmax-icon {
@@ -1127,13 +1127,13 @@ button.sidebar-link {
 }
 
 .minmax-low .minmax-icon {
-  background: rgba(59, 130, 246, 0.15);
-  color: #3b82f6;
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
 }
 
 .minmax-high .minmax-icon {
-  background: rgba(239, 68, 68, 0.15);
-  color: #ef4444;
+  background: rgba(16, 185, 129, 0.15);
+  color: #10b981;
 }
 
 .minmax-content {
@@ -1159,11 +1159,11 @@ button.sidebar-link {
 }
 
 .minmax-low .minmax-value {
-  color: #3b82f6;
+  color: #ef4444;
 }
 
 .minmax-high .minmax-value {
-  color: #ef4444;
+  color: #10b981;
 }
 
 .minmax-time {
