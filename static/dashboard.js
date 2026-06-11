@@ -3556,24 +3556,46 @@ async function loadView(viewType) {
             // 🔥 RE Sequence Validation: records are newest-first
             // records[i] is newer, records[i+1] is the previous observation
             data.records.forEach((record, i) => {
-                // Get the previous (older) record for RE comparison
-                const prevRecord = (i + 1 < data.records.length) ? data.records[i + 1] : null;
-                const seqErrors = prevRecord ? checkRESequence(record.metar, prevRecord.metar) : [];
-
-                const status = getMetarStatus(record.metar, record.time, record.validation_results, seqErrors);
-                const statusHtml = createStatusIndicatorHTML(status);
+                let statusHtml = '';
                 let rowClass = "";
-                if (status.type === "speci") {
-                    rowClass = "metar-row-speci";
-                } else if (status.type === "invalid") {
-                    rowClass = "metar-row-invalid";
+                let metarDisplay = "";
+
+                if (record.is_missing) {
+                    rowClass = "metar-row-missing";
+                    metarDisplay = `<span class="missing-placeholder-text" style="color: #ef4444; font-weight: bold; display: flex; align-items: center; gap: 6px;">⚠️ DATA METAR TIDAK MASUK</span>`;
+                    statusHtml = `
+                        <div class="metar-status-indicator metar-status-missing">
+                            <span class="metar-status-icon">⚠️</span>
+                            <span>MISSING</span>
+                            <div class="metar-status-tooltip">
+                                <div class="tooltip-title">
+                                    <span>⚠️</span>
+                                    <span>Data Missing</span>
+                                </div>
+                                <div class="tooltip-desc">Data METAR pada jam ini tidak masuk/diterima oleh sistem.</div>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    // Get the previous (older) record for RE comparison
+                    const prevRecord = (i + 1 < data.records.length) ? data.records[i + 1] : null;
+                    const seqErrors = (prevRecord && !prevRecord.is_missing) ? checkRESequence(record.metar, prevRecord.metar) : [];
+
+                    const status = getMetarStatus(record.metar, record.time, record.validation_results, seqErrors);
+                    statusHtml = createStatusIndicatorHTML(status);
+                    
+                    if (status.type === "speci") {
+                        rowClass = "metar-row-speci";
+                    } else if (status.type === "invalid") {
+                        rowClass = "metar-row-invalid";
+                    }
+
+                    metarDisplay = record.metar;
+                    if (!metarDisplay.endsWith('=')) metarDisplay += '=';
                 }
 
-                let metarDisplay = record.metar;
-                if (!metarDisplay.endsWith('=')) metarDisplay += '=';
-
                 const row = `
-                    <tr class="${rowClass}">
+                    <tr class="history-row ${rowClass}" ${record.is_missing ? 'data-missing="true"' : ''}>
                         <td class="col-time">${record.time}</td>
                         <td class="col-station">${record.station}</td>
                         <td class="metar-cell col-metar">${metarDisplay}</td>

@@ -3465,6 +3465,78 @@ def manual_parser():
 # ============================================
 # DAILY METAR RECORD MANAGER - BACKEND
 # ============================================
+def get_missing_slots_helper(df, station, start_limit=None, end_limit=None):
+    if df.empty:
+        return []
+    
+    def get_metar_obs_time(row_time, metar_str):
+        if not metar_str:
+            return None
+        match = re.search(r'\b(\d{2})(\d{2})(\d{2})Z\b', str(metar_str))
+        if not match:
+            return None
+        day = int(match.group(1))
+        hour = int(match.group(2))
+        minute = int(match.group(3))
+        try:
+            obs_dt = datetime(row_time.year, row_time.month, day, hour, minute, 0)
+            diff = (row_time - obs_dt).total_seconds()
+            if abs(diff) > 15 * 24 * 3600:
+                if obs_dt > row_time:
+                    month = row_time.month - 1 if row_time.month > 1 else 12
+                    year = row_time.year if row_time.month > 1 else row_time.year - 1
+                    obs_dt = datetime(year, month, day, hour, minute, 0)
+                else:
+                    month = row_time.month + 1 if row_time.month < 12 else 1
+                    year = row_time.year if row_time.month < 12 else row_time.year + 1
+                    obs_dt = datetime(year, month, day, hour, minute, 0)
+            return obs_dt
+        except:
+            return None
+
+    def get_scheduled_time(dt):
+        if not dt:
+            return None
+        minute = dt.minute
+        if minute >= 45:
+            minute = 0
+            dt = dt + timedelta(hours=1)
+        elif minute >= 15:
+            minute = 30
+        else:
+            minute = 0
+        return dt.replace(minute=minute, second=0, microsecond=0)
+
+    existing_slots = set()
+    for _, row in df.iterrows():
+        if "is_missing" in row and row["is_missing"]:
+            continue
+        obs_time = get_metar_obs_time(row["time"], row["metar"])
+        if obs_time:
+            existing_slots.add(get_scheduled_time(obs_time))
+        else:
+            existing_slots.add(get_scheduled_time(row["time"]))
+            
+    existing_slots = {s for s in existing_slots if s is not None}
+    
+    missing_slots = []
+    if existing_slots:
+        # Determine start/end slots
+        start_slot = start_limit if start_limit else min(existing_slots)
+        end_slot = end_limit if end_limit else max(existing_slots)
+        
+        # Round start/end to scheduled time
+        start_slot = get_scheduled_time(start_slot)
+        end_slot = get_scheduled_time(end_slot)
+        
+        curr_slot = start_slot
+        while curr_slot <= end_slot:
+            if curr_slot not in existing_slots:
+                missing_slots.append(curr_slot)
+            curr_slot += timedelta(minutes=30)
+            
+    return missing_slots
+
 @app.route("/api/records/today")
 @admin_only_api
 def get_today_records():
@@ -3482,39 +3554,67 @@ def get_today_records():
         df["time"] = pd.to_datetime(df["time"], errors='coerce')
         
         # Filter: Hanya data dari 00:00 UTC hari ini
-        today_df = df[df["time"] >= today_start].sort_values("time", ascending=False)
+        today_df = df[df["time"] >= today_start].copy()
+        today_df["is_missing"] = False
+        
+        # Cari slot data yang hilang/missing
+        missing_slots = []
+        if not today_df.empty:
+            missing_slots = get_missing_slots_helper(today_df, "WARR", start_limit=today_start, end_limit=None)
+            
+        if missing_slots:
+            missing_rows = []
+            for slot in missing_slots:
+                missing_rows.append({
+                    "station": "WARR",
+                    "time": slot,
+                    "metar": "DATA METAR TIDAK MASUK",
+                    "is_missing": True
+                })
+            df_missing = pd.DataFrame(missing_rows)
+            df_missing["time"] = pd.to_datetime(df_missing["time"])
+            today_df = pd.concat([today_df, df_missing], ignore_index=True)
+            
+        today_df = today_df.sort_values("time", ascending=False)
         
         records = []
         for _, row in today_df.iterrows():
             metar = str(row["metar"])
-            parsed = parse_metar(metar)
-            validation_results = validate_metar(metar)
+            is_missing = bool(row.get("is_missing", False))
             
-            record_status = "normal"
-            is_valid = validation_results and validation_results[0].startswith('✅')
-            
-            if ',' in metar or not is_valid:
-                record_status = "invalid"
-            elif ' COR ' in metar or 'CCA' in metar:
-                record_status = "cor"
-            elif ' AMD ' in metar:
-                record_status = "amd"
-            elif 'SPECI' in metar:
-                record_status = "speci"
+            if is_missing:
+                record_status = "missing"
+                validation_results = []
             else:
-                try:
-                    minute = int(parsed.get("minute", "-1"))
-                    if minute != 0 and minute != 30 and minute != -1:
-                        record_status = "speci"
-                except:
-                    pass
-                    
+                parsed = parse_metar(metar)
+                validation_results = validate_metar(metar)
+                
+                record_status = "normal"
+                is_valid = validation_results and validation_results[0].startswith('✅')
+                
+                if ',' in metar or not is_valid:
+                    record_status = "invalid"
+                elif ' COR ' in metar or 'CCA' in metar:
+                    record_status = "cor"
+                elif ' AMD ' in metar:
+                    record_status = "amd"
+                elif 'SPECI' in metar:
+                    record_status = "speci"
+                else:
+                    try:
+                        minute = int(parsed.get("minute", "-1"))
+                        if minute != 0 and minute != 30 and minute != -1:
+                            record_status = "speci"
+                    except:
+                        pass
+                        
             records.append({
                 "time": pd.to_datetime(row["time"]).strftime("%Y-%m-%d %H:%M UTC"),
                 "station": row["station"],
                 "metar": metar,
                 "record_status": record_status,
-                "validation_results": validation_results
+                "validation_results": validation_results,
+                "is_missing": is_missing
             })
             
         # Chart Data extraction (Ascending order)
@@ -3526,12 +3626,19 @@ def get_today_records():
         chart_gusts = []
         
         for _, row in chart_df.iterrows():
-            p = parse_metar(str(row["metar"]))
+            is_missing = bool(row.get("is_missing", False))
             chart_labels.append(row["time"].strftime("%H:%M"))
-            chart_temps.append(float(p.get("temperature_c")) if p.get("temperature_c") else None)
-            chart_pressures.append(float(p.get("pressure_hpa")) if p.get("pressure_hpa") else None)
-            chart_winds.append(float(p.get("wind_speed_kt")) if p.get("wind_speed_kt") else None)
-            chart_gusts.append(float(p.get("wind_gust_kt")) if p.get("wind_gust_kt") else None)
+            if is_missing:
+                chart_temps.append(None)
+                chart_pressures.append(None)
+                chart_winds.append(None)
+                chart_gusts.append(None)
+            else:
+                p = parse_metar(str(row["metar"]))
+                chart_temps.append(float(p.get("temperature_c")) if p.get("temperature_c") else None)
+                chart_pressures.append(float(p.get("pressure_hpa")) if p.get("pressure_hpa") else None)
+                chart_winds.append(float(p.get("wind_speed_kt")) if p.get("wind_speed_kt") else None)
+                chart_gusts.append(float(p.get("wind_gust_kt")) if p.get("wind_gust_kt") else None)
 
         return jsonify({
             "date": format_indonesian_date(now_utc),
@@ -3569,42 +3676,68 @@ def get_yesterday_records():
             df["time"] = pd.to_datetime(df["time"], errors='coerce')
             
             # Filter: Rentang waktu penuh hari kemarin (UTC)
-            yesterday_df = df[(df["time"] >= y_start) & (df["time"] <= y_end)].sort_values("time", ascending=False)
+            yesterday_df = df[(df["time"] >= y_start) & (df["time"] <= y_end)].copy()
+            yesterday_df["is_missing"] = False
+            
+            # Cari slot data yang hilang/missing
+            missing_slots = get_missing_slots_helper(yesterday_df, "WARR", start_limit=y_start, end_limit=y_end)
+            
+            if missing_slots:
+                missing_rows = []
+                for slot in missing_slots:
+                    missing_rows.append({
+                        "station": "WARR",
+                        "time": slot,
+                        "metar": "DATA METAR TIDAK MASUK",
+                        "is_missing": True
+                    })
+                df_missing = pd.DataFrame(missing_rows)
+                df_missing["time"] = pd.to_datetime(df_missing["time"])
+                yesterday_df = pd.concat([yesterday_df, df_missing], ignore_index=True)
+                
+            yesterday_df = yesterday_df.sort_values("time", ascending=False)
         
         for _, row in yesterday_df.iterrows():
             metar = str(row["metar"])
-            parsed = parse_metar(metar)
-            validation_results = validate_metar(metar)
+            is_missing = bool(row.get("is_missing", False))
             
-            record_status = "normal"
-            is_valid = validation_results and validation_results[0].startswith('✅')
-            
-            if ',' in metar or not is_valid:
-                record_status = "invalid"
-            elif ' COR ' in metar or 'CCA' in metar:
-                record_status = "cor"
-            elif ' AMD ' in metar:
-                record_status = "amd"
-            elif 'SPECI' in metar:
-                record_status = "speci"
+            if is_missing:
+                record_status = "missing"
+                validation_results = []
             else:
-                try:
-                    minute = int(parsed.get("minute", "-1"))
-                    if minute != 0 and minute != 30 and minute != -1:
-                        record_status = "speci"
-                except:
-                    pass
+                parsed = parse_metar(metar)
+                validation_results = validate_metar(metar)
+                
+                record_status = "normal"
+                is_valid = validation_results and validation_results[0].startswith('✅')
+                
+                if ',' in metar or not is_valid:
+                    record_status = "invalid"
+                elif ' COR ' in metar or 'CCA' in metar:
+                    record_status = "cor"
+                elif ' AMD ' in metar:
+                    record_status = "amd"
+                elif 'SPECI' in metar:
+                    record_status = "speci"
+                else:
+                    try:
+                        minute = int(parsed.get("minute", "-1"))
+                        if minute != 0 and minute != 30 and minute != -1:
+                            record_status = "speci"
+                    except:
+                        pass
 
             records.append({
                 "time": pd.to_datetime(row["time"]).strftime("%Y-%m-%d %H:%M UTC"),
                 "station": row["station"],
                 "metar": metar,
                 "record_status": record_status,
-                "validation_results": validation_results
+                "validation_results": validation_results,
+                "is_missing": is_missing
             })
             
         # Chart Data extraction (Ascending order)
-        chart_df = yesterday_df.sort_values("time", ascending=True)
+        chart_df = yesterday_df.sort_values("time", ascending=True) if not yesterday_df.empty else pd.DataFrame()
         chart_labels = []
         chart_temps = []
         chart_pressures = []
@@ -3612,12 +3745,19 @@ def get_yesterday_records():
         chart_gusts = []
         
         for _, row in chart_df.iterrows():
-            p = parse_metar(str(row["metar"]))
+            is_missing = bool(row.get("is_missing", False))
             chart_labels.append(row["time"].strftime("%H:%M"))
-            chart_temps.append(float(p.get("temperature_c")) if p.get("temperature_c") else None)
-            chart_pressures.append(float(p.get("pressure_hpa")) if p.get("pressure_hpa") else None)
-            chart_winds.append(float(p.get("wind_speed_kt")) if p.get("wind_speed_kt") else None)
-            chart_gusts.append(float(p.get("wind_gust_kt")) if p.get("wind_gust_kt") else None)
+            if is_missing:
+                chart_temps.append(None)
+                chart_pressures.append(None)
+                chart_winds.append(None)
+                chart_gusts.append(None)
+            else:
+                p = parse_metar(str(row["metar"]))
+                chart_temps.append(float(p.get("temperature_c")) if p.get("temperature_c") else None)
+                chart_pressures.append(float(p.get("pressure_hpa")) if p.get("pressure_hpa") else None)
+                chart_winds.append(float(p.get("wind_speed_kt")) if p.get("wind_speed_kt") else None)
+                chart_gusts.append(float(p.get("wind_gust_kt")) if p.get("wind_gust_kt") else None)
 
         return jsonify({
             "date": format_indonesian_date(yesterday),
