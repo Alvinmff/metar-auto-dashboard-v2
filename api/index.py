@@ -3469,9 +3469,6 @@ def manual_parser():
 # DAILY METAR RECORD MANAGER - BACKEND
 # ============================================
 def get_missing_slots_helper(df, station, start_limit=None, end_limit=None):
-    if df.empty:
-        return []
-    
     def get_metar_obs_time(row_time, metar_str):
         if not metar_str:
             return None
@@ -3511,22 +3508,23 @@ def get_missing_slots_helper(df, station, start_limit=None, end_limit=None):
         return dt.replace(minute=minute, second=0, microsecond=0)
 
     existing_slots = set()
-    for _, row in df.iterrows():
-        if "is_missing" in row and row["is_missing"]:
-            continue
-        obs_time = get_metar_obs_time(row["time"], row["metar"])
-        if obs_time:
-            existing_slots.add(get_scheduled_time(obs_time))
-        else:
-            existing_slots.add(get_scheduled_time(row["time"]))
+    if df is not None and not df.empty:
+        for _, row in df.iterrows():
+            if "is_missing" in row and row["is_missing"]:
+                continue
+            obs_time = get_metar_obs_time(row["time"], row["metar"])
+            if obs_time:
+                existing_slots.add(get_scheduled_time(obs_time))
+            else:
+                existing_slots.add(get_scheduled_time(row["time"]))
             
     existing_slots = {s for s in existing_slots if s is not None}
     
     missing_slots = []
-    if existing_slots:
-        # Determine start/end slots
+    # If start_limit is set, or if we have existing slots to find min/max from
+    if start_limit or existing_slots:
         start_slot = start_limit if start_limit else min(existing_slots)
-        end_slot = end_limit if end_limit else max(existing_slots)
+        end_slot = end_limit if end_limit else (max(existing_slots) if existing_slots else start_limit)
         
         # Round start/end to scheduled time
         start_slot = get_scheduled_time(start_slot)
@@ -3561,9 +3559,8 @@ def get_today_records():
         today_df["is_missing"] = False
         
         # Cari slot data yang hilang/missing
-        missing_slots = []
-        if not today_df.empty:
-            missing_slots = get_missing_slots_helper(today_df, "WARR", start_limit=today_start, end_limit=None)
+        end_limit = now_utc - timedelta(minutes=15)
+        missing_slots = get_missing_slots_helper(today_df, "WARR", start_limit=today_start, end_limit=end_limit)
             
         if missing_slots:
             missing_rows = []
@@ -3576,7 +3573,10 @@ def get_today_records():
                 })
             df_missing = pd.DataFrame(missing_rows)
             df_missing["time"] = pd.to_datetime(df_missing["time"])
-            today_df = pd.concat([today_df, df_missing], ignore_index=True)
+            if today_df.empty:
+                today_df = df_missing
+            else:
+                today_df = pd.concat([today_df, df_missing], ignore_index=True)
             
         today_df = today_df.sort_values("time", ascending=False)
         
@@ -3673,28 +3673,32 @@ def get_yesterday_records():
         
         if not df.empty and "time" in df.columns:
             df["time"] = pd.to_datetime(df["time"], errors='coerce')
-            
-            # Filter: Rentang waktu penuh hari kemarin (UTC)
             yesterday_df = df[(df["time"] >= y_start) & (df["time"] <= y_end)].copy()
-            yesterday_df["is_missing"] = False
+        else:
+            yesterday_df = pd.DataFrame(columns=["station", "time", "metar"])
             
-            # Cari slot data yang hilang/missing
-            missing_slots = get_missing_slots_helper(yesterday_df, "WARR", start_limit=y_start, end_limit=y_end)
-            
-            if missing_slots:
-                missing_rows = []
-                for slot in missing_slots:
-                    missing_rows.append({
-                        "station": "WARR",
-                        "time": slot,
-                        "metar": "DATA METAR TIDAK MASUK",
-                        "is_missing": True
-                    })
-                df_missing = pd.DataFrame(missing_rows)
-                df_missing["time"] = pd.to_datetime(df_missing["time"])
+        yesterday_df["is_missing"] = False
+        
+        # Cari slot data yang hilang/missing
+        missing_slots = get_missing_slots_helper(yesterday_df, "WARR", start_limit=y_start, end_limit=y_end)
+        
+        if missing_slots:
+            missing_rows = []
+            for slot in missing_slots:
+                missing_rows.append({
+                    "station": "WARR",
+                    "time": slot,
+                    "metar": "DATA METAR TIDAK MASUK",
+                    "is_missing": True
+                })
+            df_missing = pd.DataFrame(missing_rows)
+            df_missing["time"] = pd.to_datetime(df_missing["time"])
+            if yesterday_df.empty:
+                yesterday_df = df_missing
+            else:
                 yesterday_df = pd.concat([yesterday_df, df_missing], ignore_index=True)
-                
-            yesterday_df = yesterday_df.sort_values("time", ascending=False)
+            
+        yesterday_df = yesterday_df.sort_values("time", ascending=False)
         
         for _, row in yesterday_df.iterrows():
             metar = str(row["metar"])
