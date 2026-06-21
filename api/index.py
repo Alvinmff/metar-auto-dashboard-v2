@@ -3681,7 +3681,9 @@ def get_yesterday_records():
         yesterday_df["is_missing"] = False
         
         # Cari slot data yang hilang/missing
-        missing_slots = get_missing_slots_helper(yesterday_df, "WARR", start_limit=y_start, end_limit=y_end)
+        # Use 23:30 as end limit for missing slot detection (last scheduled METAR slot of the day)
+        missing_end = yesterday.replace(hour=23, minute=30, second=0, microsecond=0)
+        missing_slots = get_missing_slots_helper(yesterday_df, "WARR", start_limit=y_start, end_limit=missing_end)
         
         if missing_slots:
             missing_rows = []
