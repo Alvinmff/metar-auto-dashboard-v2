@@ -3560,7 +3560,8 @@ def get_today_records():
         
         # Cari slot data yang hilang/missing
         end_limit = now_utc - timedelta(minutes=15)
-        missing_slots = get_missing_slots_helper(today_df, "WARR", start_limit=today_start, end_limit=end_limit)
+        # Exclude 00:00 UTC by starting from 00:30 UTC
+        missing_slots = get_missing_slots_helper(today_df, "WARR", start_limit=today_start + timedelta(minutes=30), end_limit=end_limit)
             
         if missing_slots:
             missing_rows = []
