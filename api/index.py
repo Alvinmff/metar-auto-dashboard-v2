@@ -2435,7 +2435,12 @@ def metar_view():
     if request.method == "POST":
         raw_metar = request.form.get("raw_metar", "").strip()
         if raw_metar:
-            station = raw_metar.split()[1] if len(raw_metar.split()) > 1 else "WARR"
+            tokens = raw_metar.split()
+            station = "WARR"
+            for token in tokens:
+                if len(token) == 4 and token.isalpha() and token.isupper():
+                    station = token
+                    break
             parsed = parse_metar(raw_metar)
             parsed_qam = generate_qam(station, parsed, raw_metar)
             validation_results = validate_metar(raw_metar)
@@ -2463,7 +2468,13 @@ def qam_report_view():
     if request.method == "POST":
         raw_metar = request.form.get("raw_metar", "").strip()
         if raw_metar:
-            station = raw_metar.split()[1] if len(raw_metar.split()) > 1 else "WARR"
+            # Extract ICAO station code (4 uppercase letters) from METAR
+            tokens = raw_metar.split()
+            station = "WARR"
+            for token in tokens:
+                if len(token) == 4 and token.isalpha() and token.isupper():
+                    station = token
+                    break
             parsed = parse_metar(raw_metar)
             parsed_qam = generate_qam(station, parsed, raw_metar)
             validation_results = validate_metar(raw_metar)
@@ -3450,7 +3461,13 @@ def manual_parser():
 
     if request.method == "POST":
         raw_metar = request.form["raw_metar"].strip()
-        station = raw_metar.split()[1] if len(raw_metar.split()) > 1 else "WARR"
+        # Extract ICAO station code (4 uppercase letters) from METAR
+        tokens = raw_metar.split()
+        station = "WARR"
+        for token in tokens:
+            if len(token) == 4 and token.isalpha() and token.isupper():
+                station = token
+                break
         parsed = parse_metar(raw_metar)
         parsed_qam = generate_qam(station, parsed, raw_metar)
         validation_results = validate_metar(raw_metar)
