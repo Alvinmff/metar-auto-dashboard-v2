@@ -25,7 +25,7 @@ jobs:
             echo "::error::Cron failed with code $HTTP_CODE"
             exit 1
           fi
-      
+          
       - name: Verify Data Collection
         run: |
           # Check health
